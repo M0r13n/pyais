@@ -8,18 +8,149 @@ import socket
 from math import ceil
 from bitstring import BitArray
 
+UNDEFINED = 'Undefined'
+RESERVED = 'Reserved'
 
-def catch_error(*exceptions):
-    def checking(f):
-        def checked(*args, **kwargs):
-            try:
-                return f(*args, **kwargs)
-            except exceptions as ex:
-                print(f"\x1b[31mCould not parse AIS packet, because: {str(ex)}!\x1b[0m")
+# Constants
+NAVIGATION_STATUS = {
+    0: 'Under way using engine',
+    1: 'At anchor',
+    2: 'Not under command',
+    3: 'Restricted manoeuverability',
+    4: 'Constrained by her draught',
+    5: 'Moored',
+    6: 'Aground',
+    7: 'Engaged in Fishing',
+    8: 'Under way sailing',
+    9: 'Reserved',
+    10: 'Reserved',
+    11: 'Reserved',
+    12: 'Reserved',
+    13: 'Reserved',
+    14: 'AIS-SART is active',
+    15: 'Undefined',
+}
 
-        return checked
+MANEUVER_INDICATOR = {
+    0: 'Not available',
+    1: 'No special maneuver',
+    2: 'Special maneuver'
+}
 
-    return checking
+EPFD_TYPE = {
+    0: 'Undefined',
+    1: 'GPS',
+    2: 'GLONASS',
+    3: 'GPS/GLONASS',
+    4: 'Loran-C',
+    5: 'Chayka',
+    6: 'Integrated navigation system',
+    7: 'Surveyed',
+    8: 'Galileo',
+}
+
+SHIP_TYPE = {
+    0: 'Not available',
+    20: 'Wing in ground (WIG)',
+    21: 'Wing in ground (WIG), Hazardous category A',
+    22: 'Wing in ground (WIG), Hazardous category B',
+    23: 'Wing in ground (WIG), Hazardous category C',
+    24: 'Wing in ground (WIG), Hazardous category D',
+    25: 'WIG Reserved',
+    26: 'WIG Reserved',
+    27: 'WIG Reserved',
+    28: 'WIG Reserved',
+    29: 'WIG Reserved',
+    30: 'Fishing',
+    31: 'Towing',
+    32: 'Towing,length exceeds 200m or breadth exceeds 25m',
+    33: 'Dredging or underwater ops',
+    34: 'Diving ops',
+    35: 'Military ops',
+    36: 'Sailing',
+    37: 'Pleasure Craft',
+    38: 'Reserved',
+    39: 'Reserved',
+    40: 'High speed craft (HSC)',
+    41: 'High speed craft (HSC), Hazardous category A',
+    42: 'High speed craft (HSC), Hazardous category B',
+    43: 'High speed craft (HSC), Hazardous category C',
+    44: 'High speed craft (HSC), Hazardous category D',
+    45: 'High speed craft (HSC), Reserved',
+    46: 'High speed craft (HSC), Reserved',
+    47: 'High speed craft (HSC), Reserved',
+    48: 'High speed craft (HSC), Reserved',
+    49: 'High speed craft (HSC), No additional information',
+    50: 'Pilot Vessel',
+    51: 'Search and Rescue vessel',
+    52: 'Tug',
+    53: 'Port Tender',
+    54: 'Anti-pollution equipment',
+    55: 'Law Enforcement',
+    56: 'Spare - Local Vessel',
+    57: 'Spare - Local Vessel',
+    58: 'Medical Transport',
+    59: 'Noncombatant ship according to RR Resolution No. 18',
+    60: 'Passenger',
+    61: 'Passenger, Hazardous category A',
+    62: 'Passenger, Hazardous category B',
+    63: 'Passenger, Hazardous category C',
+    64: 'Passenger, Hazardous category D',
+    65: 'Passenger, Reserved',
+    66: 'Passenger, Reserved',
+    67: 'Passenger, Reserved',
+    68: 'Passenger, Reserved',
+    69: 'Passenger, No additional information',
+    70: 'Cargo',
+    71: 'Cargo, Hazardous category A',
+    72: 'Cargo, Hazardous category B',
+    73: 'Cargo, Hazardous category C',
+    74: 'Cargo, Hazardous category D',
+    75: 'Cargo, Reserved',
+    76: 'Cargo, Reserved',
+    77: 'Cargo, Reserved',
+    78: 'Cargo, Reserved',
+    79: 'Cargo, No additional information',
+    80: 'Tanker',
+    81: 'Tanker, Hazardous category A',
+    82: 'Tanker, Hazardous category B',
+    83: 'Tanker, Hazardous category C',
+    84: 'Tanker, Hazardous category D',
+    85: 'Tanker, Reserved ',
+    86: 'Tanker, Reserved ',
+    87: 'Tanker, Reserved ',
+    88: 'Tanker, Reserved ',
+    89: 'Tanker, No additional information',
+    90: 'Other Type',
+    91: 'Other Type, Hazardous category A',
+    92: 'Other Type, Hazardous category B',
+    93: 'Other Type, Hazardous category C',
+    94: 'Other Type, Hazardous category D',
+    95: 'Other Type, Reserved',
+    96: 'Other Type, Reserved',
+    97: 'Other Type, Reserved',
+    98: 'Other Type, Reserved',
+    99: 'Other Type, No additional information'
+}
+
+DAC_FID = {
+    '1-12': 'Dangerous cargo indication',
+    '1-14': 'Tidal window',
+    '1-16': 'Number of persons on board',
+    '1-18': 'Clearance time to enter port',
+    '1-20': 'Berthing data (addressed)',
+    '1-23': 'Area notice (addressed)',
+    '1-25': 'Dangerous Cargo indication',
+    '1-28': 'Route info addressed',
+    '1-30': 'Text description addressed',
+    '1-32': 'Tidal Window',
+    '200-21': 'ETA at lock/bridge/terminal',
+    '200-22': 'RTA at lock/bridge/terminal',
+    '200-55': 'Number of persons on board',
+    '235-10': 'AtoN monitoring data (UK)',
+    '250-10': 'AtoN monitoring data (ROI)',
+
+}
 
 
 def decode_ascii6(data):
@@ -122,13 +253,13 @@ def decode_msg_1(bit_vector):
     AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
     """
-    if (len(bit_vector)) != 168:
-        print(bit_vector)
+    status = to_int(bit_vector[38:42], 2)
+    maneuver = to_int(bit_vector[143:145], 2)
     return {
         'type': to_int(bit_vector[0:6], 2),
         'repeat': to_int(bit_vector[6:8], 2),
         'mmsi': to_int(bit_vector[8:38], 2),
-        'status': to_int(bit_vector[38:42], 2),
+        'status': (status, NAVIGATION_STATUS[status]),
         'turn': signed(bit_vector[42:50]),
         'speed': to_int(bit_vector[50:60], 2),
         'accuracy': to_int(bit_vector[60], 2),
@@ -137,7 +268,7 @@ def decode_msg_1(bit_vector):
         'course': to_int(bit_vector[116:128], 2) * 0.1,
         'heading': to_int(bit_vector[128:137], 2),
         'second': to_int(bit_vector[137:143], 2),
-        'maneuver': to_int(bit_vector[143:145], 2),
+        'maneuver': (maneuver, MANEUVER_INDICATOR[maneuver]),
         'raim': bool(to_int(bit_vector[148], 2)),
         'radio': to_int(bit_vector[149::], 2)
     }
@@ -163,6 +294,7 @@ def decode_msg_4(bit_vector):
     AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_4_base_station_report
     """
+    epfd = to_int(bit_vector[134:138], 2)
     return {
         'type': to_int(bit_vector[0:6], 2),
         'repeat': to_int(bit_vector[6:8], 2),
@@ -176,13 +308,16 @@ def decode_msg_4(bit_vector):
         'accuracy': bool(to_int(bit_vector[78], 2)),
         'lon': signed(bit_vector[66:72]) / 600000.0,
         'lat': signed(bit_vector[66:72]) / 600000.0,
-        'epfd': to_int(bit_vector[134:138], 2),
+        'epfd': (epfd, EPFD_TYPE[epfd] if epfd in EPFD_TYPE.keys() else UNDEFINED),
         'raim': bool(to_int(bit_vector[148], 2)),
         'radio': to_int(bit_vector[148::], 2)
     }
 
 
 def decode_msg_5(bit_vector):
+    epfd = to_int(bit_vector[270:274], 2)
+    ship_type = to_int(bit_vector[66:72], 2)
+
     return {
         'type': to_int(bit_vector[0:6], 2),
         'repeat': to_int(bit_vector[6:8], 2),
@@ -191,12 +326,12 @@ def decode_msg_5(bit_vector):
         'imo': to_int(bit_vector[40:70], 2),
         'callsign': ascii6(bit_vector[70:112]),
         'shipname': ascii6(bit_vector[112:232]),
-        'shiptype': to_int(bit_vector[66:72], 2),
+        'shiptype': (ship_type, SHIP_TYPE[ship_type] if ship_type in SHIP_TYPE.keys() else UNDEFINED),
         'to_bow': to_int(bit_vector[240:249], 2),
         'to_stern': to_int(bit_vector[249:258], 2),
         'to_port': to_int(bit_vector[258:264], 2),
         'to_starboard': to_int(bit_vector[264:270], 2),
-        'epfd': to_int(bit_vector[270:274], 2),
+        'epfd': (epfd, EPFD_TYPE[epfd]),
         'month': to_int(bit_vector[274:278], 2),
         'day': to_int(bit_vector[278:283], 2),
         'hour': to_int(bit_vector[283:288], 2),
@@ -306,6 +441,54 @@ def decode_msg_24(bit_vector):
     pass
 
 
+DECODE_MSG = [
+    None,
+    decode_msg_1,
+    decode_msg_2,
+    decode_msg_3,
+    decode_msg_4,
+    decode_msg_5,
+    decode_msg_6,
+    decode_msg_7,
+    decode_msg_8,
+    decode_msg_9,
+    decode_msg_10,
+    decode_msg_11,
+    decode_msg_12,
+    decode_msg_13,
+    decode_msg_14,
+    decode_msg_15,
+    decode_msg_16,
+    decode_msg_17,
+    decode_msg_18,
+    decode_msg_19,
+    decode_msg_20,
+    decode_msg_21,
+    decode_msg_22,
+    decode_msg_23,
+    decode_msg_24
+]
+
+
+def decode(msg):
+    m_typ, n_sentences, sentence_num, seq_id, channel, data, chcksum = msg.split(',')
+    decoded_data = decode_ascii6(data)
+    msg_type = int(decoded_data[0:6], 2)
+
+    if checksum(msg) != int("0x" + chcksum[2::], 16):
+        print(f"\x1b[31mInvalid Checksum dropping packet!\x1b[0m")
+        return None
+
+    if n_sentences != '1' or sentence_num != '1':
+        print(f"\x1b[31mSentencing is not supported yet!\x1b[0m")
+        return None
+
+    if 0 < msg_type < 25:
+        return DECODE_MSG[msg_type](decoded_data)
+
+    return None
+
+
 #  ################################# TEST DRIVER #################################
 
 
@@ -318,48 +501,28 @@ def ais_stream(url="ais.exploratorium.edu", port=80):
 
 
 def main():
-    DECODE_MSG = [
-        None,
-        decode_msg_1,
-        decode_msg_2,
-        decode_msg_3,
-        decode_msg_4,
-        decode_msg_5,
-        decode_msg_6,
-        decode_msg_7,
-        decode_msg_8,
-        decode_msg_9,
-        decode_msg_10,
-        decode_msg_11,
-        decode_msg_12,
-        decode_msg_13,
-        decode_msg_14,
-        decode_msg_15,
-        decode_msg_16,
-        decode_msg_17,
-        decode_msg_18,
-        decode_msg_19,
-        decode_msg_20,
-        decode_msg_21,
-        decode_msg_22,
-        decode_msg_23,
-        decode_msg_24
+    MESSAGES = [
+        "!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C",
+        "!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05",
+        "!AIVDM,1,1,,A,15NJQiPOl=G?m:bE`Gpt<aun00S8,0*56",
+        "!AIVDM,1,1,,B,15NPOOPP00o?bIjE`UEv4?wF2HIU,0*31",
+        "!AIVDM,1,1,,A,35NVm2gP00o@5k:EbbPJnwwN25e3,0*35",
+        "!AIVDM,1,1,,A,B52KlJP00=l4be5ItJ6r3wVUWP06,0*7C"
     ]
+
+    import timeit, random
+
+    def test():
+        decode(MESSAGES[random.randint(0, 5)])
+
+    iterations = 8000
+    elapsed_time = timeit.timeit(test, number=iterations)
+    print(f"Decoding #{iterations} takes {elapsed_time} seconds")
 
     for msg in ais_stream():
         if msg and msg[0] == "!":
-            m_typ, n_sentences, sentence_num, seq_id, channel, data, chcksum = msg.split(',')
-            decoded_data = decode_ascii6(data)
-            msg_type = int(decoded_data[0:6], 2)
-
-            if checksum(msg) != int("0x" + chcksum[2::], 16):
-                print(f"\x1b[31mInvalid Checksum dropping packet!\x1b[0m")
-                continue
-
-            if 0 < msg_type < 25:
-                print(DECODE_MSG[msg_type](decoded_data))
-
-
+            print(msg)
+            print(decode(msg))
         else:
             print("Unparsed msg: " + msg)
 
