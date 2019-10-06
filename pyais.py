@@ -1,7 +1,20 @@
 """
 Decoding AIS messages in Python
 
-Work in Progress
+Performance considerations:
+
+Even though performance is not my primary concern, the code shouldn't be too slow.
+I tried a few different straight forward approaches for decoding the messages and compared their performance:
+
+Using native python strings and converting each substring into an integer:
+    -> Decoding #8000 messages takes 1.132967184 seconds
+
+Using bitstring's BitArray and slicing:
+    -> Decoding #8000 AIS messages takes 2.699436055 seconds
+
+Using the bitarray module:
+    -> because their is not native to_int method, the code gets utterly cluttered
+
 """
 
 import socket
@@ -165,7 +178,7 @@ def decode_ascii6(data):
         c = ord(c) - 48
         if c > 40:
             c -= 8
-        binary_string += '{0:06b}'.format(c)
+        binary_string += f'{c:06b}'
 
     return binary_string
 
@@ -233,18 +246,13 @@ def checksum(msg):
     :param msg: message
     :return: hex
     """
-    calc = False
-    c_sum = 0
-    for c in msg:
-        if c == '$' or c == '!':
-            calc = True
-            continue
 
+    c_sum = 0
+    for c in msg[1::]:
         if c == '*':
             break
+        c_sum ^= ord(c)
 
-        if calc:
-            c_sum ^= ord(c)
     return c_sum
 
 
