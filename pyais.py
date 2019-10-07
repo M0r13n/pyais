@@ -21,8 +21,12 @@ import socket
 from math import ceil
 from bitstring import BitArray
 
+# Keywords
 UNDEFINED = 'Undefined'
 RESERVED = 'Reserved'
+
+# Global Variables
+LAST = None
 
 # Constants
 NAVIGATION_STATUS = {
@@ -216,11 +220,12 @@ def bin_to_ascii6(data):
     for c in split_str(data):
 
         c = int(c, 2)
-        if c == 0x40:
-            return string
 
         if c < 0x20:
             c += 0x40
+        if c == 64:
+            break
+
         string += chr(c)
 
     return string
@@ -456,6 +461,7 @@ def decode_msg_24(bit_vector):
     pass
 
 
+# Decoding Lookup Table
 DECODE_MSG = [
     None,
     decode_msg_1,
@@ -486,15 +492,32 @@ DECODE_MSG = [
 
 
 def decode(msg):
-    m_typ, n_sentences, sentence_num, seq_id, channel, data, chcksum = msg.split(',')
+    """
+    Decodes an AIS message. This includes checksum validation and sentencing.
+    This method requires the full raw AIS message encoded in ASCII or Unicode.
+    :param msg: AIS message encoded in ASCII or Unicode
+    :return: A dictionary containing the decoded information or None if an error occurs
+    """
+    m_typ, sentence_total_count, cur_sentence_num, seq_id, channel, data, chcksum = msg.split(',')
 
+    # Validate checksum
     if checksum(msg) != int("0x" + chcksum[2::], 16):
         print(f"\x1b[31mInvalid Checksum dropping packet!\x1b[0m")
         return None
 
-    if n_sentences != '1' and sentence_num != '1':
-        print(f"\x1b[31mSentencing is not supported yet!\x1b[0m")
-        return None
+    # Assemble multiline messages
+    if sentence_total_count != '1':
+        global LAST
+        if LAST is None and cur_sentence_num != '1':
+            print('\x1b[31mSomething is out of order here..\x1b[0m')
+            return None
+
+        elif sentence_total_count != cur_sentence_num:
+            LAST = data if not LAST else LAST + data
+            return None
+
+        data = LAST + data
+        LAST = ''
 
     decoded_data = ascii6_to_bin(data)
     msg_type = int(decoded_data[0:6], 2)
