@@ -60,6 +60,7 @@ EPFD_TYPE = {
     6: 'Integrated navigation system',
     7: 'Surveyed',
     8: 'Galileo',
+    15: 'Undefined'
 }
 
 SHIP_TYPE = {
@@ -166,23 +167,6 @@ DAC_FID = {
 }
 
 
-def decode_ascii6(data):
-    """
-    Decode AIS_ASCII_6 encoded data and convert it into binary.
-    :param data: ASI_ASCII_6 encoded data
-    :return: a binary string of 0's and 1's, e.g. 011100 011111 100001
-    """
-    binary_string = ''
-
-    for c in data:
-        c = ord(c) - 48
-        if c > 40:
-            c -= 8
-        binary_string += f'{c:06b}'
-
-    return binary_string
-
-
 def split_str(string, chunk_size=6):
     """
     Split a string into equal sized chunks and return these as a list.
@@ -198,22 +182,46 @@ def split_str(string, chunk_size=6):
     return lst
 
 
-def ascii6(data, ignore_tailing_fillers=True):
+def ascii6_to_bin(data) -> str:
     """
-    Decode bit sequence into ASCII6.
-    :param data: ASI_ASCII_6 encoded data
+    Convert ASCII into 6 bit binary.
+    :param data: ASCII text
+    :return: a binary string of 0's and 1's, e.g. 011100 011111 100001
+    """
+    binary_string = ''
+
+    for c in data:
+        c = ord(c)
+
+        if c < 0x30 or c > 0x77 or 0x57 < c < 0x60:
+            print("Invalid char")
+
+        else:
+            if c < 0x60:
+                c = (c - 0x30) & 0x3F
+            else:
+                c = (c - 0x38) & 0x3F
+            binary_string += f'{c:06b}'
+
+    return binary_string
+
+
+def bin_to_ascii6(data):
+    """
+    Encode binary data as 6 bit ASCII.
+    :param data: binary string
     :return: ASCII String
     """
     string = ""
     for c in split_str(data):
-        c = int(c, 2)
-        if c < 32:
-            c += 64
-        c = chr(c)
 
-        if ignore_tailing_fillers and c == '@':
+        c = int(c, 2)
+        if c == 0x40:
             return string
-        string += c
+
+        if c < 0x20:
+            c += 0x40
+        string += chr(c)
 
     return string
 
@@ -325,15 +333,14 @@ def decode_msg_4(bit_vector):
 def decode_msg_5(bit_vector):
     epfd = to_int(bit_vector[270:274], 2)
     ship_type = to_int(bit_vector[66:72], 2)
-
     return {
         'type': to_int(bit_vector[0:6], 2),
         'repeat': to_int(bit_vector[6:8], 2),
         'mmsi': to_int(bit_vector[8:38], 2),
         'ais_version': to_int(bit_vector[38:40], 2),
         'imo': to_int(bit_vector[40:70], 2),
-        'callsign': ascii6(bit_vector[70:112]),
-        'shipname': ascii6(bit_vector[112:232]),
+        'callsign': bin_to_ascii6(bit_vector[70:112]),
+        'shipname': bin_to_ascii6(bit_vector[112:232]),
         'shiptype': (ship_type, SHIP_TYPE[ship_type] if ship_type in SHIP_TYPE.keys() else UNDEFINED),
         'to_bow': to_int(bit_vector[240:249], 2),
         'to_stern': to_int(bit_vector[249:258], 2),
@@ -345,7 +352,7 @@ def decode_msg_5(bit_vector):
         'hour': to_int(bit_vector[283:288], 2),
         'minute': to_int(bit_vector[288:294], 2),
         'draught': to_int(bit_vector[294:302], 2) / 10.0,
-        'destination': ascii6(bit_vector[302::])
+        'destination': bin_to_ascii6(bit_vector[302::])
     }
 
 
@@ -480,16 +487,17 @@ DECODE_MSG = [
 
 def decode(msg):
     m_typ, n_sentences, sentence_num, seq_id, channel, data, chcksum = msg.split(',')
-    decoded_data = decode_ascii6(data)
-    msg_type = int(decoded_data[0:6], 2)
 
     if checksum(msg) != int("0x" + chcksum[2::], 16):
         print(f"\x1b[31mInvalid Checksum dropping packet!\x1b[0m")
         return None
 
-    if n_sentences != '1' or sentence_num != '1':
+    if n_sentences != '1' and sentence_num != '1':
         print(f"\x1b[31mSentencing is not supported yet!\x1b[0m")
         return None
+
+    decoded_data = ascii6_to_bin(data)
+    msg_type = int(decoded_data[0:6], 2)
 
     if 0 < msg_type < 25:
         return DECODE_MSG[msg_type](decoded_data)
@@ -508,28 +516,33 @@ def ais_stream(url="ais.exploratorium.edu", port=80):
             yield msg
 
 
-def main():
+def test():
     MESSAGES = [
         "!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C",
         "!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05",
         "!AIVDM,1,1,,A,15NJQiPOl=G?m:bE`Gpt<aun00S8,0*56",
         "!AIVDM,1,1,,B,15NPOOPP00o?bIjE`UEv4?wF2HIU,0*31",
         "!AIVDM,1,1,,A,35NVm2gP00o@5k:EbbPJnwwN25e3,0*35",
-        "!AIVDM,1,1,,A,B52KlJP00=l4be5ItJ6r3wVUWP06,0*7C"
+        "!AIVDM,1,1,,A,B52KlJP00=l4be5ItJ6r3wVUWP06,0*7C",
+        "!AIVDM,2,1,1,B,53ku:202=kul=4TS@00<tq@V0<uE84LD00000017R@sEE6TE0GUDk1hP,0*57",
+        "!AIVDM,2,1,2,B,55Mwm;P00001L@?;SKE8uT4j0lDh8uE8pD00000l0`A276S<07gUDp3Q,0*0D"
     ]
 
     import timeit, random
 
     def test():
-        decode(MESSAGES[random.randint(0, 5)])
+        decode(MESSAGES[random.randint(0, 7)])
 
     iterations = 8000
     elapsed_time = timeit.timeit(test, number=iterations)
     print(f"Decoding #{iterations} takes {elapsed_time} seconds")
 
+
+def main():
+    test()
+
     for msg in ais_stream():
         if msg and msg[0] == "!":
-            print(msg)
             print(decode(msg))
         else:
             print("Unparsed msg: " + msg)
