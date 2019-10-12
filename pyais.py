@@ -59,6 +59,9 @@ from bitstring import BitArray
 # Keywords
 UNDEFINED = 'Undefined'
 RESERVED = 'Reserved'
+NULL = 'N/A'
+ANSI_RED = '\x1b[31m'
+ANSI_RESET = '\x1b[0m'
 
 # Global Variables
 LAST = None
@@ -202,7 +205,6 @@ DAC_FID = {
     '200-55': 'Number of persons on board',
     '235-10': 'AtoN monitoring data (UK)',
     '250-10': 'AtoN monitoring data (ROI)',
-
 }
 
 
@@ -314,7 +316,7 @@ def decode_msg_1(bit_vector):
         'type': to_int(bit_vector[0:6], 2),
         'repeat': to_int(bit_vector[6:8], 2),
         'mmsi': to_int(bit_vector[8:38], 2),
-        'status': (status, NAVIGATION_STATUS[status]),
+        'status': (status, NAVIGATION_STATUS.get(status, NULL)),
         'turn': signed(bit_vector[42:50]),
         'speed': to_int(bit_vector[50:60], 2),
         'accuracy': to_int(bit_vector[60], 2),
@@ -323,7 +325,7 @@ def decode_msg_1(bit_vector):
         'course': to_int(bit_vector[116:128], 2) * 0.1,
         'heading': to_int(bit_vector[128:137], 2),
         'second': to_int(bit_vector[137:143], 2),
-        'maneuver': (maneuver, MANEUVER_INDICATOR[maneuver]),
+        'maneuver': (maneuver, MANEUVER_INDICATOR.get(maneuver, NULL)),
         'raim': bool(to_int(bit_vector[148], 2)),
         'radio': to_int(bit_vector[149::], 2)
     }
@@ -363,7 +365,7 @@ def decode_msg_4(bit_vector):
         'accuracy': bool(to_int(bit_vector[78], 2)),
         'lon': signed(bit_vector[66:72]) / 600000.0,
         'lat': signed(bit_vector[66:72]) / 600000.0,
-        'epfd': (epfd, EPFD_TYPE[epfd] if epfd in EPFD_TYPE.keys() else UNDEFINED),
+        'epfd': (epfd, EPFD_TYPE.get(epfd, NULL)),
         'raim': bool(to_int(bit_vector[148], 2)),
         'radio': to_int(bit_vector[148::], 2)
     }
@@ -380,12 +382,12 @@ def decode_msg_5(bit_vector):
         'imo': to_int(bit_vector[40:70], 2),
         'callsign': bin_to_ascii6(bit_vector[70:112]),
         'shipname': bin_to_ascii6(bit_vector[112:232]),
-        'shiptype': (ship_type, SHIP_TYPE[ship_type] if ship_type in SHIP_TYPE.keys() else UNDEFINED),
+        'shiptype': (ship_type, SHIP_TYPE.get(ship_type, NULL)),
         'to_bow': to_int(bit_vector[240:249], 2),
         'to_stern': to_int(bit_vector[249:258], 2),
         'to_port': to_int(bit_vector[258:264], 2),
         'to_starboard': to_int(bit_vector[264:270], 2),
-        'epfd': (epfd, EPFD_TYPE[epfd]),
+        'epfd': (epfd, EPFD_TYPE.get(epfd, NULL)),
         'month': to_int(bit_vector[274:278], 2),
         'day': to_int(bit_vector[278:283], 2),
         'hour': to_int(bit_vector[283:288], 2),
@@ -404,7 +406,18 @@ def decode_msg_7(bit_vector):
 
 
 def decode_msg_8(bit_vector):
-    pass
+    """
+    Binary Broadcast Message
+    TODO: data needs to be interpreted depending DAC-FID
+    """
+    return {
+        'type': to_int(bit_vector[0:6], 2),
+        'repeat': to_int(bit_vector[6:8], 2),
+        'mmsi': to_int(bit_vector[8:38], 2),
+        'dac': to_int(bit_vector[40:50], 2),
+        'fid': to_int(bit_vector[50:56], 2),
+        'data': to_int(bit_vector[56::], 2),
+    }
 
 
 def decode_msg_9(bit_vector):
@@ -536,14 +549,14 @@ def decode(msg):
 
     # Validate checksum
     if checksum(msg) != int("0x" + chcksum[2::], 16):
-        print(f"\x1b[31mInvalid Checksum dropping packet!\x1b[0m")
+        print(f"{ANSI_RED}Invalid Checksum dropping packet!{ANSI_RESET}")
         return None
 
     # Assemble multiline messages
     if sentence_total_count != '1':
         global LAST
         if LAST is None and cur_sentence_num != '1':
-            print('\x1b[31mSomething is out of order here..\x1b[0m')
+            print(f"{ANSI_RED}Something is out of order here..{ANSI_RESET}")
             return None
 
         elif sentence_total_count != cur_sentence_num:
@@ -557,6 +570,7 @@ def decode(msg):
     msg_type = int(decoded_data[0:6], 2)
 
     if 0 < msg_type < 25:
+        print(msg_type)  # 21, 24, 8
         return DECODE_MSG[msg_type](decoded_data)
 
     return None
@@ -585,7 +599,8 @@ def test():
         "!AIVDM,2,1,2,B,55Mwm;P00001L@?;SKE8uT4j0lDh8uE8pD00000l0`A276S<07gUDp3Q,0*0D"
     ]
 
-    import timeit, random
+    import timeit
+    import random
 
     def test():
         decode(MESSAGES[random.randint(0, 7)])
