@@ -1,5 +1,7 @@
 from .constants import *
 from .util import *
+from functools import reduce
+from operator import xor
 
 
 LAST = None
@@ -11,13 +13,8 @@ def checksum(msg):
     :param msg: message
     :return: hex
     """
-    c_sum = 0
-    for c in msg[1::]:
-        if c == '*':
-            break
-        c_sum ^= ord(c)
-
-    return c_sum
+    msg = msg[1:].split(b'*', 1)[0]
+    return reduce(xor, msg)
 
 
 def decode_msg_1(bit_vector):
@@ -260,17 +257,21 @@ def decode(msg):
     :param msg: AIS message encoded in ASCII or Unicode
     :return: A dictionary containing the decoded information or None if an error occurs
     """
-    m_typ, sentence_total_count, cur_sentence_num, seq_id, channel, data, chcksum = msg.split(',')
+    m_typ, sentence_total_count, cur_sentence_num, seq_id, channel, data, chcksum = msg.split(b',')
+    sentence_total_count = int(sentence_total_count.decode('ascii'))
+    cur_sentence_num = int(cur_sentence_num.decode('ascii'))
 
     # Validate checksum
-    if checksum(msg) != int("0x" + chcksum[2::], 16):
-        print(f"{ANSI_RED}Invalid Checksum dropping packet!{ANSI_RESET}")
+    expected = int(chcksum[2:].decode('ascii'), 16)
+    actual = checksum(msg)
+    if expected != actual:
+        print(f"{ANSI_RED}Invalid Checksum {actual} != {expected}; dropping message!{ANSI_RESET}")
         return None
 
     # Assemble multiline messages
-    if sentence_total_count != '1':
+    if sentence_total_count != 1:
         global LAST
-        if LAST is None and cur_sentence_num != '1':
+        if LAST is None and cur_sentence_num != 1:
             print(f"{ANSI_RED}Something is out of order here..{ANSI_RESET}")
             return None
 

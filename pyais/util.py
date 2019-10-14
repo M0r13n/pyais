@@ -26,8 +26,6 @@ def ascii6_to_bin(data) -> str:
     binary_string = ''
 
     for c in data:
-        c = ord(c)
-
         if c < 0x30 or c > 0x77 or 0x57 < c < 0x60:
             print("Invalid char")
 
