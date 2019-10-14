@@ -1,9 +1,24 @@
-import socket
+from socket import AF_INET, SOCK_STREAM, socket
+from typing import Iterable
 
 
-def ais_stream(url="ais.exploratorium.edu", port=80):
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((url, port))
-    while True:
-        for msg in s.recv(4096).decode("utf-8").splitlines():
-            yield msg
+BUF_SIZE = 4096
+
+
+def ais_stream(host: str = "ais.exploratorium.edu", port: int = 80) -> Iterable[bytes]:
+    with socket(AF_INET, SOCK_STREAM) as s:
+        s.connect((host, port))
+
+        partial = b''
+
+        while True:
+            body = s.recv(BUF_SIZE)
+            lines = body.split(b'\r\n')
+
+            line = partial + lines[0]
+            if line:
+                yield line
+
+            yield from (line for line in lines[1:-1] if line)
+
+            partial = lines[-1]
