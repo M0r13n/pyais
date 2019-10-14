@@ -24,7 +24,7 @@ def recv_line(url="ais.exploratorium.edu", port=80):
     while True:
         # Receive up to 4096 bytes and store them in a temporary buffer
         temp = s.recv(4096)
-        # Iterate over each byte and yield a message if a newline byte is reached
+        # Iterate over each byte and yield a message if a new1line byte is reached
         for byte in struct.unpack(str(len(temp)) + 'c', temp):
             # New lines are indicated by '\r\n'
             if last_byte == b'\r' and byte == b'\n':
