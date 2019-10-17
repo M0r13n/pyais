@@ -286,7 +286,6 @@ def decode(msg):
     msg_type = int(decoded_data[0:6], 2)
 
     if 0 < msg_type < 25:
-        print(msg_type)  # 21, 24, 8
         return DECODE_MSG[msg_type](decoded_data)
 
     return None
