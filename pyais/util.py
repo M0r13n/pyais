@@ -17,10 +17,10 @@ def split_str(string, chunk_size=6):
     return lst
 
 
-def ascii6_to_bin(data) -> str:
+def decode_into_bin_str(data) -> str:
     """
-    Convert ASCII into 6 bit binary.
-    :param data: ASCII text
+    Decode AIS message into a binary string
+    :param data: AIS message encoded with AIS-ASCII-6
     :return: a binary string of 0's and 1's, e.g. 011100 011111 100001
     """
     binary_string = ''
@@ -39,7 +39,7 @@ def ascii6_to_bin(data) -> str:
     return binary_string
 
 
-def bin_to_ascii6(data):
+def encode_bin_as_ascii6(data):
     """
     Encode binary data as 6 bit ASCII.
     :param data: binary string
@@ -58,6 +58,45 @@ def bin_to_ascii6(data):
         string += chr(c)
 
     return string
+
+
+def decode_into_bytes(data):
+    """
+    Decode AIS message into a continuous block of bytes
+    :param data: AIS message encoded with AIS-ASCII-6
+    :return: a binary string of 0's and 1's, e.g. 011100 011111 100001
+
+    Example:
+    Let data be [63, 62, 61, 60]
+    __111111 = 63
+    __111110 = 62
+    __111101 = 61
+    __111100 = 60
+    11111111 | 11101111 | 01111100
+    """
+    byte_arr = bytearray()
+
+    for i, c in enumerate(data):
+        # Convert 8 bit binary to 6 bit binary
+        c -= 0x30 if (c < 0x60) else 0x38
+        c &= 0x3F
+
+        # Only add the last 6 bits of each character
+        if (i % 4) == 0:
+            byte_arr.append(c << 2)
+
+        elif (i % 4) == 1:
+            byte_arr[-1] |= c >> 4
+            byte_arr.append((c & 15) << 4)
+
+        elif (i % 4) == 2:
+            byte_arr[-1] |= c >> 2
+            byte_arr.append((c & 3) << 6)
+
+        elif (i % 4) == 3:
+            byte_arr[-1] |= c
+
+    return byte_arr
 
 
 def signed(bit_vector):

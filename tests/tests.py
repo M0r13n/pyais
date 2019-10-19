@@ -1,4 +1,7 @@
 from pyais.message import decode
+from pyais.util import decode_into_bin_str, decode_into_bytes
+import timeit
+import random
 
 MESSAGES = [
     b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C",
@@ -12,10 +15,21 @@ MESSAGES = [
 ]
 
 
-def time():
-    import timeit
-    import random
+def compare_bin_str_vs_bytes():
+    data = b"15M67FC000G?ufbE`FepT@3n00Sa"
+    n = 100000
+    import functools
 
+    t = timeit.Timer(functools.partial(decode_into_bin_str, data))
+    elapsed_time = t.timeit(n)
+    print(f"Decoding #{n} into str takes  {elapsed_time} seconds")
+
+    t = timeit.Timer(functools.partial(decode_into_bytes, data))
+    elapsed_time = t.timeit(n)
+    print(f"Decoding #{n} into bytes takes  {elapsed_time} seconds")
+
+
+def time():
     def test():
         decode(MESSAGES[random.randint(0, 7)])
 
@@ -57,4 +71,5 @@ def is_correct():
 
 
 is_correct()
+compare_bin_str_vs_bytes()
 time()

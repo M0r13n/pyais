@@ -3,7 +3,6 @@ from .util import *
 from functools import reduce
 from operator import xor
 
-
 LAST = None
 
 
@@ -92,8 +91,8 @@ def decode_msg_5(bit_vector):
         'mmsi': to_int(bit_vector[8:38], 2),
         'ais_version': to_int(bit_vector[38:40], 2),
         'imo': to_int(bit_vector[40:70], 2),
-        'callsign': bin_to_ascii6(bit_vector[70:112]),
-        'shipname': bin_to_ascii6(bit_vector[112:232]),
+        'callsign': encode_bin_as_ascii6(bit_vector[70:112]),
+        'shipname': encode_bin_as_ascii6(bit_vector[112:232]),
         'shiptype': (ship_type, SHIP_TYPE.get(ship_type, NULL)),
         'to_bow': to_int(bit_vector[240:249], 2),
         'to_stern': to_int(bit_vector[249:258], 2),
@@ -105,7 +104,7 @@ def decode_msg_5(bit_vector):
         'hour': to_int(bit_vector[283:288], 2),
         'minute': to_int(bit_vector[288:294], 2),
         'draught': to_int(bit_vector[294:302], 2) / 10.0,
-        'destination': bin_to_ascii6(bit_vector[302::])
+        'destination': encode_bin_as_ascii6(bit_vector[302::])
     }
 
 
@@ -282,7 +281,7 @@ def decode(msg):
         data = LAST + data
         LAST = ''
 
-    decoded_data = ascii6_to_bin(data)
+    decoded_data = decode_into_bin_str(data)
     msg_type = int(decoded_data[0:6], 2)
 
     if 0 < msg_type < 25:
