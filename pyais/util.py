@@ -26,15 +26,12 @@ def decode_into_bin_str(data) -> str:
     binary_string = ''
 
     for c in data:
-        if c < 0x30 or c > 0x77 or 0x57 < c < 0x60:
-            print("Invalid char")
+        if c < 0x30 or c > 0x77 or 0x57 < c < 0x6:
+            raise ValueError("Invalid character")
 
-        else:
-            if c < 0x60:
-                c = (c - 0x30) & 0x3F
-            else:
-                c = (c - 0x38) & 0x3F
-            binary_string += f'{c:06b}'
+        c -= 0x30 if (c < 0x60) else 0x38
+        c &= 0x3F
+        binary_string += f'{c:06b}'
 
     return binary_string
 
@@ -77,6 +74,9 @@ def decode_into_bytes(data):
     byte_arr = bytearray()
 
     for i, c in enumerate(data):
+        if c < 0x30 or c > 0x77 or 0x57 < c < 0x6:
+            raise ValueError("Invalid character")
+
         # Convert 8 bit binary to 6 bit binary
         c -= 0x30 if (c < 0x60) else 0x38
         c &= 0x3F
