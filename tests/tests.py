@@ -1,7 +1,8 @@
 from pyais.message import decode
-from pyais.util import decode_into_bin_str, decode_into_bytes
+from pyais.util import decode_into_bit_array
 import timeit
 import random
+import functools
 
 MESSAGES = [
     b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C",
@@ -15,18 +16,88 @@ MESSAGES = [
 ]
 
 
-def compare_bin_str_vs_bytes():
-    data = b"15M67FC000G?ufbE`FepT@3n00Sa"
-    n = 100000
-    import functools
+# Old or different methods for comparisons
+def decode_into_bin_str(data) -> str:
+    """
+    Decode AIS message into a binary string
+    :param data: AIS message encoded with AIS-ASCII-6
+    :return: a binary string of 0's and 1's, e.g. 011100 011111 100001
+    """
+    binary_string = ''
 
+    for c in data:
+        if c < 0x30 or c > 0x77 or 0x57 < c < 0x6:
+            raise ValueError("Invalid character")
+
+        c -= 0x30 if (c < 0x60) else 0x38
+        c &= 0x3F
+        binary_string += f'{c:06b}'
+
+    return binary_string
+
+
+def decode_into_bytes(data):
+    """
+    Decode AIS message into a continuous block of bytes
+    :param data: AIS message encoded with AIS-ASCII-6
+    :return: An array of bytes
+
+    Example:
+    Let data be [63, 62, 61, 60]
+    __111111 = 63
+    __111110 = 62
+    __111101 = 61
+    __111100 = 60
+    11111111 | 11101111 | 01111100
+    """
+    byte_arr = bytearray()
+
+    for i, c in enumerate(data):
+        if c < 0x30 or c > 0x77 or 0x57 < c < 0x6:
+            raise ValueError("Invalid character")
+
+        # Convert 8 bit binary to 6 bit binary
+        c -= 0x30 if (c < 0x60) else 0x38
+        c &= 0x3F
+
+        # Only add the last 6 bits of each character
+        if (i % 4) == 0:
+            byte_arr.append(c << 2)
+
+        elif (i % 4) == 1:
+            byte_arr[-1] |= c >> 4
+            byte_arr.append((c & 15) << 4)
+
+        elif (i % 4) == 2:
+            byte_arr[-1] |= c >> 2
+            byte_arr.append((c & 3) << 6)
+
+        elif (i % 4) == 3:
+            byte_arr[-1] |= c
+
+    return byte_arr
+
+
+def compare_data_decoding():
+    data = b"15M67FC000G?ufbE`FepT@3n00Sa"
+    n = 25000
+
+    # Decode socket data into :str:
     t = timeit.Timer(functools.partial(decode_into_bin_str, data))
     elapsed_time = t.timeit(n)
-    print(f"Decoding #{n} into str takes  {elapsed_time} seconds")
+    print(f"Decoding #{n} messages into str takes  {elapsed_time} seconds")
 
+    # Decode socket data into :bytes:
     t = timeit.Timer(functools.partial(decode_into_bytes, data))
     elapsed_time = t.timeit(n)
-    print(f"Decoding #{n} into bytes takes  {elapsed_time} seconds")
+    print(f"Decoding #{n} messages into bytes takes  {elapsed_time} seconds")
+
+    # Decode socket data into :bytes: and then convert them into a bitarray
+    t = timeit.Timer(functools.partial(decode_into_bit_array, data))
+    elapsed_time = t.timeit(n)
+    print(f"Decoding #{n} messages into bitarray takes  {elapsed_time} seconds")
+
+    # Result: They are all equally efficient, but differ in readability
 
 
 def time():
@@ -70,6 +141,6 @@ def is_correct():
                                    'msg22': False, 'assigned': False, 'raim': True, 'radio': 917510}
 
 
+compare_data_decoding()
 is_correct()
-compare_bin_str_vs_bytes()
 time()

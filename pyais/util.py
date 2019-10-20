@@ -1,8 +1,13 @@
-from bitstring import BitArray
+from bitarray import bitarray
 from math import ceil
+from functools import partial
+from typing import Iterable
+
+from_bytes = partial(int.from_bytes, byteorder="big")
+from_bytes_signed = partial(int.from_bytes, byteorder="big", signed=True)
 
 
-def split_str(string, chunk_size=6):
+def split_str(string: str, chunk_size=6) -> Iterable[str]:
     """
     Split a string into equal sized chunks and return these as a list.
     The last substring may not have chunk_size chars,
@@ -17,33 +22,34 @@ def split_str(string, chunk_size=6):
     return lst
 
 
-def decode_into_bin_str(data) -> str:
+def decode_into_bit_array(data: bytes) -> bitarray:
     """
-    Decode AIS message into a binary string
-    :param data: AIS message encoded with AIS-ASCII-6
-    :return: a binary string of 0's and 1's, e.g. 011100 011111 100001
+    Decodes a raw AIS message into a bitarray.
+    :param data: Raw AIS message in bytes, as it is received from a TCP socket.
+    :return:
     """
-    binary_string = ''
+    bit_arr = bitarray()
 
-    for c in data:
+    for i, c in enumerate(data):
         if c < 0x30 or c > 0x77 or 0x57 < c < 0x6:
             raise ValueError("Invalid character")
 
+        # Convert 8 bit binary to 6 bit binary
         c -= 0x30 if (c < 0x60) else 0x38
         c &= 0x3F
-        binary_string += f'{c:06b}'
+        bit_arr += f'{c:06b}'
 
-    return binary_string
+    return bit_arr
 
 
-def encode_bin_as_ascii6(data):
+def encode_bin_as_ascii6(bit_arr: bitarray) -> str:
     """
     Encode binary data as 6 bit ASCII.
-    :param data: binary string
+    :param bit_arr: array of bits
     :return: ASCII String
     """
     string = ""
-    for c in split_str(data):
+    for c in split_str(str(bit_arr.tobytes())):
 
         c = int(c, 2)
 
@@ -57,65 +63,20 @@ def encode_bin_as_ascii6(data):
     return string
 
 
-def decode_into_bytes(data):
+def get_int(data: bitarray, ix_low, ix_high, signed=False) -> int:
     """
-    Decode AIS message into a continuous block of bytes
-    :param data: AIS message encoded with AIS-ASCII-6
-    :return: An array of bytes
-
-    Example:
-    Let data be [63, 62, 61, 60]
-    __111111 = 63
-    __111110 = 62
-    __111101 = 61
-    __111100 = 60
-    11111111 | 11101111 | 01111100
+    Cast a subarray of a bitarray into an integer.
+    The bitarray module adds tailing zeros when calling tobytes(), if the bitarray is not a multiple of 8.
+    So those need to ne shifted away.
+    :param data: some bitarray
+    :param ix_low: the lower index of the sub-array
+    :param ix_high: the upper index of the sub-array
+    :param signed: True if the value should be interpreted as a signed integer
+    :return: a normal integer (int)
     """
-    byte_arr = bytearray()
-
-    for i, c in enumerate(data):
-        if c < 0x30 or c > 0x77 or 0x57 < c < 0x6:
-            raise ValueError("Invalid character")
-
-        # Convert 8 bit binary to 6 bit binary
-        c -= 0x30 if (c < 0x60) else 0x38
-        c &= 0x3F
-
-        # Only add the last 6 bits of each character
-        if (i % 4) == 0:
-            byte_arr.append(c << 2)
-
-        elif (i % 4) == 1:
-            byte_arr[-1] |= c >> 4
-            byte_arr.append((c & 15) << 4)
-
-        elif (i % 4) == 2:
-            byte_arr[-1] |= c >> 2
-            byte_arr.append((c & 3) << 6)
-
-        elif (i % 4) == 3:
-            byte_arr[-1] |= c
-
-    return byte_arr
-
-
-def signed(bit_vector):
-    """
-    Convert bit sequence to signed integer
-    :param bit_vector: bit sequence
-    :return: singed int
-    """
-    b = BitArray(bin=bit_vector)
-    return b.int
-
-
-def to_int(bit_string, base=2):
-    """
-    Convert a sequence of bits into an integer.
-    :param bit_string: Sequence of zeros and ones
-    :param base: The base
-    :return: An integer or 0 if no valid bit_string was provided
-    """
-    if bit_string:
-        return int(bit_string, base)
-    return 0
+    shift = 8 - ((ix_high - ix_low) % 8)
+    if shift == 8:
+        shift = 0
+    data = data[ix_low:ix_high]
+    i = from_bytes_signed(data) if signed else from_bytes(data)
+    return i >> shift

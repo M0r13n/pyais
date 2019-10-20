@@ -2,6 +2,7 @@ from .constants import *
 from .util import *
 from functools import reduce
 from operator import xor
+from functools import partial
 
 LAST = None
 
@@ -16,95 +17,98 @@ def checksum(msg):
     return reduce(xor, msg)
 
 
-def decode_msg_1(bit_vector):
+def decode_msg_1(bit_arr):
     """
     AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
     """
-    status = to_int(bit_vector[38:42], 2)
-    maneuver = to_int(bit_vector[143:145], 2)
+    get_int_from_data = partial(get_int, bit_arr)
+    status = get_int_from_data(38, 42)
+    maneuver = get_int_from_data(143, 145)
     return {
-        'type': to_int(bit_vector[0:6], 2),
-        'repeat': to_int(bit_vector[6:8], 2),
-        'mmsi': to_int(bit_vector[8:38], 2),
-        'status': (status, NAVIGATION_STATUS.get(status, NULL)),
-        'turn': signed(bit_vector[42:50]),
-        'speed': to_int(bit_vector[50:60], 2),
-        'accuracy': to_int(bit_vector[60], 2),
-        'lon': signed(bit_vector[61:89]) / 600000.0,
-        'lat': signed(bit_vector[89:116]) / 600000.0,
-        'course': to_int(bit_vector[116:128], 2) * 0.1,
-        'heading': to_int(bit_vector[128:137], 2),
-        'second': to_int(bit_vector[137:143], 2),
-        'maneuver': (maneuver, MANEUVER_INDICATOR.get(maneuver, NULL)),
-        'raim': bool(to_int(bit_vector[148], 2)),
-        'radio': to_int(bit_vector[149::], 2)
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(6, 8),
+        'mmsi': get_int_from_data(8, 38),
+        'status': (status, NAVIGATION_STATUS[status]),
+        'turn': get_int_from_data(42, 50, signed=True),
+        'speed': get_int_from_data(50, 60),
+        'accuracy': bit_arr[60],
+        'lon': get_int_from_data(61, 89, signed=True) / 600000.0,
+        'lat': get_int_from_data(89, 116, signed=True) / 600000.0,
+        'course': get_int_from_data(116, 128) * 0.1,
+        'heading': get_int_from_data(128, 137),
+        'second': get_int_from_data(137, 143),
+        'maneuver': (maneuver, MANEUVER_INDICATOR[maneuver]),
+        'raim': bit_arr[148],
+        'radio': get_int_from_data(149, bit_arr.length()),
     }
 
 
-def decode_msg_2(bit_vector):
+def decode_msg_2(bit_arr):
     """AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
     """
-    return decode_msg_1(bit_vector)
+    return decode_msg_1(bit_arr)
 
 
-def decode_msg_3(bit_vector):
+def decode_msg_3(bit_arr):
     """
     AIS Vessel position report using ITDMA (Incremental Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
     """
-    return decode_msg_1(bit_vector)
+    return decode_msg_1(bit_arr)
 
 
-def decode_msg_4(bit_vector):
+def decode_msg_4(bit_arr):
     """
     AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_4_base_station_report
     """
-    epfd = to_int(bit_vector[134:138], 2)
+    get_int_from_data = partial(get_int, bit_arr)
+    epfd = get_int_from_data(134, 138)
     return {
-        'type': to_int(bit_vector[0:6], 2),
-        'repeat': to_int(bit_vector[6:8], 2),
-        'mmsi': to_int(bit_vector[8:38], 2),
-        'year': to_int(bit_vector[38:52], 2),
-        'month': to_int(bit_vector[52:56]),
-        'day': to_int(bit_vector[56:61], 2),
-        'hour': to_int(bit_vector[61:66], 2),
-        'minute': to_int(bit_vector[66:72], 2),
-        'second': to_int(bit_vector[72:78], 2),
-        'accuracy': bool(to_int(bit_vector[78], 2)),
-        'lon': signed(bit_vector[66:72]) / 600000.0,
-        'lat': signed(bit_vector[66:72]) / 600000.0,
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(6, 8),
+        'mmsi': get_int_from_data(3, 38),
+        'year': get_int_from_data(38, 52),
+        'month': get_int_from_data(52, 56),
+        'day': get_int_from_data(56, 61),
+        'hour': get_int_from_data(61, 66),
+        'minute': get_int_from_data(66, 72),
+        'second': get_int_from_data(72, 78),
+        'accuracy': bit_arr[78],
+        'lon': get_int_from_data(79, 106, signed=True) / 600000.0,
+        'lat': get_int_from_data(106, 133, signed=True) / 600000.0,
         'epfd': (epfd, EPFD_TYPE.get(epfd, NULL)),
-        'raim': bool(to_int(bit_vector[148], 2)),
-        'radio': to_int(bit_vector[148::], 2)
+        'raim': bit_arr[148],
+        'radio': get_int_from_data(148, len(bit_arr)),
     }
 
 
-def decode_msg_5(bit_vector):
-    epfd = to_int(bit_vector[270:274], 2)
-    ship_type = to_int(bit_vector[66:72], 2)
+def decode_msg_5(bit_arr):
+    get_int_from_data = partial(get_int, bit_arr)
+    epfd = get_int_from_data(270, 274)
+    ship_type = get_int_from_data(66, 72)
     return {
-        'type': to_int(bit_vector[0:6], 2),
-        'repeat': to_int(bit_vector[6:8], 2),
-        'mmsi': to_int(bit_vector[8:38], 2),
-        'ais_version': to_int(bit_vector[38:40], 2),
-        'imo': to_int(bit_vector[40:70], 2),
-        'callsign': encode_bin_as_ascii6(bit_vector[70:112]),
-        'shipname': encode_bin_as_ascii6(bit_vector[112:232]),
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(6, 8),
+        'mmsi': get_int_from_data(8, 38),
+        'ais_version': get_int_from_data(38, 40),
+        'imo': get_int_from_data(40, 70),
+        'callsign': encode_bin_as_ascii6(bit_arr[70:112]),
+        'shipname': encode_bin_as_ascii6(bit_arr[112:232]),
         'shiptype': (ship_type, SHIP_TYPE.get(ship_type, NULL)),
-        'to_bow': to_int(bit_vector[240:249], 2),
-        'to_stern': to_int(bit_vector[249:258], 2),
-        'to_port': to_int(bit_vector[258:264], 2),
-        'to_starboard': to_int(bit_vector[264:270], 2),
+        'to_bow': get_int_from_data(240, 249),
+        'to_stern': get_int_from_data(249, 259),
+        'to_port': get_int_from_data(258, 264),
+        'to_starboard': get_int_from_data(264, 270),
         'epfd': (epfd, EPFD_TYPE.get(epfd, NULL)),
-        'month': to_int(bit_vector[274:278], 2),
-        'day': to_int(bit_vector[278:283], 2),
-        'hour': to_int(bit_vector[283:288], 2),
-        'minute': to_int(bit_vector[288:294], 2),
-        'draught': to_int(bit_vector[294:302], 2) / 10.0,
-        'destination': encode_bin_as_ascii6(bit_vector[302::])
+        'month': get_int_from_data(274, 278),
+        'day': get_int_from_data(278, 283),
+        'hour': get_int_from_data(283, 288),
+        'minute': get_int_from_data(288, 294),
+        'draught': get_int_from_data(294, 302) / 10.0,
+        'destination': encode_bin_as_ascii6(bit_arr[302::])
     }
 
 
@@ -117,18 +121,7 @@ def decode_msg_7(bit_vector):
 
 
 def decode_msg_8(bit_vector):
-    """
-    Binary Broadcast Message
-    TODO: data needs to be interpreted depending DAC-FID
-    """
-    return {
-        'type': to_int(bit_vector[0:6], 2),
-        'repeat': to_int(bit_vector[6:8], 2),
-        'mmsi': to_int(bit_vector[8:38], 2),
-        'dac': to_int(bit_vector[40:50], 2),
-        'fid': to_int(bit_vector[50:56], 2),
-        'data': to_int(bit_vector[56::], 2),
-    }
+    pass
 
 
 def decode_msg_9(bit_vector):
@@ -167,31 +160,32 @@ def decode_msg_17(bit_vector):
     pass
 
 
-def decode_msg_18(bit_vector):
+def decode_msg_18(bit_arr):
     """
     Standard Class B CS Position Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_18_standard_class_b_cs_position_report
     """
+    get_int_from_data = partial(get_int, bit_arr)
     return {
-        'type': to_int(bit_vector[0:6], 2),
-        'repeat': to_int(bit_vector[6:8], 2),
-        'mmsi': to_int(bit_vector[8:38], 2),
-        'speed': to_int(bit_vector[46:55], 2),
-        'accuracy': bool(to_int(bit_vector[55], 2)),
-        'lon': signed(bit_vector[56:85]) / 600000.0,
-        'lat': signed(bit_vector[85:112]) / 600000.0,
-        'course': to_int(bit_vector[112:124], 2) * 0.1,
-        'heading': to_int(bit_vector[124:133], 2),
-        'second': to_int(bit_vector[133:139], 2),
-        'regional': to_int(bit_vector[139:141], 2),
-        'cs': bool(to_int(bit_vector[141])),
-        'display': bool(to_int(bit_vector[142])),
-        'dsc': bool(to_int(bit_vector[143])),
-        'band': bool(to_int(bit_vector[144])),
-        'msg22': bool(to_int(bit_vector[145])),
-        'assigned': bool(to_int(bit_vector[146])),
-        'raim': bool(to_int(bit_vector[147])),
-        'radio': to_int(bit_vector[148::]),
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(8, 8),
+        'mmsi': get_int_from_data(8, 38),
+        'speed': get_int_from_data(46, 55),
+        'accuracy': bit_arr[55],
+        'lon': get_int_from_data(56, 85, signed=True) / 600000.0,
+        'lat': get_int_from_data(85, 112, signed=True) / 600000.0,
+        'course': get_int_from_data(112, 124) * 0.1,
+        'heading': get_int_from_data(124, 133),
+        'second': get_int_from_data(133, 139),
+        'regional': get_int_from_data(139, 141),
+        'cs': bit_arr[141],
+        'display': bit_arr[142],
+        'dsc': bit_arr[143],
+        'band': bit_arr[144],
+        'msg22': bit_arr[145],
+        'assigned': bit_arr[146],
+        'raim': bit_arr[147],
+        'radio': get_int_from_data(148, len(bit_arr)),
     }
 
 
@@ -281,8 +275,8 @@ def decode(msg):
         data = LAST + data
         LAST = ''
 
-    decoded_data = decode_into_bin_str(data)
-    msg_type = int(decoded_data[0:6], 2)
+    decoded_data = decode_into_bit_array(data)
+    msg_type = get_int(decoded_data, 0, 6)
 
     if 0 < msg_type < 25:
         return DECODE_MSG[msg_type](decoded_data)
