@@ -141,6 +141,17 @@ def is_correct():
                                    'msg22': False, 'assigned': False, 'raim': True, 'radio': 917510}
 
 
+def live_demo():
+    from pyais.net import ais_stream
+
+    for msg in ais_stream():
+        if msg[0] == ord('!'):
+            print(decode(msg))
+        else:
+            print("Unparsed msg: " + msg.decode('ascii'))
+
+
 compare_data_decoding()
 is_correct()
 time()
+live_demo()

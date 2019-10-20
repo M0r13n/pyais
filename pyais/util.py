@@ -49,8 +49,7 @@ def encode_bin_as_ascii6(bit_arr: bitarray) -> str:
     :return: ASCII String
     """
     string = ""
-    for c in split_str(str(bit_arr.tobytes())):
-
+    for c in split_str(bit_arr.to01()):
         c = int(c, 2)
 
         if c < 0x20:
