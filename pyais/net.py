@@ -39,6 +39,7 @@ class Stream:
             # Be gentle and just skip invalid messages
             if not msg.is_valid:
                 continue
+
             if msg.is_single:
                 yield msg
 

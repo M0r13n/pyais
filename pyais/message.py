@@ -2,12 +2,14 @@ from .constants import *
 from .util import *
 from functools import partial
 from typing import Sequence
+import itertools
 
 LAST = None
 
 
 class NMEAMessage(object):
     __slots__ = (
+        'ais_id',
         'raw',
         'talker',
         'msg_type',
@@ -30,16 +32,9 @@ class NMEAMessage(object):
         # An AIS NMEA message consists of seven, comma separated parts
         values = raw.split(b",")
 
-        # Either $ or ! is valid
-        start_char = values[0][0]
-
-        # Give up silently
-        if start_char not in (b"$", b"!"):
+        # Only encapsulated messages are currently supported
+        if values[0][0] != 0x21:
             return
-
-        # A NMEA message can't have more than 82 characters in total
-        if len(raw) > 82:
-            raise ValueError("Message too long")
 
         # Unpack NMEA message parts
         (
@@ -56,29 +51,46 @@ class NMEAMessage(object):
         self.talker = head[1:3]
 
         # The type of message is then identified by the next 3 characters
-        self.msg_type = head[3:]
+        self.msg_type = from_bytes(head[3:])
 
         # Store other important parts
-        self.count = count
-        self.index = index
+        self.count = int(count)
+        self.index = int(index)
         self.seq_id = seq_id
         self.channel = channel
         self.data = data
-        self.checksum = checksum
+        self.checksum = reduce(xor, self.raw[1:].split(b'*', 1)[0])
 
         # Verify if the checksum is correct
         assert self.is_valid
 
-        # Finally decode the payload into a bitarray
+        # Finally decode bytes into bits
         self.bit_array = decode_into_bit_array(self.data)
+        self.ais_id = get_int(self.bit_array, 0, 6)
 
     def __str__(self):
         return str(self.raw)
 
     @classmethod
     def assemble_from_iterable(cls, messages: Sequence):
-        raw = b''.join(messages)
-        return cls(raw)
+        """
+        Assemble a multiline message from a sequence of NMEA messages.
+        :param messages: Sequence of NMEA messages
+        :return: Single message
+        """
+        raw = b''
+        data = b''
+        bit_array = bitarray()
+
+        for msg in messages:
+            raw += msg.raw
+            data += msg.data
+            bit_array += msg.bit_array
+
+        messages[0].raw = raw
+        messages[0].data = data
+        messages[0].bit_array = bit_array
+        return messages[0]
 
     @property
     def is_valid(self) -> bool:
@@ -319,42 +331,8 @@ DECODE_MSG = [
 ]
 
 
-def decode(msg):
-    """
-    Decodes an AIS message. This includes checksum validation and sentencing.
-    This method requires the full raw AIS message encoded in ASCII or Unicode.
-    :param msg: AIS message encoded in ASCII or Unicode
-    :return: A dictionary containing the decoded information or None if an error occurs
-    """
-    m_typ, sentence_total_count, cur_sentence_num, seq_id, channel, data, chcksum = msg.split(b',')
-    sentence_total_count = int(sentence_total_count.decode('ascii'))
-    cur_sentence_num = int(cur_sentence_num.decode('ascii'))
-
-    # Validate checksum
-    expected = int(chcksum[2:].decode('ascii'), 16)
-    actual = compute_checksum(msg)
-    if expected != actual:
-        print(f"{ANSI_RED}Invalid Checksum {actual} != {expected}; dropping message!{ANSI_RESET}")
-        return None
-
-    # Assemble multiline messages
-    if sentence_total_count != 1:
-        global LAST
-        if LAST is None and cur_sentence_num != 1:
-            print(f"{ANSI_RED}Something is out of order here..{ANSI_RESET}")
-            return None
-
-        elif sentence_total_count != cur_sentence_num:
-            LAST = data if not LAST else LAST + data
-            return None
-
-        data = LAST + data
-        LAST = ''
-
-    decoded_data = decode_into_bit_array(data)
-    msg_type = get_int(decoded_data, 0, 6)
-
-    if 0 < msg_type < 25:
-        return DECODE_MSG[msg_type](decoded_data)
+def decode(msg: NMEAMessage):
+    if msg.is_valid and 0 < msg.ais_id < 25:
+        return DECODE_MSG[msg.ais_id](msg.bit_array)
 
     return None
