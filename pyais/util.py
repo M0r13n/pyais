@@ -1,10 +1,21 @@
 from bitarray import bitarray
 from math import ceil
-from functools import partial
+from functools import partial, reduce
 from typing import Iterable
+from operator import xor
 
 from_bytes = partial(int.from_bytes, byteorder="big")
 from_bytes_signed = partial(int.from_bytes, byteorder="big", signed=True)
+
+
+def compute_checksum(msg: bytes) -> bytes:
+    """
+    Compute the checksum of a given message
+    :param msg: message
+    :return: hex
+    """
+    msg = msg[1:].split(b'*', 1)[0]
+    return reduce(xor, msg)
 
 
 def split_str(string: str, chunk_size=6) -> Iterable[str]:

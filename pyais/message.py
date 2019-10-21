@@ -1,20 +1,96 @@
 from .constants import *
 from .util import *
-from functools import reduce
-from operator import xor
 from functools import partial
+from typing import Sequence
 
 LAST = None
 
 
-def checksum(msg):
-    """
-    Compute the checksum of a given message
-    :param msg: message
-    :return: hex
-    """
-    msg = msg[1:].split(b'*', 1)[0]
-    return reduce(xor, msg)
+class NMEAMessage(object):
+    __slots__ = (
+        'raw',
+        'talker',
+        'msg_type',
+        'count',
+        'index',
+        'seq_id',
+        'channel',
+        'data',
+        'checksum',
+        'bit_array'
+    )
+
+    def __init__(self, raw: bytes):
+        # Set all values to None initially
+        [setattr(self, name, None) for name in self.__slots__]
+
+        # Store raw data
+        self.raw = raw
+
+        # An AIS NMEA message consists of seven, comma separated parts
+        values = raw.split(b",")
+
+        # Either $ or ! is valid
+        start_char = values[0][0]
+
+        # Give up silently
+        if start_char not in (b"$", b"!"):
+            return
+
+        # A NMEA message can't have more than 82 characters in total
+        if len(raw) > 82:
+            raise ValueError("Message too long")
+
+        # Unpack NMEA message parts
+        (
+            head,
+            count,
+            index,
+            seq_id,
+            channel,
+            data,
+            checksum
+        ) = values
+
+        # The talker is identified by the next 2 characters
+        self.talker = head[1:3]
+
+        # The type of message is then identified by the next 3 characters
+        self.msg_type = head[3:]
+
+        # Store other important parts
+        self.count = count
+        self.index = index
+        self.seq_id = seq_id
+        self.channel = channel
+        self.data = data
+        self.checksum = checksum
+
+        # Verify if the checksum is correct
+        assert self.is_valid
+
+        # Finally decode the payload into a bitarray
+        self.bit_array = decode_into_bit_array(self.data)
+
+    def __str__(self):
+        return str(self.raw)
+
+    @classmethod
+    def assemble_from_iterable(cls, messages: Sequence):
+        raw = b''.join(messages)
+        return cls(raw)
+
+    @property
+    def is_valid(self) -> bool:
+        return self.checksum == compute_checksum(self.raw)
+
+    @property
+    def is_single(self) -> bool:
+        return not self.seq_id and self.index == self.count == 1
+
+    @property
+    def is_multi(self) -> bool:
+        return not self.is_single
 
 
 def decode_msg_1(bit_arr):
@@ -256,7 +332,7 @@ def decode(msg):
 
     # Validate checksum
     expected = int(chcksum[2:].decode('ascii'), 16)
-    actual = checksum(msg)
+    actual = compute_checksum(msg)
     if expected != actual:
         print(f"{ANSI_RED}Invalid Checksum {actual} != {expected}; dropping message!{ANSI_RESET}")
         return None

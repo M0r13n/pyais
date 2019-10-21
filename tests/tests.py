@@ -142,9 +142,9 @@ def is_correct():
 
 
 def live_demo():
-    from pyais.net import ais_stream
+    from pyais.net import Stream
 
-    for msg in ais_stream():
+    for msg in Stream():
         if msg[0] == ord('!'):
             print(decode(msg))
         else:
