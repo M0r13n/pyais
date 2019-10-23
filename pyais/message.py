@@ -1,8 +1,8 @@
 from .constants import *
 from .util import *
-from functools import partial
+from functools import partial, reduce
 from typing import Sequence
-import itertools
+from operator import xor
 
 LAST = None
 
@@ -92,9 +92,19 @@ class NMEAMessage(object):
         messages[0].bit_array = bit_array
         return messages[0]
 
+    @staticmethod
+    def compute_checksum(msg: bytes) -> bytes:
+        """
+        Compute the checksum of a given message
+        :param msg: message
+        :return: hex
+        """
+        msg = msg[1:].split(b'*', 1)[0]
+        return reduce(xor, msg)
+
     @property
     def is_valid(self) -> bool:
-        return self.checksum == compute_checksum(self.raw)
+        return self.checksum == self.compute_checksum(self.raw)
 
     @property
     def is_single(self) -> bool:

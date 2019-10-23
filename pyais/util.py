@@ -1,36 +1,9 @@
 from bitarray import bitarray
-from math import ceil
-from functools import partial, reduce
-from typing import Iterable
-from operator import xor
+from functools import partial
+from typing import Sequence, Iterable
 
 from_bytes = partial(int.from_bytes, byteorder="big")
 from_bytes_signed = partial(int.from_bytes, byteorder="big", signed=True)
-
-
-def compute_checksum(msg: bytes) -> bytes:
-    """
-    Compute the checksum of a given message
-    :param msg: message
-    :return: hex
-    """
-    msg = msg[1:].split(b'*', 1)[0]
-    return reduce(xor, msg)
-
-
-def split_str(string: str, chunk_size=6) -> Iterable[str]:
-    """
-    Split a string into equal sized chunks and return these as a list.
-    The last substring may not have chunk_size chars,
-    if len(string) is not a multiple of chunk_size.
-
-    :param string: arbitrary string
-    :param chunk_size: chunk_size
-    :return: a list of substrings of chunk_size
-    """
-    chunks = ceil(len(string) / chunk_size)
-    lst = [string[i * chunk_size:(i + 1) * chunk_size] for i in range(chunks)]
-    return lst
 
 
 def decode_into_bit_array(data: bytes) -> bitarray:
@@ -53,6 +26,12 @@ def decode_into_bit_array(data: bytes) -> bitarray:
     return bit_arr
 
 
+def chunks(l: Sequence, n: int) -> Iterable:
+    """Yield successive n-sized chunks from l."""
+    for i in range(0, len(l), n):
+        yield l[i:i + n]
+
+
 def encode_bin_as_ascii6(bit_arr: bitarray) -> str:
     """
     Encode binary data as 6 bit ASCII.
@@ -60,15 +39,21 @@ def encode_bin_as_ascii6(bit_arr: bitarray) -> str:
     :return: ASCII String
     """
     string = ""
-    for c in split_str(bit_arr.to01()):
-        c = int(c, 2)
+    for c in chunks(bit_arr, 6):
+        n = from_bytes(c) >> 2
 
-        if c < 0x20:
-            c += 0x40
-        if c == 64:
+        # Last entry may not have 6 bits
+        if len(c) != 6:
+            n >> (6 - len(c))
+
+        if n < 0x20:
+            n += 0x40
+
+        # Break if there is an @
+        if n == 64:
             break
 
-        string += chr(c)
+        string += chr(n)
 
     return string
 
@@ -84,9 +69,7 @@ def get_int(data: bitarray, ix_low, ix_high, signed=False) -> int:
     :param signed: True if the value should be interpreted as a signed integer
     :return: a normal integer (int)
     """
-    shift = 8 - ((ix_high - ix_low) % 8)
-    if shift == 8:
-        shift = 0
+    shift = (8 - ((ix_high - ix_low) % 8)) % 8
     data = data[ix_low:ix_high]
     i = from_bytes_signed(data) if signed else from_bytes(data)
     return i >> shift

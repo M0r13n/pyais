@@ -12,7 +12,11 @@ MESSAGES = [
     NMEAMessage(b"!AIVDM,1,1,,A,35NVm2gP00o@5k:EbbPJnwwN25e3,0*35"),
     NMEAMessage(b"!AIVDM,1,1,,A,B52KlJP00=l4be5ItJ6r3wVUWP06,0*7C"),
     NMEAMessage(b"!AIVDM,2,1,1,B,53ku:202=kul=4TS@00<tq@V0<uE84LD00000017R@sEE6TE0GUDk1hP,0*57"),
-    NMEAMessage(b"!AIVDM,2,1,2,B,55Mwm;P00001L@?;SKE8uT4j0lDh8uE8pD00000l0`A276S<07gUDp3Q,0*0D")
+    NMEAMessage(b"!AIVDM,2,1,2,B,55Mwm;P00001L@?;SKE8uT4j0lDh8uE8pD00000l0`A276S<07gUDp3Q,0*0D"),
+    NMEAMessage.assemble_from_iterable(messages=[
+        NMEAMessage(b"!AIVDM,2,1,4,A,55O0W7`00001L@gCWGA2uItLth@DqtL5@F22220j1h742t0Ht0000000,0*08"),
+        NMEAMessage(b"!AIVDM,2,2,4,A,000000000000000,2*20")
+    ])
 ]
 
 
@@ -102,7 +106,7 @@ def compare_data_decoding():
 
 def time():
     def test():
-        decode(MESSAGES[random.randint(0, 7)])
+        decode(MESSAGES[random.randint(0, 8)])
 
     iterations = 8000
     elapsed_time = timeit.timeit(test, number=iterations)  # now 0.66934167 seconds
@@ -140,14 +144,21 @@ def is_correct():
                                    'second': 13, 'regional': 0, 'cs': True, 'display': False, 'dsc': True, 'band': True,
                                    'msg22': False, 'assigned': False, 'raim': True, 'radio': 917510}
 
+    assert decode(MESSAGES[8]) == {'type': 5, 'repeat': 0, 'mmsi': 368060190, 'ais_version': 2, 'imo': 0,
+                                   'callsign': 'WDK4954', 'shipname': 'P/V_GOLDEN_GATE     ', 'shiptype': (1, 'N/A'),
+                                   'to_bow': 14, 'to_stern': 14, 'to_port': 4, 'to_starboard': 2,
+                                   'epfd': (15, 'Undefined'), 'month': 0, 'day': 0, 'hour': 24, 'minute': 60,
+                                   'draught': 0.0, 'destination': ''}
+
 
 def live_demo():
     from pyais.net import Stream
 
     for msg in Stream():
-        print(decode(msg))
+        d = decode(msg)
+        print(d)
 
 
 is_correct()
 time()
-live_demo()
+# live_demo()
