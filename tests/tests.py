@@ -1,4 +1,4 @@
-from pyais.message import decode, NMEAMessage
+from pyais.message import NMEAMessage
 from pyais.util import decode_into_bit_array
 import timeit
 import random
@@ -106,59 +106,70 @@ def compare_data_decoding():
 
 def time():
     def test():
-        decode(MESSAGES[random.randint(0, 8)])
+        MESSAGES[random.randint(0, 8)].decode()
 
     iterations = 8000
-    elapsed_time = timeit.timeit(test, number=iterations)  # now 0.66934167 seconds
+    elapsed_time = timeit.timeit(test, number=iterations)  # now < 0.3 seconds
     print(f"Decoding #{iterations} takes {elapsed_time} seconds")
 
 
 def is_correct():
-    assert decode(MESSAGES[0]) == {'type': 1, 'repeat': 0, 'mmsi': 366053209,
-                                   'status': (3, 'Restricted manoeuverability'), 'turn': 0, 'speed': 0, 'accuracy': 0,
-                                   'lon': -122.34161833333333, 'lat': 37.80211833333333, 'course': 219.3, 'heading': 1,
-                                   'second': 59, 'maneuver': (0, 'Not available'), 'raim': False, 'radio': 2281}
+    assert MESSAGES[0].decode().content == {'type': 1, 'repeat': 0, 'mmsi': 366053209,
+                                            'status': (3, 'Restricted manoeuverability'), 'turn': 0, 'speed': 0,
+                                            'accuracy': 0,
+                                            'lon': -122.34161833333333, 'lat': 37.80211833333333, 'course': 219.3,
+                                            'heading': 1,
+                                            'second': 59, 'maneuver': (0, 'Not available'), 'raim': False,
+                                            'radio': 2281}
 
-    assert decode(MESSAGES[1]) == {'type': 1, 'repeat': 0, 'mmsi': 367380120, 'status': (0, 'Under way using engine'),
-                                   'turn': -128, 'speed': 1, 'accuracy': 0, 'lon': -122.40433333333333,
-                                   'lat': 37.80694833333333, 'course': 245.20000000000002, 'heading': 511, 'second': 59,
-                                   'maneuver': (0, 'Not available'), 'raim': True, 'radio': 34958}
+    assert MESSAGES[1].decode().content == {'type': 1, 'repeat': 0, 'mmsi': 367380120,
+                                            'status': (0, 'Under way using engine'),
+                                            'turn': -128, 'speed': 1, 'accuracy': 0, 'lon': -122.40433333333333,
+                                            'lat': 37.80694833333333, 'course': 245.20000000000002, 'heading': 511,
+                                            'second': 59,
+                                            'maneuver': (0, 'Not available'), 'raim': True, 'radio': 34958}
 
-    assert decode(MESSAGES[2]) == {'type': 1, 'repeat': 0, 'mmsi': 367436230, 'status': (0, 'Under way using engine'),
-                                   'turn': 127, 'speed': 269, 'accuracy': 0, 'lon': -122.370845,
-                                   'lat': 37.802618333333335, 'course': 312.20000000000005, 'heading': 318,
-                                   'second': 59, 'maneuver': (0, 'Not available'), 'raim': False, 'radio': 2248}
+    assert MESSAGES[2].decode().content == {'type': 1, 'repeat': 0, 'mmsi': 367436230,
+                                            'status': (0, 'Under way using engine'),
+                                            'turn': 127, 'speed': 269, 'accuracy': 0, 'lon': -122.370845,
+                                            'lat': 37.802618333333335, 'course': 312.20000000000005, 'heading': 318,
+                                            'second': 59, 'maneuver': (0, 'Not available'), 'raim': False,
+                                            'radio': 2248}
 
-    assert decode(MESSAGES[3]) == {'type': 1, 'repeat': 0, 'mmsi': 367533950, 'status': (0, 'Under way using engine'),
-                                   'turn': -128, 'speed': 0, 'accuracy': 1, 'lon': -122.407585,
-                                   'lat': 37.80835833333333, 'course': 360.0, 'heading': 511, 'second': 43,
-                                   'maneuver': (0, 'Not available'), 'raim': True, 'radio': 99941}
+    assert MESSAGES[3].decode().content == {'type': 1, 'repeat': 0, 'mmsi': 367533950,
+                                            'status': (0, 'Under way using engine'),
+                                            'turn': -128, 'speed': 0, 'accuracy': 1, 'lon': -122.407585,
+                                            'lat': 37.80835833333333, 'course': 360.0, 'heading': 511, 'second': 43,
+                                            'maneuver': (0, 'Not available'), 'raim': True, 'radio': 99941}
 
-    assert decode(MESSAGES[4]) == {'type': 3, 'repeat': 0, 'mmsi': 367637770, 'status': (15, 'Undefined'), 'turn': -128,
-                                   'speed': 0, 'accuracy': 1, 'lon': -122.31407166666666, 'lat': 37.865175,
-                                   'course': 277.90000000000003, 'heading': 511, 'second': 47,
-                                   'maneuver': (0, 'Not available'), 'raim': True, 'radio': 23363}
+    assert MESSAGES[4].decode().content == {'type': 3, 'repeat': 0, 'mmsi': 367637770, 'status': (15, 'Undefined'),
+                                            'turn': -128,
+                                            'speed': 0, 'accuracy': 1, 'lon': -122.31407166666666, 'lat': 37.865175,
+                                            'course': 277.90000000000003, 'heading': 511, 'second': 47,
+                                            'maneuver': (0, 'Not available'), 'raim': True, 'radio': 23363}
 
-    assert decode(MESSAGES[5]) == {'type': 18, 'repeat': 0, 'mmsi': 338097258, 'speed': 0, 'accuracy': False,
-                                   'lon': -122.27014333333334, 'lat': 37.786295, 'course': 297.6, 'heading': 511,
-                                   'second': 13, 'regional': 0, 'cs': True, 'display': False, 'dsc': True, 'band': True,
-                                   'msg22': False, 'assigned': False, 'raim': True, 'radio': 917510}
+    assert MESSAGES[5].decode().content == {'type': 18, 'repeat': 0, 'mmsi': 338097258, 'speed': 0, 'accuracy': False,
+                                            'lon': -122.27014333333334, 'lat': 37.786295, 'course': 297.6,
+                                            'heading': 511,
+                                            'second': 13, 'regional': 0, 'cs': True, 'display': False, 'dsc': True,
+                                            'band': True,
+                                            'msg22': False, 'assigned': False, 'raim': True, 'radio': 917510}
 
-    assert decode(MESSAGES[8]) == {'type': 5, 'repeat': 0, 'mmsi': 368060190, 'ais_version': 2, 'imo': 0,
-                                   'callsign': 'WDK4954', 'shipname': 'P/V_GOLDEN_GATE     ', 'shiptype': (1, 'N/A'),
-                                   'to_bow': 14, 'to_stern': 14, 'to_port': 4, 'to_starboard': 2,
-                                   'epfd': (15, 'Undefined'), 'month': 0, 'day': 0, 'hour': 24, 'minute': 60,
-                                   'draught': 0.0, 'destination': ''}
+    assert MESSAGES[8].decode().content == {'type': 5, 'repeat': 0, 'mmsi': 368060190, 'ais_version': 2, 'imo': 0,
+                                            'callsign': 'WDK4954', 'shipname': 'P/V_GOLDEN_GATE     ',
+                                            'shiptype': (1, 'N/A'),
+                                            'to_bow': 14, 'to_stern': 14, 'to_port': 4, 'to_starboard': 2,
+                                            'epfd': (15, 'Undefined'), 'month': 0, 'day': 0, 'hour': 24, 'minute': 60,
+                                            'draught': 0.0, 'destination': ''}
 
 
 def live_demo():
     from pyais.net import Stream
 
     for msg in Stream():
-        d = decode(msg)
-        print(d)
+        print(msg.decode().content)
 
 
 is_correct()
 time()
-# live_demo()
+live_demo()
