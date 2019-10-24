@@ -1,4 +1,4 @@
-from enum import Enum, IntEnum
+from enum import IntEnum
 
 # Keywords
 UNDEFINED = 'ndefined'
@@ -143,20 +143,16 @@ class ShipType(IntEnum):
         return ShipType.NotAvailable
 
 
-DAC_FID = {
-    '1-12': 'Dangerous cargo indication',
-    '1-14': 'Tidal window',
-    '1-16': 'Number of persons on board',
-    '1-18': 'Clearance time to enter port',
-    '1-20': 'Berthing data (addressed)',
-    '1-23': 'Area notice (addressed)',
-    '1-25': 'Dangerous Cargo indication',
-    '1-28': 'Route info addressed',
-    '1-30': 'Text description addressed',
-    '1-32': 'Tidal Window',
-    '200-21': 'ETA at lock/bridge/terminal',
-    '200-22': 'RTA at lock/bridge/terminal',
-    '200-55': 'Number of persons on board',
-    '235-10': 'AtoN monitoring data (UK)',
-    '250-10': 'AtoN monitoring data (ROI)',
-}
+class DacFid(IntEnum):
+    DangerousCargoIndication = 13
+    TidalWindow = 15
+    NumPersonsOnBoard = 17
+    ClearanceTimeToEnterPort = 19
+    BerthingData = 21
+    AreaNotice = 24
+    RouteInfoAddressed = 29
+    TextDescriptionAddressed = 31
+    ETA = 221
+    RTA = 222
+    AtoN_MonitoringData_UK = 245
+    AtoN_MonitoringData_ROI = 260
