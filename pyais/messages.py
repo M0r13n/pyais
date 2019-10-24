@@ -1,5 +1,6 @@
 from .decode import *
 from .util import *
+from .ais_types import AISType
 from functools import reduce
 from typing import Sequence
 from operator import xor
@@ -114,6 +115,10 @@ class NMEAMessage(object):
     def is_multi(self) -> bool:
         return not self.is_single
 
+    @property
+    def fragment_count(self) -> int:
+        return self.count
+
     def decode(self):
         return AISMessage(self)
 
@@ -125,7 +130,7 @@ class AISMessage(object):
 
     def __init__(self, nmea_message: NMEAMessage):
         self.nmea: NMEAMessage = nmea_message
-        self.id: int = nmea_message.ais_id
+        self.msg_type: AISType = AISType(nmea_message.ais_id)
         self.content: dict = dict()
         self.content = decode(self.nmea)
 

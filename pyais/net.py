@@ -1,5 +1,5 @@
 from socket import AF_INET, SOCK_STREAM, socket
-from .message import NMEAMessage
+from .messages import NMEAMessage
 from typing import Iterable
 
 BUF_SIZE = 4096

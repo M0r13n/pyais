@@ -1,3 +1,6 @@
 # Project exclude paths
 /venv/
 .idea/
+__pycache__/
+profiling_results
+*__/*

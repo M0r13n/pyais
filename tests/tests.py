@@ -1,4 +1,4 @@
-from pyais.message import NMEAMessage
+from pyais.messages import NMEAMessage
 from pyais.util import decode_into_bit_array
 import timeit
 import random
