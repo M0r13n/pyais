@@ -49,7 +49,6 @@ def decode_msg_4(bit_arr):
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_4_base_station_report
     """
     get_int_from_data = partial(get_int, bit_arr)
-    epfd = get_int_from_data(134, 138)
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
@@ -63,7 +62,7 @@ def decode_msg_4(bit_arr):
         'accuracy': bit_arr[78],
         'lon': get_int_from_data(79, 106, signed=True) / 600000.0,
         'lat': get_int_from_data(106, 133, signed=True) / 600000.0,
-        'epfd': (epfd, EPFD_TYPE.get(epfd, NULL)),
+        'epfd': EpfdType(get_int_from_data(134, 138)),
         'raim': bit_arr[148],
         'radio': get_int_from_data(148, len(bit_arr)),
     }
@@ -71,7 +70,6 @@ def decode_msg_4(bit_arr):
 
 def decode_msg_5(bit_arr):
     get_int_from_data = partial(get_int, bit_arr)
-    epfd = get_int_from_data(270, 274)
     ship_type = get_int_from_data(232, 240)
     return {
         'type': get_int_from_data(0, 6),
@@ -86,7 +84,7 @@ def decode_msg_5(bit_arr):
         'to_stern': get_int_from_data(249, 259),
         'to_port': get_int_from_data(258, 264),
         'to_starboard': get_int_from_data(264, 270),
-        'epfd': (epfd, EPFD_TYPE.get(epfd, NULL)),
+        'epfd': EpfdType(get_int_from_data(270, 274)),
         'month': get_int_from_data(274, 278),
         'day': get_int_from_data(278, 283),
         'hour': get_int_from_data(283, 288),

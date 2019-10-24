@@ -182,7 +182,7 @@ def is_correct():
                                             'callsign': 'WDK4954', 'shipname': 'P/V_GOLDEN_GATE',
                                             'shiptype': (50, 'Pilot Vessel'),
                                             'to_bow': 14, 'to_stern': 14, 'to_port': 4, 'to_starboard': 2,
-                                            'epfd': (15, 'Undefined'), 'month': 0, 'day': 0, 'hour': 24, 'minute': 60,
+                                            'epfd': EpfdType.Undefined, 'month': 0, 'day': 0, 'hour': 24, 'minute': 60,
                                             'draught': 0.0, 'destination': '', 'dte': False}
 
 

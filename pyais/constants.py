@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, IntEnum
 
 # Keywords
 UNDEFINED = 'Undefined'
@@ -8,7 +8,7 @@ ANSI_RED = '\x1b[31m'
 ANSI_RESET = '\x1b[0m'
 
 
-class NavigationStatus(Enum):
+class NavigationStatus(IntEnum):
     UnderWayUsingEngine = 0
     AtAnchor = 1
     NotUnderCommand = 2
@@ -18,29 +18,35 @@ class NavigationStatus(Enum):
     Aground = 6
     EngagedInFishing = 7
     UnderWaySailing = 8
-    Reserved = 9, 10, 11, 12, 13
     AISSARTActive = 14
     Undefined = 15
 
+    @classmethod
+    def _missing_(cls, value):
+        return NavigationStatus.Undefined
 
-class ManeuverIndicator(Enum):
+
+class ManeuverIndicator(IntEnum):
     NotAvailable = 0
     NoSpecialManeuver = 1
     SpecialManeuver = 2
 
 
-EPFD_TYPE = {
-    0: 'Undefined',
-    1: 'GPS',
-    2: 'GLONASS',
-    3: 'GPS/GLONASS',
-    4: 'Loran-C',
-    5: 'Chayka',
-    6: 'Integrated navigation system',
-    7: 'Surveyed',
-    8: 'Galileo',
-    15: 'Undefined'
-}
+class EpfdType(IntEnum):
+    Undefined = 0
+    GPS = 1
+    GLONASS = 2
+    GPS_GLONASS = 3
+    Loran_C = 4
+    Chayka = 5
+    IntegratedNavigationSystem = 6
+    Surveyed = 7
+    Galileo = 8
+
+    @classmethod
+    def _missing_(cls, value):
+        return EpfdType.Undefined
+
 
 SHIP_TYPE = {
     0: 'Not available',
