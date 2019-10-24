@@ -9,7 +9,6 @@ def decode_msg_1(bit_arr):
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
     """
     get_int_from_data = partial(get_int, bit_arr)
-    maneuver = get_int_from_data(143, 145)
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
@@ -23,7 +22,7 @@ def decode_msg_1(bit_arr):
         'course': get_int_from_data(116, 128) * 0.1,
         'heading': get_int_from_data(128, 137),
         'second': get_int_from_data(137, 143),
-        'maneuver': (maneuver, MANEUVER_INDICATOR[maneuver]),
+        'maneuver': ManeuverIndicator(get_int_from_data(143, 145)),
         'raim': bit_arr[148],
         'radio': get_int_from_data(149, bit_arr.length()),
     }

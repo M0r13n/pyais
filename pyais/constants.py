@@ -23,11 +23,11 @@ class NavigationStatus(Enum):
     Undefined = 15
 
 
-MANEUVER_INDICATOR = {
-    0: 'Not available',
-    1: 'No special maneuver',
-    2: 'Special maneuver'
-}
+class ManeuverIndicator(Enum):
+    NotAvailable = 0
+    NoSpecialManeuver = 1
+    SpecialManeuver = 2
+
 
 EPFD_TYPE = {
     0: 'Undefined',

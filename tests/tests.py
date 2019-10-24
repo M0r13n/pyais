@@ -141,7 +141,7 @@ def is_correct():
                                             'accuracy': 0,
                                             'lon': -122.34161833333333, 'lat': 37.80211833333333, 'course': 219.3,
                                             'heading': 1,
-                                            'second': 59, 'maneuver': (0, 'Not available'), 'raim': False,
+                                            'second': 59, 'maneuver': ManeuverIndicator.NotAvailable, 'raim': False,
                                             'radio': 2281}
 
     assert MESSAGES[1].decode().content == {'type': 1, 'repeat': 0, 'mmsi': 367380120,
@@ -149,27 +149,27 @@ def is_correct():
                                             'turn': -128, 'speed': 1, 'accuracy': 0, 'lon': -122.40433333333333,
                                             'lat': 37.80694833333333, 'course': 245.20000000000002, 'heading': 511,
                                             'second': 59,
-                                            'maneuver': (0, 'Not available'), 'raim': True, 'radio': 34958}
+                                            'maneuver': ManeuverIndicator.NotAvailable, 'raim': True, 'radio': 34958}
 
     assert MESSAGES[2].decode().content == {'type': 1, 'repeat': 0, 'mmsi': 367436230,
                                             'status': NavigationStatus.UnderWayUsingEngine,
                                             'turn': 127, 'speed': 269, 'accuracy': 0, 'lon': -122.370845,
                                             'lat': 37.802618333333335, 'course': 312.20000000000005, 'heading': 318,
-                                            'second': 59, 'maneuver': (0, 'Not available'), 'raim': False,
+                                            'second': 59, 'maneuver': ManeuverIndicator.NotAvailable, 'raim': False,
                                             'radio': 2248}
 
     assert MESSAGES[3].decode().content == {'type': 1, 'repeat': 0, 'mmsi': 367533950,
                                             'status': NavigationStatus.UnderWayUsingEngine,
                                             'turn': -128, 'speed': 0, 'accuracy': 1, 'lon': -122.407585,
                                             'lat': 37.80835833333333, 'course': 360.0, 'heading': 511, 'second': 43,
-                                            'maneuver': (0, 'Not available'), 'raim': True, 'radio': 99941}
+                                            'maneuver': ManeuverIndicator.NotAvailable, 'raim': True, 'radio': 99941}
 
     assert MESSAGES[4].decode().content == {'type': 3, 'repeat': 0, 'mmsi': 367637770,
                                             'status': NavigationStatus.Undefined,
                                             'turn': -128,
                                             'speed': 0, 'accuracy': 1, 'lon': -122.31407166666666, 'lat': 37.865175,
                                             'course': 277.90000000000003, 'heading': 511, 'second': 47,
-                                            'maneuver': (0, 'Not available'), 'raim': True, 'radio': 23363}
+                                            'maneuver': ManeuverIndicator.NotAvailable, 'raim': True, 'radio': 23363}
 
     assert MESSAGES[5].decode().content == {'type': 18, 'repeat': 0, 'mmsi': 338097258, 'speed': 0, 'accuracy': False,
                                             'lon': -122.27014333333334, 'lat': 37.786295, 'course': 297.6,
