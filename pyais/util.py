@@ -55,7 +55,7 @@ def encode_bin_as_ascii6(bit_arr: bitarray) -> str:
 
         string += chr(n)
 
-    return string
+    return string.strip()
 
 
 def get_int(data: bitarray, ix_low, ix_high, signed=False) -> int:

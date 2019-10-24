@@ -1,5 +1,6 @@
 from pyais.messages import NMEAMessage
 from pyais.util import decode_into_bit_array
+from pyais.constants import *
 import timeit
 import random
 import functools
@@ -113,9 +114,30 @@ def time():
     print(f"Decoding #{iterations} takes {elapsed_time} seconds")
 
 
+def test_msg_type_5():
+    msg = NMEAMessage(b"!AIVDM,2,1,3,A,55MuUD02;EFUL@CO;W@lU=<U=<U10V1HuT4LE:1DC@T>B4kC0DliSp=t,0*14").decode()
+
+    assert msg['mmsi'] == 366962000
+    assert msg['imo'] == 9131369
+    assert msg['repeat'] == 0
+    assert msg['to_bow'] == 154
+    # assert msg['to_stern'] == 36
+
+    assert msg['to_starboard'] == 18
+    assert msg['to_port'] == 14
+    assert msg['callsign'] == "WDD7294"
+    assert msg['shipname'] == "MISSISSIPPI VOYAGER"
+    assert msg['draught'] == 8.3
+    assert msg['destination'] == "SFO 70"
+    # assert msg['shiptype'] == "Tanker, Hazardous category D"
+    assert not msg['dte']
+
+
 def is_correct():
+    test_msg_type_5()
     assert MESSAGES[0].decode().content == {'type': 1, 'repeat': 0, 'mmsi': 366053209,
-                                            'status': (3, 'Restricted manoeuverability'), 'turn': 0, 'speed': 0,
+                                            'status': NavigationStatus.RestrictedManoeuverability, 'turn': 0,
+                                            'speed': 0,
                                             'accuracy': 0,
                                             'lon': -122.34161833333333, 'lat': 37.80211833333333, 'course': 219.3,
                                             'heading': 1,
@@ -123,26 +145,27 @@ def is_correct():
                                             'radio': 2281}
 
     assert MESSAGES[1].decode().content == {'type': 1, 'repeat': 0, 'mmsi': 367380120,
-                                            'status': (0, 'Under way using engine'),
+                                            'status': NavigationStatus.UnderWayUsingEngine,
                                             'turn': -128, 'speed': 1, 'accuracy': 0, 'lon': -122.40433333333333,
                                             'lat': 37.80694833333333, 'course': 245.20000000000002, 'heading': 511,
                                             'second': 59,
                                             'maneuver': (0, 'Not available'), 'raim': True, 'radio': 34958}
 
     assert MESSAGES[2].decode().content == {'type': 1, 'repeat': 0, 'mmsi': 367436230,
-                                            'status': (0, 'Under way using engine'),
+                                            'status': NavigationStatus.UnderWayUsingEngine,
                                             'turn': 127, 'speed': 269, 'accuracy': 0, 'lon': -122.370845,
                                             'lat': 37.802618333333335, 'course': 312.20000000000005, 'heading': 318,
                                             'second': 59, 'maneuver': (0, 'Not available'), 'raim': False,
                                             'radio': 2248}
 
     assert MESSAGES[3].decode().content == {'type': 1, 'repeat': 0, 'mmsi': 367533950,
-                                            'status': (0, 'Under way using engine'),
+                                            'status': NavigationStatus.UnderWayUsingEngine,
                                             'turn': -128, 'speed': 0, 'accuracy': 1, 'lon': -122.407585,
                                             'lat': 37.80835833333333, 'course': 360.0, 'heading': 511, 'second': 43,
                                             'maneuver': (0, 'Not available'), 'raim': True, 'radio': 99941}
 
-    assert MESSAGES[4].decode().content == {'type': 3, 'repeat': 0, 'mmsi': 367637770, 'status': (15, 'Undefined'),
+    assert MESSAGES[4].decode().content == {'type': 3, 'repeat': 0, 'mmsi': 367637770,
+                                            'status': NavigationStatus.Undefined,
                                             'turn': -128,
                                             'speed': 0, 'accuracy': 1, 'lon': -122.31407166666666, 'lat': 37.865175,
                                             'course': 277.90000000000003, 'heading': 511, 'second': 47,
@@ -156,11 +179,11 @@ def is_correct():
                                             'msg22': False, 'assigned': False, 'raim': True, 'radio': 917510}
 
     assert MESSAGES[8].decode().content == {'type': 5, 'repeat': 0, 'mmsi': 368060190, 'ais_version': 2, 'imo': 0,
-                                            'callsign': 'WDK4954', 'shipname': 'P/V_GOLDEN_GATE     ',
-                                            'shiptype': (1, 'N/A'),
+                                            'callsign': 'WDK4954', 'shipname': 'P/V_GOLDEN_GATE',
+                                            'shiptype': (50, 'Pilot Vessel'),
                                             'to_bow': 14, 'to_stern': 14, 'to_port': 4, 'to_starboard': 2,
                                             'epfd': (15, 'Undefined'), 'month': 0, 'day': 0, 'hour': 24, 'minute': 60,
-                                            'draught': 0.0, 'destination': ''}
+                                            'draught': 0.0, 'destination': '', 'dte': False}
 
 
 def live_demo():
@@ -171,5 +194,5 @@ def live_demo():
 
 
 is_correct()
-time()
-live_demo()
+# time()
+# live_demo()

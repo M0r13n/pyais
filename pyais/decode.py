@@ -9,13 +9,12 @@ def decode_msg_1(bit_arr):
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
     """
     get_int_from_data = partial(get_int, bit_arr)
-    status = get_int_from_data(38, 42)
     maneuver = get_int_from_data(143, 145)
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
         'mmsi': get_int_from_data(8, 38),
-        'status': (status, NAVIGATION_STATUS[status]),
+        'status': NavigationStatus(get_int_from_data(38, 42)),
         'turn': get_int_from_data(42, 50, signed=True),
         'speed': get_int_from_data(50, 60),
         'accuracy': bit_arr[60],
@@ -74,7 +73,7 @@ def decode_msg_4(bit_arr):
 def decode_msg_5(bit_arr):
     get_int_from_data = partial(get_int, bit_arr)
     epfd = get_int_from_data(270, 274)
-    ship_type = get_int_from_data(66, 72)
+    ship_type = get_int_from_data(232, 240)
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
@@ -94,7 +93,8 @@ def decode_msg_5(bit_arr):
         'hour': get_int_from_data(283, 288),
         'minute': get_int_from_data(288, 294),
         'draught': get_int_from_data(294, 302) / 10.0,
-        'destination': encode_bin_as_ascii6(bit_arr[302::])
+        'destination': encode_bin_as_ascii6(bit_arr[302:422]),
+        'dte': bit_arr[-2]
     }
 
 

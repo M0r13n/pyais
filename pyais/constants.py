@@ -1,3 +1,5 @@
+from enum import Enum
+
 # Keywords
 UNDEFINED = 'Undefined'
 RESERVED = 'Reserved'
@@ -5,25 +7,21 @@ NULL = 'N/A'
 ANSI_RED = '\x1b[31m'
 ANSI_RESET = '\x1b[0m'
 
-# Constants
-NAVIGATION_STATUS = {
-    0: 'Under way using engine',
-    1: 'At anchor',
-    2: 'Not under command',
-    3: 'Restricted manoeuverability',
-    4: 'Constrained by her draught',
-    5: 'Moored',
-    6: 'Aground',
-    7: 'Engaged in Fishing',
-    8: 'Under way sailing',
-    9: 'Reserved',
-    10: 'Reserved',
-    11: 'Reserved',
-    12: 'Reserved',
-    13: 'Reserved',
-    14: 'AIS-SART is active',
-    15: 'Undefined',
-}
+
+class NavigationStatus(Enum):
+    UnderWayUsingEngine = 0
+    AtAnchor = 1
+    NotUnderCommand = 2
+    RestrictedManoeuverability = 3
+    ConstrainedByHerDraught = 4
+    Moored = 5
+    Aground = 6
+    EngagedInFishing = 7
+    UnderWaySailing = 8
+    Reserved = 9, 10, 11, 12, 13
+    AISSARTActive = 14
+    Undefined = 15
+
 
 MANEUVER_INDICATOR = {
     0: 'Not available',
@@ -145,4 +143,3 @@ DAC_FID = {
     '235-10': 'AtoN monitoring data (UK)',
     '250-10': 'AtoN monitoring data (ROI)',
 }
-
