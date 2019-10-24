@@ -180,7 +180,7 @@ def is_correct():
 
     assert MESSAGES[8].decode().content == {'type': 5, 'repeat': 0, 'mmsi': 368060190, 'ais_version': 2, 'imo': 0,
                                             'callsign': 'WDK4954', 'shipname': 'P/V_GOLDEN_GATE',
-                                            'shiptype': (50, 'Pilot Vessel'),
+                                            'shiptype': ShipType.PilotVessel,
                                             'to_bow': 14, 'to_stern': 14, 'to_port': 4, 'to_starboard': 2,
                                             'epfd': EpfdType.Undefined, 'month': 0, 'day': 0, 'hour': 24, 'minute': 60,
                                             'draught': 0.0, 'destination': '', 'dte': False}
@@ -194,5 +194,5 @@ def live_demo():
 
 
 is_correct()
-# time()
-# live_demo()
+time()
+live_demo()

@@ -1,7 +1,7 @@
 from enum import Enum, IntEnum
 
 # Keywords
-UNDEFINED = 'Undefined'
+UNDEFINED = 'ndefined'
 RESERVED = 'Reserved'
 NULL = 'N/A'
 ANSI_RED = '\x1b[31m'
@@ -48,89 +48,100 @@ class EpfdType(IntEnum):
         return EpfdType.Undefined
 
 
-SHIP_TYPE = {
-    0: 'Not available',
-    20: 'Wing in ground (WIG)',
-    21: 'Wing in ground (WIG), Hazardous category A',
-    22: 'Wing in ground (WIG), Hazardous category B',
-    23: 'Wing in ground (WIG), Hazardous category C',
-    24: 'Wing in ground (WIG), Hazardous category D',
-    25: 'WIG Reserved',
-    26: 'WIG Reserved',
-    27: 'WIG Reserved',
-    28: 'WIG Reserved',
-    29: 'WIG Reserved',
-    30: 'Fishing',
-    31: 'Towing',
-    32: 'Towing,length exceeds 200m or breadth exceeds 25m',
-    33: 'Dredging or underwater ops',
-    34: 'Diving ops',
-    35: 'Military ops',
-    36: 'Sailing',
-    37: 'Pleasure Craft',
-    38: 'Reserved',
-    39: 'Reserved',
-    40: 'High speed craft (HSC)',
-    41: 'High speed craft (HSC), Hazardous category A',
-    42: 'High speed craft (HSC), Hazardous category B',
-    43: 'High speed craft (HSC), Hazardous category C',
-    44: 'High speed craft (HSC), Hazardous category D',
-    45: 'High speed craft (HSC), Reserved',
-    46: 'High speed craft (HSC), Reserved',
-    47: 'High speed craft (HSC), Reserved',
-    48: 'High speed craft (HSC), Reserved',
-    49: 'High speed craft (HSC), No additional information',
-    50: 'Pilot Vessel',
-    51: 'Search and Rescue vessel',
-    52: 'Tug',
-    53: 'Port Tender',
-    54: 'Anti-pollution equipment',
-    55: 'Law Enforcement',
-    56: 'Spare - Local Vessel',
-    57: 'Spare - Local Vessel',
-    58: 'Medical Transport',
-    59: 'Noncombatant ship according to RR Resolution No. 18',
-    60: 'Passenger',
-    61: 'Passenger, Hazardous category A',
-    62: 'Passenger, Hazardous category B',
-    63: 'Passenger, Hazardous category C',
-    64: 'Passenger, Hazardous category D',
-    65: 'Passenger, Reserved',
-    66: 'Passenger, Reserved',
-    67: 'Passenger, Reserved',
-    68: 'Passenger, Reserved',
-    69: 'Passenger, No additional information',
-    70: 'Cargo',
-    71: 'Cargo, Hazardous category A',
-    72: 'Cargo, Hazardous category B',
-    73: 'Cargo, Hazardous category C',
-    74: 'Cargo, Hazardous category D',
-    75: 'Cargo, Reserved',
-    76: 'Cargo, Reserved',
-    77: 'Cargo, Reserved',
-    78: 'Cargo, Reserved',
-    79: 'Cargo, No additional information',
-    80: 'Tanker',
-    81: 'Tanker, Hazardous category A',
-    82: 'Tanker, Hazardous category B',
-    83: 'Tanker, Hazardous category C',
-    84: 'Tanker, Hazardous category D',
-    85: 'Tanker, Reserved ',
-    86: 'Tanker, Reserved ',
-    87: 'Tanker, Reserved ',
-    88: 'Tanker, Reserved ',
-    89: 'Tanker, No additional information',
-    90: 'Other Type',
-    91: 'Other Type, Hazardous category A',
-    92: 'Other Type, Hazardous category B',
-    93: 'Other Type, Hazardous category C',
-    94: 'Other Type, Hazardous category D',
-    95: 'Other Type, Reserved',
-    96: 'Other Type, Reserved',
-    97: 'Other Type, Reserved',
-    98: 'Other Type, Reserved',
-    99: 'Other Type, No additional information'
-}
+class ShipType(IntEnum):
+    NotAvailable = 0
+    # 20's
+    WIG = 20
+    WIG_HazardousCategory_A = 21
+    WIG_HazardousCategory_B = 22
+    WIG_HazardousCategory_C = 23
+    WIG_HazardousCategory_D = 24
+    WIG_Reserved = 25
+    # 30's
+    Fishing = 30
+    Towing = 31
+    Towing_LengthOver200 = 32
+    DredgingOrUnderwaterOps = 33
+    DivingOps = 34
+    MilitaryOps = 35
+    Sailing = 36
+    PleasureCraft = 37
+    # 40's
+    HSC = 40
+    HSC_HazardousCategory_A = 41
+    HSC_HazardousCategory_B = 42
+    HSC_HazardousCategory_C = 43
+    HSC_HazardousCategory_D = 44
+    HSC_Reserved = 45
+    HSC_NoAdditionalInformation = 49
+    # 50's
+    PilotVessel = 50
+    SearchAndRescueVessel = 51
+    Trug = 52
+    PortTender = 53
+    AntiPollutionEquipment = 54
+    LawEnforcement = 55
+    Spare_LocalVessel = 56
+    MedicalTransport = 58
+    NonCombatShip = 59
+    # 60's
+    Passenger = 60
+    Passenger_HazardousCategory_A = 61
+    Passenger_HazardousCategory_B = 62
+    Passenger_HazardousCategory_C = 63
+    Passenger_HazardousCategory_D = 64
+    Passenger_Reserved = 65
+    Passenger_NoAdditionalInformation = 69
+    # 70's
+    Cargo = 70
+    Cargo_HazardousCategory_A = 71
+    Cargo_HazardousCategory_B = 72
+    Cargo_HazardousCategory_C = 73
+    Cargo_HazardousCategory_D = 74
+    Cargo_Reserved = 75
+    Cargo_NoAdditionalInformation = 79
+    # 80's
+    Tanker = 80
+    Tanker_HazardousCategory_A = 81
+    Tanker_HazardousCategory_B = 82
+    Tanker_HazardousCategory_C = 83
+    Tanker_HazardousCategory_D = 84
+    Tanker_Reserved = 85
+    Tanker_NoAdditionalInformation = 89
+    # 90's
+    OtherType = 90
+    OtherType_HazardousCategory_A = 91
+    OtherType_HazardousCategory_B = 92
+    OtherType_HazardousCategory_C = 93
+    OtherType_HazardousCategory_D = 94
+    OtherType_Reserved = 95
+    OtherType_NoAdditionalInformation = 99
+
+    @classmethod
+    def _missing_(cls, value):
+        if 24 < value < 30:
+            return ShipType.WIG_Reserved
+
+        if 44 < value < 49:
+            return ShipType.HSC_Reserved
+
+        if 55 < value < 58:
+            return ShipType.Spare
+
+        if 64 < value < 69:
+            return ShipType.Passenger_Reserved
+
+        if 74 < value < 79:
+            return ShipType.Cargo_Reserved
+
+        if 84 < value < 89:
+            return ShipType.Tanker_Reserved
+
+        if 94 < value < 99:
+            return ShipType.OtherType_Reserved
+
+        return ShipType.NotAvailable
+
 
 DAC_FID = {
     '1-12': 'Dangerous cargo indication',

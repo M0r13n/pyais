@@ -70,7 +70,6 @@ def decode_msg_4(bit_arr):
 
 def decode_msg_5(bit_arr):
     get_int_from_data = partial(get_int, bit_arr)
-    ship_type = get_int_from_data(232, 240)
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
@@ -79,7 +78,7 @@ def decode_msg_5(bit_arr):
         'imo': get_int_from_data(40, 70),
         'callsign': encode_bin_as_ascii6(bit_arr[70:112]),
         'shipname': encode_bin_as_ascii6(bit_arr[112:232]),
-        'shiptype': (ship_type, SHIP_TYPE.get(ship_type, NULL)),
+        'shiptype': ShipType(get_int_from_data(232, 240)),
         'to_bow': get_int_from_data(240, 249),
         'to_stern': get_int_from_data(249, 259),
         'to_port': get_int_from_data(258, 264),
