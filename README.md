@@ -38,5 +38,8 @@ Using the bitarray module:
 This module is a private project and does not claim to be complete.
 My primary focus is on readability and maintainability.
 
+# Tests
+Run tests with `python -m unittest discover tests`
+
 
 
