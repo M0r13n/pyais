@@ -1,9 +1,7 @@
 name: Build & Test
 
-on:
-  push:
-    branches:
-      - master
+# Trigger on push
+on: push
 
 jobs:
   build:
