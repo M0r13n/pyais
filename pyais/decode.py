@@ -94,16 +94,62 @@ def decode_msg_5(bit_arr):
     }
 
 
-def decode_msg_6(bit_vector):
-    pass
+def decode_msg_6(bit_arr):
+    """
+    Binary Addresses Message
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_4_base_station_report
+    TODO: Data needs to be decoded according to the combination of DAC and FID.
+    """
+    get_int_from_data = partial(get_int, bit_arr)
+    return {
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(6, 8),
+        'mmsi': get_int_from_data(8, 38),
+        'seqno': get_int_from_data(38, 40),
+        'dest_mmsi': get_int_from_data(40, 70),
+        'retransmit': bit_arr[70],
+        'dac': get_int_from_data(72, 82),
+        'fid': get_int_from_data(82, 88),
+        'data_raw': bit_arr[88:]
+    }
 
 
-def decode_msg_7(bit_vector):
-    pass
+def decode_msg_7(bit_arr):
+    """
+    Binary Acknowledge
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_7_binary_acknowledge
+    """
+    get_int_from_data = partial(get_int, bit_arr)
+    return {
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(6, 8),
+        'mmsi': get_int_from_data(8, 38),
+        'mmsi1': get_int_from_data(40, 70),
+        'mmsiseq1': get_int_from_data(70, 72),
+        'mmsi2': get_int_from_data(72, 102),
+        'mmsiseq2': get_int_from_data(102, 104),
+        'mmsi3': get_int_from_data(104, 134),
+        'mmsiseq3': get_int_from_data(134, 136),
+        'mmsi4': get_int_from_data(136, 166),
+        'mmsiseq4': get_int_from_data(166, 168)
+    }
 
 
-def decode_msg_8(bit_vector):
-    pass
+def decode_msg_8(bit_arr):
+    """
+    Binary Acknowledge
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_8_binary_broadcast_message
+    TODO: Decode data according to DAC & FID
+    """
+    get_int_from_data = partial(get_int, bit_arr)
+    return {
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(6, 8),
+        'mmsi': get_int_from_data(8, 38),
+        'dac': get_int_from_data(40, 50),
+        'fid': get_int_from_data(50, 56),
+        'data': bit_arr[56:]
+    }
 
 
 def decode_msg_9(bit_vector):

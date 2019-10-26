@@ -1,6 +1,8 @@
 from pyais.messages import NMEAMessage
 from pyais.util import decode_into_bit_array
 from pyais.constants import *
+from pyais.ais_types import *
+from bitarray import bitarray
 import timeit
 import random
 import functools
@@ -110,8 +112,9 @@ def time():
         MESSAGES[random.randint(0, 8)].decode()
 
     iterations = 8000
-    elapsed_time = timeit.timeit(test, number=iterations)  # now < 0.3 seconds
-    print(f"Decoding #{iterations} takes {elapsed_time} seconds")
+    for i in range(5):
+        elapsed_time = timeit.timeit(test, number=iterations)  # now < 0.3 seconds
+        print(f"Decoding #{iterations} takes {elapsed_time} seconds in run #{i}")
 
 
 def test_msg_type_5():
@@ -133,8 +136,24 @@ def test_msg_type_5():
     assert not msg['dte']
 
 
+def test_msg_type_8():
+    msg = NMEAMessage(b"!AIVDM,1,1,,A,85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs,0*47").decode()
+
+    assert msg.nmea.is_valid
+    assert msg['repeat'] == 0
+    assert msg.msg_type == AISType.BINARY_BROADCAST
+    assert msg['mmsi'] == 366999712
+    assert msg['dac'] == 366
+    assert msg['fid'] == 56
+    assert msg['data'] == bitarray(
+        "0011101001010011110110111011011110111110010010100111011100110001001101111111100001111101011110110000010001000"
+        "1011111000001000000110111101010000001011101100100111111010110010011011110000011000110010100101011101001101110"
+        "01110110011101101111100000010111111011")
+
+
 def is_correct():
     test_msg_type_5()
+    test_msg_type_8()
     assert MESSAGES[0].decode().content == {'type': 1, 'repeat': 0, 'mmsi': 366053209,
                                             'status': NavigationStatus.RestrictedManoeuverability, 'turn': 0,
                                             'speed': 0,
