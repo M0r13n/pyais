@@ -37,6 +37,10 @@ class NMEAMessage(object):
         if values[0][0] != 0x21:
             return
 
+        if len(values) != 7:
+            raise ValueError("Invalid NMEA message provided. "
+                             "A NMEA message needs to have exactly 7 comma separeted entries.")
+
         # Unpack NMEA message parts
         (
             head,
@@ -49,10 +53,10 @@ class NMEAMessage(object):
         ) = values
 
         # The talker is identified by the next 2 characters
-        self.talker = head[1:3]
+        self.talker = head[1:3].decode('ascii')
 
         # The type of message is then identified by the next 3 characters
-        self.msg_type = from_bytes(head[3:])
+        self.msg_type = head[3:].decode('ascii')
 
         # Store other important parts
         self.count = int(count)
@@ -60,10 +64,11 @@ class NMEAMessage(object):
         self.seq_id = seq_id
         self.channel = channel
         self.data = data
-        self.checksum = reduce(xor, self.raw[1:].split(b'*', 1)[0])
+        self.checksum = int(checksum[2:], 16)
 
         # Verify if the checksum is correct
-        assert self.is_valid
+        if not self.is_valid:
+            raise ValueError("Invalid Checksum. Message is invalid!")
 
         # Finally decode bytes into bits
         self.bit_array = decode_into_bit_array(self.data)
