@@ -151,9 +151,26 @@ def test_msg_type_8():
         "01110110011101101111100000010111111011")
 
 
+def test_msg_type_9():
+    msg = NMEAMessage(b"!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*30").decode()
+    assert msg.msg_type == AISType.SAR_AIRCRAFT_POS
+    assert msg['repeat'] == 0
+    assert msg['mmsi'] == 111232511
+    assert msg['alt'] == 303
+    assert msg['speed'] == 42
+    assert msg['accuracy'] == 0
+    assert round(msg['lon'], 5) == -6.27884
+    assert round(msg['lat'], 5) == 58.144
+    assert msg['course'] == 154.5
+    assert msg['second'] == 15
+    assert msg['dte'] == 1
+    assert msg['radio'] == 33392
+
+
 def is_correct():
     test_msg_type_5()
     test_msg_type_8()
+    test_msg_type_9()
     assert MESSAGES[0].decode().content == {'type': 1, 'repeat': 0, 'mmsi': 366053209,
                                             'status': NavigationStatus.RestrictedManoeuverability, 'turn': 0,
                                             'speed': 0,

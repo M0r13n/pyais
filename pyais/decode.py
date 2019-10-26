@@ -152,8 +152,28 @@ def decode_msg_8(bit_arr):
     }
 
 
-def decode_msg_9(bit_vector):
-    pass
+def decode_msg_9(bit_arr):
+    """
+    Standard SAR Aircraft Position Report
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_9_standard_sar_aircraft_position_report
+    """
+    get_int_from_data = partial(get_int, bit_arr)
+    return {
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(6, 8),
+        'mmsi': get_int_from_data(8, 38),
+        'alt': get_int_from_data(38, 50),
+        'speed': get_int_from_data(50, 60),
+        'accuracy': bit_arr[60],
+        'lon': get_int_from_data(61, 89, signed=True) / 600000.0,
+        'lat': get_int_from_data(89, 116, signed=True) / 600000.0,
+        'course': get_int_from_data(116, 128) * 0.1,
+        'second': get_int_from_data(128, 134),
+        'dte': bit_arr[142],
+        'assigned': bit_arr[146],
+        'raim': bit_arr[147],
+        'radio': get_int_from_data(148, 168)
+    }
 
 
 def decode_msg_10(bit_vector):
