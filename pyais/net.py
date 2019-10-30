@@ -2,8 +2,6 @@ from socket import AF_INET, SOCK_STREAM, socket
 from .messages import NMEAMessage
 from typing import Iterable
 
-BUF_SIZE = 4096
-
 
 class Stream:
     """
@@ -14,13 +12,18 @@ class Stream:
     BUF_SIZE = 4096
 
     def __init__(self, host: str = 'ais.exploratorium.edu', port: int = 80):
-        self.sock = socket(AF_INET, SOCK_STREAM)
-        self.sock.connect((host, port))
+        try:
+            self.sock = socket(AF_INET, SOCK_STREAM)
+            self.sock.connect((host, port))
+        except ConnectionRefusedError as e:
+            raise ValueError(f"Failed to connect to {host}:{port}") from e
 
     def __enter__(self):
+        # Enables use of with statement
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        # Enables use of with statement
         self.sock.close()
 
     def __iter__(self):
@@ -56,7 +59,12 @@ class Stream:
     def _recv_bytes(self) -> Iterable[bytes]:
         partial = b''
         while True:
-            body = self.sock.recv(BUF_SIZE)
+            body = self.sock.recv(self.BUF_SIZE)
+
+            # Server closed connection
+            if not body:
+                return None
+
             lines = body.split(b'\r\n')
 
             line = partial + lines[0]

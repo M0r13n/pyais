@@ -35,5 +35,7 @@ def live_demo():
         print(msg.decode().content)
 
 
-time()
-live_demo()
+from pyais.net import Stream
+
+for msg in Stream("127.0.0.1", 55555):
+    print(msg.decode().content)
