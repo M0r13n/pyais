@@ -16,6 +16,7 @@ class Stream:
             self.sock = socket(AF_INET, SOCK_STREAM)
             self.sock.connect((host, port))
         except ConnectionRefusedError as e:
+            self.sock.close()
             raise ValueError(f"Failed to connect to {host}:{port}") from e
 
     def __enter__(self):

@@ -15,19 +15,21 @@ class MockSocket:
         self.messages = messages
         self.host = host
         self.port = port
+        self.sock = None
 
     def start_sending(self):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind((self.host, self.port))
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.bind((self.host, self.port))
         # wait for connection
-        s.listen()
-        conn, addr = s.accept()
+        self.sock.listen()
+        conn, addr = self.sock.accept()
         with conn:
+            # send messages
             for msg in self.messages:
                 conn.sendall(msg + b"\r\n")
-        conn.close()
-        s.close()
+            # wait for the client to close the connection
+        self.sock.close()
 
 
 def start_mock_server(messages, port):
@@ -47,7 +49,8 @@ class TestStream(unittest.TestCase):
             self.mock_server_thread.join()
 
     def test_default_buf_size(self):
-        assert Stream.BUF_SIZE == 4096
+        with Stream() as stream:
+            assert stream.BUF_SIZE == 4096
 
     def test_socket(self):
         messages = [
