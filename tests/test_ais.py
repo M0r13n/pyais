@@ -117,6 +117,52 @@ class TestAIS(unittest.TestCase):
         assert msg['dte'] == 1
         assert msg['radio'] == 33392
 
+    def test_msg_type_10(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,B,:5MlU41GMK6@,0*6C").decode()
+        assert msg['dest_mmsi'] == 366832740
+
+        msg = NMEAMessage(b"!AIVDM,1,1,,B,:6TMCD1GOS60,0*5B").decode()
+        assert msg['dest_mmsi'] == 366972000
+
+    def test_msg_type_11(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,B,;4R33:1uUK2F`q?mOt@@GoQ00000,0*5D").decode()
+        assert round(msg['lon'], 4) == -94.4077
+        assert round(msg['lat'], 4) == 28.4091
+        assert msg['accuracy'] == 1
+        assert msg['type'] == 11
+        assert msg['year'] == 2009
+        assert msg['month'] == 5
+        assert msg['day'] == 22
+        assert msg['hour'] == 2
+        assert msg['minute'] == 22
+        assert msg['second'] == 40
+
+    def test_msg_type_12(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,A,<5?SIj1;GbD07??4,0*38").decode()
+        assert msg['type'] == 12
+        assert msg['repeat'] == 0
+        assert msg['mmsi'] == 351853000
+        assert msg['seqno'] == 0
+        assert msg['dest_mmsi'] == 316123456
+        assert msg['retransmit'] == 0
+        assert msg['text'] == "GOOD"
+
+        msg = NMEAMessage(b"!AIVDM,1,1,,A,<42Lati0W:Ov=C7P6B?=Pjoihhjhqq0,2*2B").decode()
+        assert msg['type'] == 12
+        assert msg['repeat'] == 0
+        assert msg['mmsi'] == 271002099
+        assert msg['seqno'] == 0
+        assert msg['dest_mmsi'] == 271002111
+        assert msg['retransmit'] == 1
+        assert msg['text'] == "MSG FROM 271002099"
+
+    def test_msg_type_13(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,A,=39UOj0jFs9R,0*65").decode()
+        assert msg['type'] == 13
+        assert msg['repeat'] == 0
+        assert msg['mmsi'] == 211378120
+        assert msg['mmsi1'] == 211217560
+
     def test_msg_type_18(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,B52KlJP00=l4be5ItJ6r3wVUWP06,0*7C").decode()
         assert msg.content == {'type': 18, 'repeat': 0, 'mmsi': 338097258, 'speed': 0, 'accuracy': False,

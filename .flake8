@@ -1,0 +1,7 @@
+# Flake8 project configuration
+[flake8]
+ignore = E501
+show_source = True
+statistics = True
+count = True
+exclude = .git,__pycache__, venv

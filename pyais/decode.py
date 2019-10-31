@@ -176,20 +176,50 @@ def decode_msg_9(bit_arr):
     }
 
 
-def decode_msg_10(bit_vector):
-    pass
+def decode_msg_10(bit_arr):
+    """
+    UTC/Date Inquiry
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_10_utc_date_inquiry
+    """
+    get_int_from_data = partial(get_int, bit_arr)
+    return {
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(6, 8),
+        'mmsi': get_int_from_data(8, 38),
+        'dest_mmsi': get_int_from_data(40, 70)
+    }
 
 
-def decode_msg_11(bit_vector):
-    pass
+def decode_msg_11(bit_arr):
+    """
+    UTC/Date Response
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_11_utc_date_response
+    """
+    return decode_msg_4(bit_arr)
 
 
-def decode_msg_12(bit_vector):
-    pass
+def decode_msg_12(bit_arr):
+    """
+    Addressed Safety-Related Message
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_12_addressed_safety_related_message
+    """
+    get_int_from_data = partial(get_int, bit_arr)
+    return {
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(6, 8),
+        'mmsi': get_int_from_data(8, 38),
+        'seqno': get_int_from_data(38, 40),
+        'dest_mmsi': get_int_from_data(40, 70),
+        'retransmit': bit_arr[70],
+        'text': encode_bin_as_ascii6(bit_arr[72::])
+    }
 
 
-def decode_msg_13(bit_vector):
-    pass
+def decode_msg_13(bit_arr):
+    """
+    Identical to type 7
+    """
+    return decode_msg_7(bit_arr)
 
 
 def decode_msg_14(bit_vector):
