@@ -1,4 +1,5 @@
 from pyais.messages import NMEAMessage
+from pyais.net import Stream
 import timeit
 import random
 
@@ -29,13 +30,9 @@ def time():
 
 
 def live_demo():
-    from pyais.net import Stream
-
     for msg in Stream():
         print(msg.decode().content)
 
-
-from pyais.net import Stream
 
 for msg in Stream("127.0.0.1", 55555):
     print(msg.decode().content)

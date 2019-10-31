@@ -1,5 +1,5 @@
-from .constants import *
-from .util import *
+from pyais.constants import NavigationStatus, ManeuverIndicator, EpfdType, ShipType
+from pyais.util import get_int, encode_bin_as_ascii6
 from functools import partial
 
 

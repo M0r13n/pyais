@@ -1,5 +1,6 @@
-from pyais.decode import *
-from pyais.util import *
+from pyais.decode import decode
+from pyais.util import decode_into_bit_array, get_int
+from bitarray import bitarray
 from pyais.ais_types import AISType
 from functools import reduce
 from typing import Sequence

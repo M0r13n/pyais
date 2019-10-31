@@ -1,5 +1,5 @@
 from socket import AF_INET, SOCK_STREAM, socket
-from .messages import NMEAMessage
+from pyais.messages import NMEAMessage
 from typing import Iterable
 
 

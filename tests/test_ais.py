@@ -1,7 +1,7 @@
 import unittest
 from pyais.messages import NMEAMessage
-from pyais.ais_types import *
-from pyais.constants import *
+from pyais.ais_types import AISType
+from pyais.constants import ManeuverIndicator, NavigationStatus, ShipType
 from bitarray import bitarray
 
 

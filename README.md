@@ -38,14 +38,14 @@ Using the bitarray module:
 This module is a private project and does not claim to be complete.
 My primary focus is on readability and maintainability.
 
-# Tests
+# Tests + Flake8
 
 **Without Coverage**
-- `python -m unittest discover tests`
+- `python -m unittest discover tests && flake8`
 
 **With Coverage**
 - `pip install coverage`
-- `coverage run --source=pyais -m unittest discover tests && coverage report -m`
+- `coverage run --source=pyais -m unittest discover tests && coverage report -m && flake8`
 
 
 
