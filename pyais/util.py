@@ -62,7 +62,7 @@ def get_int(data: bitarray, ix_low, ix_high, signed=False) -> int:
     """
     Cast a subarray of a bitarray into an integer.
     The bitarray module adds tailing zeros when calling tobytes(), if the bitarray is not a multiple of 8.
-    So those need to ne shifted away.
+    So those need to be shifted away.
     :param data: some bitarray
     :param ix_low: the lower index of the sub-array
     :param ix_high: the upper index of the sub-array
