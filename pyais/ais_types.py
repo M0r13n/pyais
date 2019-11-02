@@ -30,3 +30,8 @@ class AISType(Enum):
     BINARY_SINGLE_SLOT = 25
     BINARY_MULTI_SLOT = 26
     LONG_RANGE_BROADCAST = 27
+    NOT_IMPLEMENTED = 0
+
+    @classmethod
+    def _missing_(cls, value):
+        return AISType.NOT_IMPLEMENTED

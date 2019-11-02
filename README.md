@@ -23,16 +23,14 @@ but rather a tuple of values. A simple, reduced example could look like this:
 
 # Performance Considerations
 You may refer to the [Code Review Stack Exchange question](https://codereview.stackexchange.com/questions/230258/decoding-of-binary-data-ais-from-socket).
+After a some research I decided to use the bitarray module as foundation.
+This module uses a C extension under the hood and has a nice user interface in Python.
+Performance is also great.
+Decoding this [sample](https://www.aishub.net/ais-dispatcher) with roughly 85k messages takes **less than 6 seconds** on my machine.
+For comparison, the C++ based [libais module](https://github.com/schwehr/libais) parses the same file in \~ 2 seconds. 
 
-Using native python strings and converting each substring into an integer:
-- Decoding #8000 messages takes ~ 0.90 seconds  
 
 
-Using bitstring's BitArray and slicing:
-- Decoding #8000 AIS messages takes ~ 2.5 seconds 
-
-Using the bitarray module:
-- Decoding #8000 AIS messages takes ~ 0.25 seconds 
 
 # Performance Considerations
 This module is a private project and does not claim to be complete.

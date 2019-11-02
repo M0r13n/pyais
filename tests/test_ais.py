@@ -8,6 +8,16 @@ from bitarray import bitarray
 class TestAIS(unittest.TestCase):
     """
     TestCases for AIS message decoding and assembling.
+
+    The Test messages are from multiple sources and are scrambled together.
+    Raw messages are decoded by either hand or some online decoder.
+    As my main source of AIS messages I used this dumb:
+    https://www.aishub.net/ais-dispatcher
+
+    As my main decoder I used this decoder:
+    http://ais.tbsalling.dk
+
+    The latter sometimes is a bit weird and therefore I used aislib to verify my results.
     """
 
     def test_nmea(self):
@@ -214,12 +224,13 @@ class TestAIS(unittest.TestCase):
         assert msg['lat'] == 35992
         assert msg['data'] == n
 
-        msg = NMEAMessage(b"!AIVDM,1,1,1,A,A;wUJKU>io;WlWuwH`W1PpnuN<isf;5iHtOM1S6q?vsvNrNGOqLcr5mfD6t,2*51").decode()
+        msg = NMEAMessage(b"!AIVDM,1,1,,A,A0476BQ>J8`<h2JpH:4P0?j@2mTEw8`=DP1DEnqvj0,0*79").decode()
         assert msg['type'] == 17
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == 804870766
-        assert msg['lon'] == 80669
-        assert msg['lat'] == -26818
+        assert msg['mmsi'] == 4310602
+        assert msg['lat'] == 20582
+        assert msg['lon'] == 80290
+        assert msg['data'] == 14486955885545814640451754168044205828166539334830080
 
     def test_msg_type_18(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,B52KlJP00=l4be5ItJ6r3wVUWP06,0*7C").decode()

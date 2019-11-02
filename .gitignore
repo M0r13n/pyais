@@ -2,6 +2,9 @@
 /venv/
 .idea/
 __pycache__/
-profiling_results
 *__/*
 /.coverage
+
+# Single files
+nmea-sample
+profiling_results

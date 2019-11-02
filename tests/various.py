@@ -1,6 +1,10 @@
+"""
+This are some debugging or performance methods and are not valid testcases.
+"""
 from pyais.messages import NMEAMessage
-from pyais.net import Stream
+from pyais.stream import TCPStream, FileReaderStream
 import timeit
+import time
 import random
 
 MESSAGES = [
@@ -19,7 +23,7 @@ MESSAGES = [
 ]
 
 
-def time():
+def performance():
     def test():
         MESSAGES[random.randint(0, 8)].decode()
 
@@ -29,10 +33,19 @@ def time():
         print(f"Decoding #{iterations} takes {elapsed_time} seconds in run #{i}")
 
 
+def large_file_test():
+    # The ais sample data is downloaded from https://www.aishub.net/ais-dispatcher
+    start = time.time()
+    ll = [msg.decode().content for msg in FileReaderStream("nmea-sample")]
+    end = time.time()
+
+    print(f"Decoding {len(ll)} messages took {end - start} seconds")
+    print(ll[:100])
+
+
 def live_demo():
-    for msg in Stream():
+    for msg in TCPStream():
         print(msg.decode().content)
 
 
-for msg in Stream("127.0.0.1", 55555):
-    print(msg.decode().content)
+large_file_test()

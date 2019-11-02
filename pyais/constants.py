@@ -31,6 +31,10 @@ class ManeuverIndicator(IntEnum):
     NoSpecialManeuver = 1
     SpecialManeuver = 2
 
+    @classmethod
+    def _missing_(cls, value):
+        return ManeuverIndicator.NotAvailable
+
 
 class EpfdType(IntEnum):
     Undefined = 0

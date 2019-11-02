@@ -1,9 +1,8 @@
 import unittest
 from pyais.messages import NMEAMessage
-from pyais.net import Stream
+from pyais.stream import TCPStream, FileReaderStream
 import socket
 import threading
-import time
 
 
 class MockSocket:
@@ -37,7 +36,7 @@ def start_mock_server(messages, port):
     mock.start_sending()
 
 
-class TestStream(unittest.TestCase):
+class TestTCPStream(unittest.TestCase):
     def setUp(self) -> None:
         self.mock_server_thread = None
 
@@ -49,7 +48,7 @@ class TestStream(unittest.TestCase):
             self.mock_server_thread.join()
 
     def test_default_buf_size(self):
-        with Stream() as stream:
+        with TCPStream() as stream:
             assert stream.BUF_SIZE == 4096
 
     def test_socket(self):
@@ -61,9 +60,8 @@ class TestStream(unittest.TestCase):
         self.mock_server_thread = threading.Thread(target=start_mock_server, args=(messages, 12345))
         self.mock_server_thread.start()
 
-        time.sleep(1)
-        with Stream("127.0.0.1", 12345) as stream:
-            received = list(stream._recv_bytes())
+        with TCPStream("127.0.0.1", 12345) as stream:
+            received = list(stream._iter_messages())
 
         assert received == messages
 
@@ -80,8 +78,7 @@ class TestStream(unittest.TestCase):
         self.mock_server_thread = threading.Thread(target=start_mock_server, args=(messages, 12346))
         self.mock_server_thread.start()
 
-        time.sleep(1)
-        with Stream("127.0.0.1", 12346) as stream:
+        with TCPStream("127.0.0.1", 12346) as stream:
             received = list(stream)
 
         assert len(received) == 3
@@ -91,4 +88,20 @@ class TestStream(unittest.TestCase):
 
     def test_invalid_endpoint(self):
         with self.assertRaises(ValueError):
-            Stream("127.0.0.1", 55555)
+            TCPStream("127.0.0.1", 55555)
+
+
+class TestFileReaderStream(unittest.TestCase):
+
+    def test_reader(self):
+        filename = "tests/ais_test_messages"
+        messages = [msg for msg in FileReaderStream(filename)]
+        assert len(messages) == 6
+        for msg in messages:
+            assert type(msg) == NMEAMessage
+            assert msg.is_valid
+            assert msg.decode().content is not None
+
+    def test_invalid_filename(self):
+        with self.assertRaises(ValueError):
+            FileReaderStream("does not exist")
