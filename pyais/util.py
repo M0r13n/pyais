@@ -42,6 +42,10 @@ def encode_bin_as_ascii6(bit_arr: bitarray) -> str:
     for c in chunks(bit_arr, 6):
         n = from_bytes(c) >> 2
 
+        # Zeros are invalid, but we are gentle and just skip em
+        if n == 0:
+            continue
+
         # Last entry may not have 6 bits
         if len(c) != 6:
             n >> (6 - len(c))
@@ -52,7 +56,6 @@ def encode_bin_as_ascii6(bit_arr: bitarray) -> str:
         # Break if there is an @
         if n == 64:
             break
-
         string += chr(n)
 
     return string.strip()

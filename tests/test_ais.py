@@ -163,6 +163,64 @@ class TestAIS(unittest.TestCase):
         assert msg['mmsi'] == 211378120
         assert msg['mmsi1'] == 211217560
 
+    def test_msg_type_14(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,A,>5?Per18=HB1U:1@E=B0m<L,2*51").decode()
+        assert msg['type'] == 14
+        assert msg['repeat'] == 0
+        assert msg['mmsi'] == 351809000
+        assert msg['text'] == "RCVD YR TEST MSG"
+
+    def test_msg_type_15(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,A,?5OP=l00052HD00,2*5B").decode()
+        assert msg['type'] == 15
+        assert msg['repeat'] == 0
+        assert msg['mmsi'] == 368578000
+        assert msg['offset1_1'] == 0
+
+        msg = NMEAMessage(b"!AIVDM,1,1,,B,?h3Ovn1GP<K0<P@59a0,2*04").decode()
+        assert msg['type'] == 15
+        assert msg['repeat'] == 3
+        assert msg['mmsi'] == 3669720
+        assert msg['mmsi1'] == 367014320
+        assert msg['type1_1'] == 3
+
+        assert msg['mmsi2'] == 0
+        assert msg['type1_2'] == 5
+        assert msg['offset1_2'] == 617
+
+    def test_msg_type_16(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,A,@01uEO@mMk7P<P00,0*18").decode()
+        assert msg['type'] == 16
+        assert msg['repeat'] == 0
+        assert msg['mmsi'] == 2053501
+        assert msg['mmsi1'] == 224251000
+        assert msg['offset1'] == 200
+        assert msg['increment1'] == 0
+
+        assert msg['mmsi2'] == 0
+        assert msg['offset2'] == 0
+        assert msg['increment1'] == 0
+
+    def test_msg_type_17(self):
+        msg = NMEAMessage.assemble_from_iterable(messages=[
+            NMEAMessage(b"!AIVDM,2,1,5,A,A02VqLPA4I6C07h5Ed1h<OrsuBTTwS?r:C?w`?la<gno1RTRwSP9:BcurA8a,0*3A"),
+            NMEAMessage(b"!AIVDM,2,2,5,A,:Oko02TSwu8<:Jbb,0*11")
+        ]).decode()
+        n = 0x7c0556c07031febbf52924fe33fa2933ffa0fd2932fdb7062922fe3809292afde9122929fcf7002923ffd20c29aaaa
+        assert msg['type'] == 17
+        assert msg['repeat'] == 0
+        assert msg['mmsi'] == 2734450
+        assert msg['lon'] == 17478
+        assert msg['lat'] == 35992
+        assert msg['data'] == n
+
+        msg = NMEAMessage(b"!AIVDM,1,1,1,A,A;wUJKU>io;WlWuwH`W1PpnuN<isf;5iHtOM1S6q?vsvNrNGOqLcr5mfD6t,2*51").decode()
+        assert msg['type'] == 17
+        assert msg['repeat'] == 0
+        assert msg['mmsi'] == 804870766
+        assert msg['lon'] == 80669
+        assert msg['lat'] == -26818
+
     def test_msg_type_18(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,B52KlJP00=l4be5ItJ6r3wVUWP06,0*7C").decode()
         assert msg.content == {'type': 18, 'repeat': 0, 'mmsi': 338097258, 'speed': 0, 'accuracy': False,

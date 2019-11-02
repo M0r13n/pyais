@@ -211,7 +211,7 @@ def decode_msg_12(bit_arr):
         'seqno': get_int_from_data(38, 40),
         'dest_mmsi': get_int_from_data(40, 70),
         'retransmit': bit_arr[70],
-        'text': encode_bin_as_ascii6(bit_arr[72::])
+        'text': encode_bin_as_ascii6(bit_arr[72:])
     }
 
 
@@ -222,20 +222,74 @@ def decode_msg_13(bit_arr):
     return decode_msg_7(bit_arr)
 
 
-def decode_msg_14(bit_vector):
-    pass
+def decode_msg_14(bit_arr):
+    """
+    Safety-Related Broadcast Message
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_14_safety_related_broadcast_message
+    """
+    get_int_from_data = partial(get_int, bit_arr)
+    return {
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(6, 8),
+        'mmsi': get_int_from_data(8, 38),
+        'text': encode_bin_as_ascii6(bit_arr[40:])
+    }
 
 
-def decode_msg_15(bit_vector):
-    pass
+def decode_msg_15(bit_arr):
+    """
+    Interrogation
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_15_interrogation
+    """
+    get_int_from_data = partial(get_int, bit_arr)
+    return {
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(6, 8),
+        'mmsi': get_int_from_data(8, 38),
+        'mmsi1': get_int_from_data(40, 70),
+        'type1_1': get_int_from_data(70, 76),
+        'offset1_1': get_int_from_data(76, 88),
+        'type1_2': get_int_from_data(90, 96),
+        'offset1_2': get_int_from_data(96, 108),
+        'mmsi2': get_int_from_data(110, 140),
+        'type2_1': get_int_from_data(140, 146),
+        'offset2_1': get_int_from_data(146, 157),
+    }
 
 
-def decode_msg_16(bit_vector):
-    pass
+def decode_msg_16(bit_arr):
+    """
+    Assignment Mode Command
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_16_assignment_mode_command
+    """
+    get_int_from_data = partial(get_int, bit_arr)
+    return {
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(6, 8),
+        'mmsi': get_int_from_data(8, 38),
+        'mmsi1': get_int_from_data(40, 70),
+        'offset1': get_int_from_data(70, 82),
+        'increment1': get_int_from_data(82, 92),
+        'mmsi2': get_int_from_data(92, 122),
+        'offset2': get_int_from_data(122, 134),
+        'increment2': get_int_from_data(134, 144)
+    }
 
 
-def decode_msg_17(bit_vector):
-    pass
+def decode_msg_17(bit_arr):
+    """
+    DGNSS Broadcast Binary Message
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_17_dgnss_broadcast_binary_message
+    """
+    get_int_from_data = partial(get_int, bit_arr)
+    return {
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(6, 8),
+        'mmsi': get_int_from_data(8, 38),
+        'lon': get_int_from_data(40, 58, signed=True),
+        'lat': get_int_from_data(58, 75, signed=True),
+        'data': get_int_from_data(80, 816)
+    }
 
 
 def decode_msg_18(bit_arr):
