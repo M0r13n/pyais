@@ -1,6 +1,6 @@
 import unittest
 from pyais.messages import NMEAMessage
-from pyais.stream import TCPStream, FileReaderStream
+from pyais.stream import TCPStream
 import socket
 import threading
 
@@ -27,7 +27,6 @@ class MockSocket:
             # send messages
             for msg in self.messages:
                 conn.sendall(msg + b"\r\n")
-            # wait for the client to close the connection
         self.sock.close()
 
 
@@ -89,19 +88,3 @@ class TestTCPStream(unittest.TestCase):
     def test_invalid_endpoint(self):
         with self.assertRaises(ValueError):
             TCPStream("127.0.0.1", 55555)
-
-
-class TestFileReaderStream(unittest.TestCase):
-
-    def test_reader(self):
-        filename = "tests/ais_test_messages"
-        messages = [msg for msg in FileReaderStream(filename)]
-        assert len(messages) == 6
-        for msg in messages:
-            assert type(msg) == NMEAMessage
-            assert msg.is_valid
-            assert msg.decode().content is not None
-
-    def test_invalid_filename(self):
-        with self.assertRaises(ValueError):
-            FileReaderStream("does not exist")

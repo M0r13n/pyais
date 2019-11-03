@@ -77,10 +77,11 @@ class TCPStream(Stream):
     BUF_SIZE = 4096
 
     def __init__(self, host: str = 'ais.exploratorium.edu', port: int = 80):
+        self.sock = socket(AF_INET, SOCK_STREAM)
         try:
-            self.sock = socket(AF_INET, SOCK_STREAM)
             self.sock.connect((host, port))
         except ConnectionRefusedError as e:
+            self.sock.close()
             raise ValueError(f"Failed to connect to {host}:{port}") from e
 
     def __exit__(self, exc_type, exc_val, exc_tb):
