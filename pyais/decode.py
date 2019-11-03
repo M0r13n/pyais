@@ -420,15 +420,15 @@ def decode_msg_21(bit_arr):
 
 
 def decode_msg_22(bit_arr):
-    get_int_from_data = partial(get_int, bit_arr)
+    pass
 
 
 def decode_msg_23(bit_arr):
-    get_int_from_data = partial(get_int, bit_arr)
+    pass
 
 
 def decode_msg_24(bit_arr):
-    get_int_from_data = partial(get_int, bit_arr)
+    pass
 
 
 # Decoding Lookup Table
