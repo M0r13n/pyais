@@ -1,5 +1,5 @@
 # pyais
-
+[![codecov](https://codecov.io/gh/M0r13n/pyais/branch/master/graph/badge.svg)](https://codecov.io/gh/M0r13n/pyais)
 AIS message decoding in Python.
 
 # General
