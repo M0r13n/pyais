@@ -1,4 +1,4 @@
-from pyais.constants import NavigationStatus, ManeuverIndicator, EpfdType, ShipType
+from pyais.constants import NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid
 from pyais.util import get_int, encode_bin_as_ascii6
 from functools import partial
 
@@ -302,9 +302,9 @@ def decode_msg_18(bit_arr):
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(8, 8),
         'mmsi': get_int_from_data(8, 38),
-        'speed': get_int_from_data(46, 55),
-        'accuracy': bit_arr[55],
-        'lon': get_int_from_data(56, 85, signed=True) / 600000.0,
+        'speed': get_int_from_data(46, 56) * 0.1,
+        'accuracy': bit_arr[56],
+        'lon': get_int_from_data(57, 85, signed=True) / 600000.0,
         'lat': get_int_from_data(85, 112, signed=True) / 600000.0,
         'course': get_int_from_data(112, 124) * 0.1,
         'heading': get_int_from_data(124, 133),
@@ -321,28 +321,114 @@ def decode_msg_18(bit_arr):
     }
 
 
-def decode_msg_19(bit_vector):
-    pass
+def decode_msg_19(bit_arr):
+    """
+    Extended Class B CS Position Report
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_19_extended_class_b_cs_position_report
+    """
+    get_int_from_data = partial(get_int, bit_arr)
+    return {
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(8, 8),
+        'mmsi': get_int_from_data(8, 38),
+        'speed': get_int_from_data(46, 56) * 0.1,
+        'accuracy': bit_arr[56],
+        'lon': get_int_from_data(57, 85, signed=True) / 600000.0,
+        'lat': get_int_from_data(85, 112, signed=True) / 600000.0,
+        'course': get_int_from_data(112, 124) * 0.1,
+        'heading': get_int_from_data(124, 133),
+        'second': get_int_from_data(133, 139),
+        'regional': get_int_from_data(139, 143),
+        'shipname': encode_bin_as_ascii6(bit_arr[143:263]),
+        'shiptype': ShipType(get_int_from_data(263, 271)),
+        'to_bow': get_int_from_data(271, 280),
+        'to_stern': get_int_from_data(280, 289),
+        'to_port': get_int_from_data(289, 295),
+        'to_starboard': get_int_from_data(295, 301),
+        'epfd': EpfdType(get_int_from_data(301, 305)),
+        'raim': bit_arr[305],
+        'dte': bit_arr[306],
+        'assigned': bit_arr[307],
+    }
 
 
-def decode_msg_20(bit_vector):
-    pass
+def decode_msg_20(bit_arr):
+    """
+    Data Link Management Message
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_20_data_link_management_message
+    """
+    get_int_from_data = partial(get_int, bit_arr)
+    return {
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(8, 8),
+        'mmsi': get_int_from_data(8, 38),
+
+        'offset1': get_int_from_data(40, 52),
+        'number1': get_int_from_data(52, 56),
+        'timeout1': get_int_from_data(56, 59),
+        'increment1': get_int_from_data(59, 70),
+
+        'offset2': get_int_from_data(70, 82),
+        'number2': get_int_from_data(82, 86),
+        'timeout2': get_int_from_data(86, 89),
+        'increment2': get_int_from_data(89, 100),
+
+        'offset3': get_int_from_data(100, 112),
+        'number3': get_int_from_data(112, 116),
+        'timeout3': get_int_from_data(116, 119),
+        'increment3': get_int_from_data(110, 130),
+
+        'offset4': get_int_from_data(130, 142),
+        'number4': get_int_from_data(142, 146),
+        'timeout4': get_int_from_data(146, 149),
+        'increment4': get_int_from_data(149, 160),
+    }
 
 
-def decode_msg_21(bit_vector):
-    pass
+def decode_msg_21(bit_arr):
+    """
+    Aid-to-Navigation Report
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_21_aid_to_navigation_report
+    """
+    get_int_from_data = partial(get_int, bit_arr)
+    return {
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(8, 8),
+        'mmsi': get_int_from_data(8, 38),
+
+        'aid_type': NavAid(get_int_from_data(38, 43)),
+        'name': encode_bin_as_ascii6(bit_arr[43:163]),
+        'accuracy': bit_arr[163],
+
+        'lon': get_int_from_data(164, 192, signed=True) / 600000.0,
+        'lat': get_int_from_data(192, 219, signed=True) / 600000.0,
+
+        'to_bow': get_int_from_data(219, 228),
+        'to_stern': get_int_from_data(228, 237),
+        'to_port': get_int_from_data(237, 243),
+        'to_starboard': get_int_from_data(243, 249),
+
+        'epfd': EpfdType(get_int_from_data(249, 253)),
+        'second': get_int_from_data(253, 259),
+        'off_position': bit_arr[259],
+        'regional': get_int_from_data(260, 268),
+        'raim': bit_arr[268],
+        'virtual_aid': bit_arr[269],
+        'assigned': bit_arr[270],
+        'name_extension': encode_bin_as_ascii6(bit_arr[272:]),
+    }
 
 
-def decode_msg_22(bit_vector):
-    pass
+def decode_msg_22(bit_arr):
+    get_int_from_data = partial(get_int, bit_arr)
 
 
-def decode_msg_23(bit_vector):
-    pass
+def decode_msg_23(bit_arr):
+    get_int_from_data = partial(get_int, bit_arr)
 
 
-def decode_msg_24(bit_vector):
-    pass
+def decode_msg_24(bit_arr):
+    get_int_from_data = partial(get_int, bit_arr)
 
 
 # Decoding Lookup Table

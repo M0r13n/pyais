@@ -48,4 +48,7 @@ def live_demo():
         print(msg.decode().content)
 
 
-large_file_test()
+for msg in FileReaderStream("nmea-sample"):
+    cont = msg.decode().content
+    if cont and cont['type'] >= 21:
+        print(cont['type'], msg.raw)
