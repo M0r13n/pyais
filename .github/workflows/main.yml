@@ -27,8 +27,8 @@ jobs:
         run: coverage run --source=pyais -m unittest discover tests -v && coverage report -m
 
       - name: Upload coverage to Codecov
-          uses: codecov/codecov-action@v1.0.3
-          with:
+        uses: codecov/codecov-action@v1.0.3
+        with:
             token: ${{secrets.CODECOV_TOKEN}}
             file: ./coverage
             flags: unittests
