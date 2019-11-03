@@ -31,8 +31,6 @@ jobs:
         with:
             token: ${{secrets.CODECOV_TOKEN}}
             file: .coverage
-            flags: unittests
-            name: codecov-umbrella
 
       - name: Run Flake8
         run: flake8
