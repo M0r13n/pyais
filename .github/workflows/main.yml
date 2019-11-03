@@ -23,14 +23,14 @@ jobs:
       - name: Install requirements
         run: pip install -r requirements.txt && pip install coverage flake8
 
-      - name: Run tests with coverage
-        run: coverage run --source=pyais -m unittest discover tests -v && coverage report -m
+      - name: Run tests with coverage and create report as xml file
+        run: coverage run --source=pyais -m unittest discover tests -v && coverage xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1.0.3
         with:
             token: ${{secrets.CODECOV_TOKEN}}
-            file: .coverage
+            file: coverage.xml
 
       - name: Run Flake8
         run: flake8

@@ -8,3 +8,4 @@ __pycache__/
 # Single files
 nmea-sample
 profiling_results
+/coverage.xml
