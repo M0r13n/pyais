@@ -13,16 +13,26 @@ jobs:
         os: ['ubuntu-latest']
     steps:
       - uses: actions/checkout@master
+        -
       - name: Setup python
         uses: actions/setup-python@v1
         with:
           python-version: ${{ matrix.python }}
           architecture: x64
-      - name: Pip install
+
+      - name: Install requirements
         run: pip install -r requirements.txt && pip install coverage flake8
 
       - name: Run tests with coverage
         run: coverage run --source=pyais -m unittest discover tests -v && coverage report -m
+
+      - name: Upload coverage to Codecov
+          uses: codecov/codecov-action@v1.0.3
+          with:
+            token: ${{secrets.CODECOV_TOKEN}}
+            file: ./coverage
+            flags: unittests
+            name: codecov-umbrella
 
       - name: Run Flake8
         run: flake8
