@@ -16,6 +16,5 @@ class TestFileReaderStream(unittest.TestCase):
             assert msg.decode().content is not None
 
     def test_invalid_filename(self):
-        return True
         with self.assertRaises(ValueError):
             FileReaderStream("does not exist")
