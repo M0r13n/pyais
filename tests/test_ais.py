@@ -305,3 +305,20 @@ class TestAIS(unittest.TestCase):
         assert msg['virtual_aid'] == 0
         assert msg['assigned'] == 0
         assert msg['name_extension'] == ""
+
+    def test_msg_type_22(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,B,F030p:j2N2P5aJR0r;6f3rj10000,0*11").decode()
+        assert msg['type'] == 22
+        assert msg['mmsi'] == 3160107
+        assert msg['channel_a'] == 2087
+        assert msg['channel_b'] == 2088
+        assert msg['power'] == 0
+
+        assert msg['ne_lon'] == -7710.0
+        assert msg['ne_lat'] == 3300.0
+        assert msg['sw_lon'] == -8020.0
+        assert msg['sw_lat'] == 3210
+
+        assert msg['band_a'] == 0
+        assert msg['band_b'] == 0
+        assert msg['zonesize'] == 2

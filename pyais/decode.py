@@ -420,7 +420,34 @@ def decode_msg_21(bit_arr):
 
 
 def decode_msg_22(bit_arr):
-    pass
+    """
+    Channel Management
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_22_channel_management
+    """
+    get_int_from_data = partial(get_int, bit_arr)
+    return {
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(8, 8),
+        'mmsi': get_int_from_data(8, 38),
+
+        'channel_a': get_int_from_data(40, 52),
+        'channel_b': get_int_from_data(52, 64),
+        'txrx': get_int_from_data(64, 68),
+        'power': bit_arr[68],
+
+        'ne_lon': get_int_from_data(69, 87, signed=True) * 0.1,
+        'ne_lat': get_int_from_data(87, 104, signed=True) * 0.1,
+        'sw_lon': get_int_from_data(104, 122, signed=True) * 0.1,
+        'sw_lat': get_int_from_data(122, 139, signed=True) * 0.1,
+
+        'dest1': get_int_from_data(69, 99),
+        'dest2': get_int_from_data(104, 134),
+        'addressed': bit_arr[139],
+        'band_a': bit_arr[140],
+        'band_b': bit_arr[141],
+        'zonesize': get_int_from_data(142, 145),
+
+    }
 
 
 def decode_msg_23(bit_arr):
