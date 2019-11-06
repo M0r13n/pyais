@@ -31,6 +31,12 @@ class TestNMEA(unittest.TestCase):
         assert NMEAMessage(single).is_single
         assert not NMEAMessage(single).is_multi
 
+    def test_from_str(self):
+        old = NMEAMessage(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C").decode().content
+        new = NMEAMessage.from_string("!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C").decode().content
+
+        assert old == new
+
     def test_message_assembling(self):
         multi = NMEAMessage.assemble_from_iterable(messages=[
             NMEAMessage(b"!AIVDM,2,1,4,A,55O0W7`00001L@gCWGA2uItLth@DqtL5@F22220j1h742t0Ht0000000,0*08"),

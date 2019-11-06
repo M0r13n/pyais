@@ -79,6 +79,10 @@ class NMEAMessage(object):
         return str(self.raw)
 
     @classmethod
+    def from_string(cls, nmea_str: str):
+        return cls(str.encode(nmea_str))
+
+    @classmethod
     def assemble_from_iterable(cls, messages: Sequence):
         """
         Assemble a multiline message from a sequence of NMEA messages.

@@ -30,10 +30,11 @@ class ManeuverIndicator(IntEnum):
     NotAvailable = 0
     NoSpecialManeuver = 1
     SpecialManeuver = 2
+    UNDEFINED = 3
 
     @classmethod
     def _missing_(cls, value):
-        return ManeuverIndicator.NotAvailable
+        return ManeuverIndicator.UNDEFINED
 
 
 class EpfdType(IntEnum):
@@ -85,7 +86,7 @@ class ShipType(IntEnum):
     PortTender = 53
     AntiPollutionEquipment = 54
     LawEnforcement = 55
-    Spare_LocalVessel = 56
+    SPARE = 56
     MedicalTransport = 58
     NonCombatShip = 59
     # 60's
@@ -130,7 +131,7 @@ class ShipType(IntEnum):
             return ShipType.HSC_Reserved
 
         if 55 < value < 58:
-            return ShipType.Spare
+            return ShipType.SPARE
 
         if 64 < value < 69:
             return ShipType.Passenger_Reserved
