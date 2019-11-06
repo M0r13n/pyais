@@ -1,4 +1,13 @@
-from pyais.constants import NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid
+from pyais.constants import (
+    NavigationStatus,
+    ManeuverIndicator,
+    TransmitMode,
+    EpfdType,
+    ShipType,
+    StationType,
+    StationIntervals,
+    NavAid
+)
 from pyais.util import get_int, encode_bin_as_ascii6
 from functools import partial
 
@@ -451,11 +460,62 @@ def decode_msg_22(bit_arr):
 
 
 def decode_msg_23(bit_arr):
-    pass
+    """
+    Group Assignment Command
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_23_group_assignment_command
+    """
+    get_int_from_data = partial(get_int, bit_arr)
+    return {
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(8, 8),
+        'mmsi': get_int_from_data(8, 38),
+
+        'ne_lon': get_int_from_data(40, 58, signed=True) * 0.1,
+        'ne_lat': get_int_from_data(58, 75, signed=True) * 0.1,
+        'sw_lon': get_int_from_data(75, 93, signed=True) * 0.1,
+        'sw_lat': get_int_from_data(93, 110, signed=True) * 0.1,
+
+        'station_type': StationType(get_int_from_data(110, 114)),
+        'ship_type': ShipType(get_int_from_data(114, 122)),
+        'txrx': TransmitMode(get_int_from_data(144, 146)),
+        'interval': StationIntervals(get_int_from_data(146, 150)),
+        'quiet': get_int_from_data(150, 154),
+    }
 
 
 def decode_msg_24(bit_arr):
-    pass
+    """
+    Static Data Report
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_24_static_data_report
+    """
+    get_int_from_data = partial(get_int, bit_arr)
+    data = {
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(8, 8),
+        'mmsi': get_int_from_data(8, 38),
+        'partno': get_int_from_data(38, 40)
+    }
+    # Part A
+    if len(bit_arr) == 160:
+        d = {
+            'shipname': encode_bin_as_ascii6(bit_arr[40: 160])
+        }
+    # Part B
+    else:
+        d = {
+            'shiptype': ShipType(get_int_from_data(40, 48)),
+            'vendorid': encode_bin_as_ascii6(bit_arr[48: 66]),
+            'model': get_int_from_data(66, 70),
+            'serial': get_int_from_data(70, 90),
+            'callsign': encode_bin_as_ascii6(bit_arr[90: 132]),
+            'to_bow': get_int_from_data(132, 141),
+            'to_stern': get_int_from_data(141, 150),
+            'to_port': get_int_from_data(150, 156),
+            'to_starboard': get_int_from_data(156, 162),
+            'mothership_mmsi': get_int_from_data(132, 162)
+        }
+    data.update(d)
+    return data
 
 
 # Decoding Lookup Table

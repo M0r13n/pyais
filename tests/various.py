@@ -50,5 +50,5 @@ def live_demo():
 
 for msg in FileReaderStream("nmea-sample"):
     cont = msg.decode().content
-    if cont and cont['type'] >= 22:
+    if cont and cont['type'] >= 23:
         print(cont['type'], msg.raw, cont)

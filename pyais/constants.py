@@ -200,3 +200,51 @@ class NavAid(IntEnum):
     @classmethod
     def _missing_(cls, value):
         return NavAid.DEFAULT
+
+
+class TransmitMode(IntEnum):
+    TXA_TXB_RXA_RXB = 0  # default
+    TXA_RXA_RXB = 1
+    TXB_RXA_RXB = 2
+    RESERVED = 3
+
+    @classmethod
+    def _missing_(cls, value):
+        return TransmitMode.TXA_TXB_RXA_RXB
+
+
+class StationType(IntEnum):
+    ALL = 0
+    RESERVED = 1
+    CLASS_B_ALL = 2
+    SAR_AIRBORNE = 3
+    AID_NAV = 4
+    CLASS_B_SHIPBORNE = 5
+    REGIONAL = 6
+
+    @classmethod
+    def _missing_(cls, value):
+        if 6 <= value <= 9:
+            return StationType.REGIONAL
+        if 10 <= value <= 15:
+            return StationType.RESERVED
+        return StationType.ALL
+
+
+class StationIntervals(IntEnum):
+    AUTONOMOUS_MODE = 0
+    MINUTES_10 = 1
+    MINUTES_6 = 2
+    MINUTES_3 = 3
+    MINUTES_1 = 4
+    SECONDS_30 = 5
+    SECONDS_15 = 6
+    SECONDS_10 = 7
+    SECONDS_5 = 8
+    NEXT_SHORT_REPORTER_INTERVAL = 9
+    NEXT_LONGER_REPORTING_INTERVAL = 10
+    RESERVED = 11
+
+    @classmethod
+    def _missing_(cls, value):
+        return StationIntervals.RESERVED

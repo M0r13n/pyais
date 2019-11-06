@@ -1,5 +1,6 @@
 import unittest
-from pyais.constants import NavigationStatus, ManeuverIndicator, ShipType, NavAid
+from pyais.constants import NavigationStatus, ManeuverIndicator, ShipType, NavAid, TransmitMode, StationIntervals, \
+    StationType
 
 
 class TestConstants(unittest.TestCase):
@@ -27,3 +28,19 @@ class TestConstants(unittest.TestCase):
     def test_navaid(self):
         self.assertEqual(NavAid(23), NavAid.CARDINAL_MARK_W)
         self.assertEqual(NavAid(32), NavAid.DEFAULT)
+
+    def test_t_mode(self):
+        self.assertEqual(TransmitMode(0), TransmitMode.TXA_TXB_RXA_RXB)
+        self.assertEqual(TransmitMode(10), TransmitMode.TXA_TXB_RXA_RXB)
+
+    def test_station_types(self):
+        self.assertEqual(StationType(0), StationType.ALL)
+        self.assertEqual(StationType(11), StationType.RESERVED)
+        self.assertEqual(StationType(7), StationType.REGIONAL)
+        self.assertEqual(StationType(16), StationType.ALL)
+
+    def test_station_intervals(self):
+        self.assertEqual(StationIntervals(0), StationIntervals.AUTONOMOUS_MODE)
+        self.assertEqual(StationIntervals(11), StationIntervals.RESERVED)
+        self.assertEqual(StationIntervals(7), StationIntervals.SECONDS_10)
+        self.assertEqual(StationIntervals(12), StationIntervals.RESERVED)

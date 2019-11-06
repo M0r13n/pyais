@@ -322,3 +322,27 @@ class TestAIS(unittest.TestCase):
         assert msg['band_a'] == 0
         assert msg['band_b'] == 0
         assert msg['zonesize'] == 2
+
+    def test_msg_type_23(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,B,G02:Kn01R`sn@291nj600000900,2*12").decode()
+        assert msg['type'] == 23
+        assert msg['mmsi'] == 2268120
+        assert msg['ne_lon'] == 157.8
+        assert round(msg['ne_lat'], 1) == 3064.2
+        assert round(msg['sw_lon'], 1) == 109.6
+        assert round(msg['sw_lat'], 1) == 3040.8
+
+    def test_msg_type_24(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,A,H52KMeDU653hhhi0000000000000,0*1A").decode()
+        assert msg['type'] == 24
+        assert msg['mmsi'] == 338091445
+        assert msg['partno'] == 1
+        assert msg['shipname'] is None
+        assert msg['shiptype'] == ShipType.PleasureCraft
+        assert msg['vendorid'] == "FEC"
+        assert msg['callsign'] == ""
+        assert msg['to_bow'] == 0
+        assert msg['to_stern'] == 0
+        assert msg['to_port'] == 0
+        assert msg['to_starboard'] == 0
+        assert msg['mothership_mmsi'] == 0
