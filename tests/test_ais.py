@@ -1,7 +1,7 @@
 import unittest
 from pyais.messages import NMEAMessage
 from pyais.ais_types import AISType
-from pyais.constants import ManeuverIndicator, NavigationStatus, ShipType, NavAid
+from pyais.constants import ManeuverIndicator, NavigationStatus, ShipType, NavAid, EpfdType
 from bitarray import bitarray
 
 
@@ -61,6 +61,39 @@ class TestAIS(unittest.TestCase):
                                'second': 59, 'maneuver': ManeuverIndicator.NotAvailable, 'raim': False,
                                'radio': 2281}
 
+        msg = NMEAMessage(b"!AIVDM,1,1,,A,15NPOOPP00o?b=bE`UNv4?w428D;,0*24").decode()
+        assert msg['type'] == 1
+        assert msg['mmsi'] == 367533950
+        assert msg['repeat'] == 0
+        assert msg['status'] == NavigationStatus.UnderWayUsingEngine
+        assert msg['turn'] == -128
+        assert msg['speed'] == 0
+        assert msg['accuracy'] == 1
+        assert round(msg['lat'], 4) == 37.8084
+        assert round(msg['lon'], 4) == -122.4082
+        assert msg['course'] == 360
+        assert msg['heading'] == 511
+        assert msg['second'] == 34
+        assert msg['maneuver'] == ManeuverIndicator.NotAvailable
+        assert msg['raim']
+
+    def test_msg_type_3(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,A,35NSH95001G?wopE`beasVk@0E5:,0*6F").decode()
+        assert msg['type'] == 3
+        assert msg['mmsi'] == 367581220
+        assert msg['repeat'] == 0
+        assert msg['status'] == NavigationStatus.Moored
+        assert msg['turn'] == 0
+        assert msg['speed'] == 0.1
+        assert msg['accuracy'] == 0
+        assert round(msg['lat'], 4) == 37.8107
+        assert round(msg['lon'], 4) == -122.3343
+        assert round(msg['course'], 1) == 254.2
+        assert msg['heading'] == 217
+        assert msg['second'] == 40
+        assert msg['maneuver'] == ManeuverIndicator.NotAvailable
+        assert not msg['raim']
+
     def test_msg_type_4(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,403OviQuMGCqWrRO9>E6fE700@GO,0*4D").decode()
         assert round(msg['lon'], 4) == -76.3524
@@ -71,6 +104,17 @@ class TestAIS(unittest.TestCase):
         assert msg['day'] == 14
         assert msg['minute'] == 57
         assert msg['second'] == 39
+
+        msg = NMEAMessage(b"!AIVDM,1,1,,B,403OtVAv>lba;o?Ia`E`4G?02H6k,0*44").decode()
+        assert round(msg['lon'], 4) == -122.4648
+        assert round(msg['lat'], 4) == 37.7943
+        assert msg['accuracy'] == 1
+        assert msg['year'] == 2019
+        assert msg['month'] == 11
+        assert msg['day'] == 9
+        assert msg['hour'] == 10
+        assert msg['minute'] == 41
+        assert msg['second'] == 11
 
     def test_msg_type_5(self):
         msg = NMEAMessage.assemble_from_iterable(messages=[
@@ -307,6 +351,7 @@ class TestAIS(unittest.TestCase):
         assert msg['name_extension'] == ""
 
     def test_msg_type_22(self):
+        # Broadcast
         msg = NMEAMessage(b"!AIVDM,1,1,,B,F030p:j2N2P5aJR0r;6f3rj10000,0*11").decode()
         assert msg['type'] == 22
         assert msg['mmsi'] == 3160107
@@ -322,6 +367,30 @@ class TestAIS(unittest.TestCase):
         assert msg['band_a'] == 0
         assert msg['band_b'] == 0
         assert msg['zonesize'] == 2
+
+        assert 'dest1' not in msg.content.keys()
+        assert 'dest2' not in msg.content.keys()
+
+        # Addressed
+        msg = NMEAMessage(b"!AIVDM,1,1,,A,F@@W>gOP00PH=JrN9l000?wB2HH;,0*44").decode()
+        assert msg['type'] == 22
+        assert msg['mmsi'] == 17419965
+        assert msg['channel_a'] == 3584
+        assert msg['channel_b'] == 8
+        assert msg['power'] == 1
+        assert msg['addressed'] == 1
+
+        assert msg['dest1'] == 28144881
+        assert msg['dest2'] == 268435519
+
+        assert msg['band_a'] == 0
+        assert msg['band_b'] == 0
+        assert msg['zonesize'] == 4
+
+        assert 'ne_lon' not in msg.content.keys()
+        assert 'ne_lat' not in msg.content.keys()
+        assert 'sw_lon' not in msg.content.keys()
+        assert 'sw_lat' not in msg.content.keys()
 
     def test_msg_type_23(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,B,G02:Kn01R`sn@291nj600000900,2*12").decode()
@@ -346,3 +415,22 @@ class TestAIS(unittest.TestCase):
         assert msg['to_port'] == 0
         assert msg['to_starboard'] == 0
         assert msg['mothership_mmsi'] == 0
+
+    def test_msg_type_27(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,B,KC5E2b@U19PFdLbMuc5=ROv62<7m,0*16").decode()
+        assert msg['type'] == 27
+        assert msg['mmsi'] == 206914217
+        assert msg['accuracy'] == 0
+        assert msg['raim'] == 0
+        assert msg['status'] == NavigationStatus.NotUnderCommand
+        assert round(msg['lon'], 3) == 137.023
+        assert round(msg['lat'], 2) == 4.84
+        assert msg['speed'] == 57
+        assert msg['course'] == 167
+        assert msg['gnss'] == 0
+
+    def test_broken_messages(self):
+        # Not valid
+        assert not NMEAMessage(b"AIVDM,2,2,1,B,00000000000,2*26").is_valid
+        # Undefined epfd
+        assert NMEAMessage(b"!AIVDM,1,1,,B,4>O7m7Iu@<9qUfbtm`vSnwvH20S8,0*46").decode()['epfd'] == EpfdType.Undefined

@@ -45,10 +45,7 @@ def large_file_test():
 
 def live_demo():
     for msg in TCPStream('ais.exploratorium.edu'):
-        print(msg.decode().content)
+        print(msg.ais_id, msg.raw)
 
 
-for msg in FileReaderStream("nmea-sample"):
-    cont = msg.decode().content
-    if cont and cont['type'] >= 23:
-        print(cont['type'], msg.raw, cont)
+live_demo()

@@ -24,7 +24,7 @@ def decode_msg_1(bit_arr):
         'mmsi': get_int_from_data(8, 38),
         'status': NavigationStatus(get_int_from_data(38, 42)),
         'turn': get_int_from_data(42, 50, signed=True),
-        'speed': get_int_from_data(50, 60),
+        'speed': get_int_from_data(50, 60) / 10.0,
         'accuracy': bit_arr[60],
         'lon': get_int_from_data(61, 89, signed=True) / 600000.0,
         'lat': get_int_from_data(89, 116, signed=True) / 600000.0,
@@ -434,7 +434,7 @@ def decode_msg_22(bit_arr):
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_22_channel_management
     """
     get_int_from_data = partial(get_int, bit_arr)
-    return {
+    data = {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(8, 8),
         'mmsi': get_int_from_data(8, 38),
@@ -443,20 +443,29 @@ def decode_msg_22(bit_arr):
         'channel_b': get_int_from_data(52, 64),
         'txrx': get_int_from_data(64, 68),
         'power': bit_arr[68],
-
-        'ne_lon': get_int_from_data(69, 87, signed=True) * 0.1,
-        'ne_lat': get_int_from_data(87, 104, signed=True) * 0.1,
-        'sw_lon': get_int_from_data(104, 122, signed=True) * 0.1,
-        'sw_lat': get_int_from_data(122, 139, signed=True) * 0.1,
-
-        'dest1': get_int_from_data(69, 99),
-        'dest2': get_int_from_data(104, 134),
         'addressed': bit_arr[139],
         'band_a': bit_arr[140],
         'band_b': bit_arr[141],
         'zonesize': get_int_from_data(142, 145),
-
     }
+
+    # Broadcast
+    if data['addressed']:
+        d = {
+            'dest1': get_int_from_data(69, 99),
+            'dest2': get_int_from_data(104, 134),
+        }
+    # Addressed
+    else:
+        d = {
+            'ne_lon': get_int_from_data(69, 87, signed=True) * 0.1,
+            'ne_lat': get_int_from_data(87, 104, signed=True) * 0.1,
+            'sw_lon': get_int_from_data(104, 122, signed=True) * 0.1,
+            'sw_lat': get_int_from_data(122, 139, signed=True) * 0.1,
+        }
+
+    data.update(d)
+    return data
 
 
 def decode_msg_23(bit_arr):
@@ -518,6 +527,36 @@ def decode_msg_24(bit_arr):
     return data
 
 
+def decode_msg_25(bit_arr):
+    pass
+
+
+def decode_msg_26(bit_arr):
+    pass
+
+
+def decode_msg_27(bit_arr):
+    """
+    Long Range AIS Broadcast message
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_27_long_range_ais_broadcast_message
+    """
+    get_int_from_data = partial(get_int, bit_arr)
+    return {
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(8, 8),
+        'mmsi': get_int_from_data(8, 38),
+
+        'accuracy': bit_arr[38],
+        'raim': bit_arr[39],
+        'status': NavigationStatus(get_int_from_data(40, 44)),
+        'lon': get_int_from_data(44, 62, signed=True) / 600.0,
+        'lat': get_int_from_data(62, 79, signed=True) / 600.0,
+        'speed': get_int_from_data(79, 85),
+        'course': get_int_from_data(85, 94),
+        'gnss': bit_arr[94],
+    }
+
+
 # Decoding Lookup Table
 DECODE_MSG = [
     None,
@@ -544,12 +583,15 @@ DECODE_MSG = [
     decode_msg_21,
     decode_msg_22,
     decode_msg_23,
-    decode_msg_24
+    decode_msg_24,
+    decode_msg_25,
+    decode_msg_26,
+    decode_msg_27,
 ]
 
 
 def decode(msg):
-    if msg.is_valid and 0 < msg.ais_id < 25:
+    if msg.is_valid and 0 < msg.ais_id < 28:
         return DECODE_MSG[msg.ais_id](msg.bit_array)
 
     return None
