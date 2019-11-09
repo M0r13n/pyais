@@ -39,6 +39,9 @@ For comparison, the C++ based [libais module](https://github.com/schwehr/libais)
 # Disclaimer
 This module is a private project of mine and does not claim to be complete. I try to improve and extend it, but there may be bugs. If you find such a bug feel free to submit an issue or even better create a pull-request. :-)
 
+# Coverage
+Currently this module is able to decode most message types. There are only a few exceptions. These are messages that only occur in very rare cases and that you will probably never observe. The module was able to completely decode a 4 hour stream with real-time data from San Francisco Bay Area without any errors or problems.
+
 # Tests
 You should run all tests before you submit a new pull request to prevent regressions. Also run flake8.
 
