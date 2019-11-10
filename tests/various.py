@@ -48,4 +48,20 @@ def live_demo():
         print(msg.ais_id, msg.raw)
 
 
-live_demo()
+def error_test():
+    counter = 0
+    for msg in TCPStream('ais.exploratorium.edu'):
+        counter += 1
+        if counter % 100 == 0:
+            print(f"Decoded #{counter} real world AIS messages without error")
+        try:
+            if not msg.is_valid:
+                print("Found an invalid message: " + msg.raw)
+            decoded = msg.decode()
+            if not decoded:
+                print("Could not decode message: ", msg.raw)
+        except Exception as problem:
+            print(f"Raised an exception ({str(problem)}) when trying to decode: {msg}")
+
+
+error_test()
