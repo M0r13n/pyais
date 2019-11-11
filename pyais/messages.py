@@ -5,8 +5,7 @@ from pyais.ais_types import AISType
 from functools import reduce
 from typing import Sequence
 from operator import xor
-
-LAST = None
+import json
 
 
 class NMEAMessage(object):
@@ -77,6 +76,22 @@ class NMEAMessage(object):
 
     def __str__(self):
         return str(self.raw)
+
+    def __dict__(self):
+        def serializable(o):
+            if isinstance(o, bytes):
+                return o.decode('utf-8')
+            elif isinstance(o, bitarray):
+                return o.to01()
+
+            return o
+
+        return dict(
+            [
+                (slot, serializable(getattr(self, slot)))
+                for slot in self.__slots__
+            ]
+        )
 
     @classmethod
     def from_string(cls, nmea_str: str):
@@ -151,3 +166,15 @@ class AISMessage(object):
 
     def __str__(self):
         return str(self.content)
+
+    def __dict__(self):
+        return {
+            'nmea': self.nmea.__dict__(),
+            'decoded': self.content
+        }
+
+    def to_json(self):
+        return json.dumps(
+            self.__dict__(),
+            indent=4
+        )

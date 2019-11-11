@@ -64,4 +64,5 @@ def error_test():
             print(f"Raised an exception ({str(problem)}) when trying to decode: {msg}")
 
 
-error_test()
+for msg in TCPStream('ais.exploratorium.edu'):
+    print(msg.decode().to_json())

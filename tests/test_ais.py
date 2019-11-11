@@ -2,7 +2,6 @@ import unittest
 from pyais.messages import NMEAMessage
 from pyais.ais_types import AISType
 from pyais.constants import ManeuverIndicator, NavigationStatus, ShipType, NavAid, EpfdType
-from bitarray import bitarray
 
 
 class TestAIS(unittest.TestCase):
@@ -26,6 +25,42 @@ class TestAIS(unittest.TestCase):
         """
         nmea = NMEAMessage(b"!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*30")
         assert nmea.decode().nmea == nmea
+
+    def test_to_json(self):
+        json_dump = NMEAMessage(b"!AIVDM,1,1,,A,15NPOOPP00o?b=bE`UNv4?w428D;,0*24").decode().to_json()
+        text = """{
+    "nmea": {
+        "ais_id": 1,
+        "raw": "!AIVDM,1,1,,A,15NPOOPP00o?b=bE`UNv4?w428D;,0*24",
+        "talker": "AI",
+        "msg_type": "VDM",
+        "count": 1,
+        "index": 1,
+        "seq_id": "",
+        "channel": "A",
+        "data": "15NPOOPP00o?b=bE`UNv4?w428D;",
+        "checksum": 36,
+        "bit_array": "000001000101011110100000011111011111100000100000000000000000110111001111101010001101101010010101101000100101011110111110000100001111111111000100000010001000010100001011"
+    },
+    "decoded": {
+        "type": 1,
+        "repeat": 0,
+        "mmsi": 367533950,
+        "status": 0,
+        "turn": -128,
+        "speed": 0.0,
+        "accuracy": true,
+        "lon": -122.40823166666667,
+        "lat": 37.808418333333336,
+        "course": 360.0,
+        "heading": 511,
+        "second": 34,
+        "maneuver": 0,
+        "raim": true,
+        "radio": 34059
+    }
+}"""
+        assert json_dump == text
 
     def test_msg_type(self):
         """
@@ -151,10 +186,10 @@ class TestAIS(unittest.TestCase):
         assert msg['mmsi'] == 366999712
         assert msg['dac'] == 366
         assert msg['fid'] == 56
-        assert msg['data'] == bitarray(
-            "0011101001010011110110111011011110111110010010100111011100110001001101111111100001111101011110110000010001000"
-            "1011111000001000000110111101010000001011101100100111111010110010011011110000011000110010100101011101001101110"
-            "01110110011101101111100000010111111011")
+        assert msg['data'] == "00111010010100111101101110110111101111100100101001110111001100010011011111111" \
+                              "00001111101011110110000010001000101111100000100000011011110101000000101110110" \
+                              "01001111110101100100110111100000110001100101001010111010011011100111011001110" \
+                              "1101111100000010111111011"
 
     def test_msg_type_9(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*30").decode()

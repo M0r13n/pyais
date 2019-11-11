@@ -10,9 +10,10 @@ from pyais.constants import (
 )
 from pyais.util import get_int, encode_bin_as_ascii6
 from functools import partial
+import bitarray
 
 
-def decode_msg_1(bit_arr):
+def decode_msg_1(bit_arr: bitarray) -> dict:
     """
     AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
@@ -37,14 +38,14 @@ def decode_msg_1(bit_arr):
     }
 
 
-def decode_msg_2(bit_arr):
+def decode_msg_2(bit_arr: bitarray) -> dict:
     """AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
     """
     return decode_msg_1(bit_arr)
 
 
-def decode_msg_3(bit_arr):
+def decode_msg_3(bit_arr: bitarray) -> dict:
     """
     AIS Vessel position report using ITDMA (Incremental Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
@@ -52,7 +53,7 @@ def decode_msg_3(bit_arr):
     return decode_msg_1(bit_arr)
 
 
-def decode_msg_4(bit_arr):
+def decode_msg_4(bit_arr: bitarray) -> dict:
     """
     AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_4_base_station_report
@@ -77,7 +78,7 @@ def decode_msg_4(bit_arr):
     }
 
 
-def decode_msg_5(bit_arr):
+def decode_msg_5(bit_arr: bitarray) -> dict:
     get_int_from_data = partial(get_int, bit_arr)
     return {
         'type': get_int_from_data(0, 6),
@@ -103,7 +104,7 @@ def decode_msg_5(bit_arr):
     }
 
 
-def decode_msg_6(bit_arr):
+def decode_msg_6(bit_arr: bitarray) -> dict:
     """
     Binary Addresses Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_4_base_station_report
@@ -119,11 +120,11 @@ def decode_msg_6(bit_arr):
         'retransmit': bit_arr[70],
         'dac': get_int_from_data(72, 82),
         'fid': get_int_from_data(82, 88),
-        'data_raw': bit_arr[88:]
+        'data_raw': bit_arr[88:].to01()
     }
 
 
-def decode_msg_7(bit_arr):
+def decode_msg_7(bit_arr: bitarray) -> dict:
     """
     Binary Acknowledge
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_7_binary_acknowledge
@@ -144,7 +145,7 @@ def decode_msg_7(bit_arr):
     }
 
 
-def decode_msg_8(bit_arr):
+def decode_msg_8(bit_arr: bitarray) -> dict:
     """
     Binary Acknowledge
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_8_binary_broadcast_message
@@ -157,11 +158,11 @@ def decode_msg_8(bit_arr):
         'mmsi': get_int_from_data(8, 38),
         'dac': get_int_from_data(40, 50),
         'fid': get_int_from_data(50, 56),
-        'data': bit_arr[56:]
+        'data': bit_arr[56:].to01()
     }
 
 
-def decode_msg_9(bit_arr):
+def decode_msg_9(bit_arr: bitarray) -> dict:
     """
     Standard SAR Aircraft Position Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_9_standard_sar_aircraft_position_report
@@ -185,7 +186,7 @@ def decode_msg_9(bit_arr):
     }
 
 
-def decode_msg_10(bit_arr):
+def decode_msg_10(bit_arr: bitarray) -> dict:
     """
     UTC/Date Inquiry
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_10_utc_date_inquiry
@@ -199,7 +200,7 @@ def decode_msg_10(bit_arr):
     }
 
 
-def decode_msg_11(bit_arr):
+def decode_msg_11(bit_arr: bitarray) -> dict:
     """
     UTC/Date Response
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_11_utc_date_response
@@ -207,7 +208,7 @@ def decode_msg_11(bit_arr):
     return decode_msg_4(bit_arr)
 
 
-def decode_msg_12(bit_arr):
+def decode_msg_12(bit_arr: bitarray) -> dict:
     """
     Addressed Safety-Related Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_12_addressed_safety_related_message
@@ -224,14 +225,14 @@ def decode_msg_12(bit_arr):
     }
 
 
-def decode_msg_13(bit_arr):
+def decode_msg_13(bit_arr: bitarray) -> dict:
     """
     Identical to type 7
     """
     return decode_msg_7(bit_arr)
 
 
-def decode_msg_14(bit_arr):
+def decode_msg_14(bit_arr: bitarray) -> dict:
     """
     Safety-Related Broadcast Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_14_safety_related_broadcast_message
@@ -245,7 +246,7 @@ def decode_msg_14(bit_arr):
     }
 
 
-def decode_msg_15(bit_arr):
+def decode_msg_15(bit_arr: bitarray) -> dict:
     """
     Interrogation
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_15_interrogation
@@ -266,7 +267,7 @@ def decode_msg_15(bit_arr):
     }
 
 
-def decode_msg_16(bit_arr):
+def decode_msg_16(bit_arr: bitarray) -> dict:
     """
     Assignment Mode Command
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_16_assignment_mode_command
@@ -285,7 +286,7 @@ def decode_msg_16(bit_arr):
     }
 
 
-def decode_msg_17(bit_arr):
+def decode_msg_17(bit_arr: bitarray) -> dict:
     """
     DGNSS Broadcast Binary Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_17_dgnss_broadcast_binary_message
@@ -301,7 +302,7 @@ def decode_msg_17(bit_arr):
     }
 
 
-def decode_msg_18(bit_arr):
+def decode_msg_18(bit_arr: bitarray) -> dict:
     """
     Standard Class B CS Position Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_18_standard_class_b_cs_position_report
@@ -330,7 +331,7 @@ def decode_msg_18(bit_arr):
     }
 
 
-def decode_msg_19(bit_arr):
+def decode_msg_19(bit_arr: bitarray) -> dict:
     """
     Extended Class B CS Position Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_19_extended_class_b_cs_position_report
@@ -361,7 +362,7 @@ def decode_msg_19(bit_arr):
     }
 
 
-def decode_msg_20(bit_arr):
+def decode_msg_20(bit_arr: bitarray) -> dict:
     """
     Data Link Management Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_20_data_link_management_message
@@ -394,7 +395,7 @@ def decode_msg_20(bit_arr):
     }
 
 
-def decode_msg_21(bit_arr):
+def decode_msg_21(bit_arr: bitarray) -> dict:
     """
     Aid-to-Navigation Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_21_aid_to_navigation_report
@@ -428,7 +429,7 @@ def decode_msg_21(bit_arr):
     }
 
 
-def decode_msg_22(bit_arr):
+def decode_msg_22(bit_arr: bitarray) -> dict:
     """
     Channel Management
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_22_channel_management
@@ -468,7 +469,7 @@ def decode_msg_22(bit_arr):
     return data
 
 
-def decode_msg_23(bit_arr):
+def decode_msg_23(bit_arr: bitarray) -> dict:
     """
     Group Assignment Command
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_23_group_assignment_command
@@ -492,7 +493,7 @@ def decode_msg_23(bit_arr):
     }
 
 
-def decode_msg_24(bit_arr):
+def decode_msg_24(bit_arr: bitarray) -> dict:
     """
     Static Data Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_24_static_data_report
@@ -527,15 +528,15 @@ def decode_msg_24(bit_arr):
     return data
 
 
-def decode_msg_25(bit_arr):
+def decode_msg_25(bit_arr: bitarray) -> dict:
     pass
 
 
-def decode_msg_26(bit_arr):
+def decode_msg_26(bit_arr: bitarray) -> dict:
     pass
 
 
-def decode_msg_27(bit_arr):
+def decode_msg_27(bit_arr: bitarray) -> dict:
     """
     Long Range AIS Broadcast message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_27_long_range_ais_broadcast_message

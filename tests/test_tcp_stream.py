@@ -8,12 +8,14 @@ class TestTCPStream(unittest.TestCase):
         self.assertEqual(TCPStream.BUF_SIZE, 4096)
 
     def test_socket_with_real_data(self):
-        for i, msg in enumerate(TCPStream('ais.exploratorium.edu')):
-            if i >= 10:
-                break
-
-            self.assertTrue(isinstance(msg, NMEAMessage))
-            self.assertTrue(isinstance(msg.decode(), AISMessage))
+        i = 0
+        with TCPStream('ais.exploratorium.edu') as stream:
+            if i == 10:
+                stream.__exit__(0, 0, 0)
+            else:
+                msg = next(stream)
+                self.assertTrue(isinstance(msg, NMEAMessage))
+                self.assertTrue(isinstance(msg.decode(), AISMessage))
 
     def test_invalid_endpoint(self):
         with self.assertRaises(ValueError):
