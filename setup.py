@@ -1,11 +1,18 @@
 import setuptools
+import os
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+with open(os.path.join('pyais', '__init__.py')) as f:
+    for line in f:
+        if line.strip().startswith('__version__'):
+            VERSION = line.split('=')[1].strip()[1:-1].strip()
+            break
+
 setuptools.setup(
     name="pyais",
-    version="0.0.3",
+    version=VERSION,
     author="Leon Morten Richter",
     author_email="leon.morten@gmail.com",
     description="Ais message decoding",
