@@ -37,6 +37,7 @@ jobs:
 
   publish:
     name: Publish Package
+    runs-on: ${{ matrix.os }}
     if: build.status==success
     steps:
       - name: Create Distribution Package
