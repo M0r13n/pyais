@@ -39,6 +39,8 @@ jobs:
     name: Publish Package
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@master
+        
       - name: Create Distribution Package
         run: python3 setup.py sdist bdist_wheel
 
