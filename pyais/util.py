@@ -1,6 +1,7 @@
-from bitarray import bitarray
 from functools import partial
 from typing import Sequence, Iterable
+
+from bitarray import bitarray
 
 from_bytes = partial(int.from_bytes, byteorder="big")
 from_bytes_signed = partial(int.from_bytes, byteorder="big", signed=True)

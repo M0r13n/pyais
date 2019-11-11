@@ -1,11 +1,13 @@
-from pyais.decode import decode
-from pyais.util import decode_into_bit_array, get_int
-from bitarray import bitarray
-from pyais.ais_types import AISType
 from functools import reduce
 from typing import Sequence
 from operator import xor
 import json
+
+from bitarray import bitarray
+
+from pyais.decode import decode
+from pyais.util import decode_into_bit_array, get_int
+from pyais.ais_types import AISType
 
 
 class NMEAMessage(object):

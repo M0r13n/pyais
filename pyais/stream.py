@@ -1,6 +1,7 @@
 from socket import AF_INET, SOCK_STREAM, socket
-from pyais.messages import NMEAMessage
 from typing import Iterable
+
+from pyais.messages import NMEAMessage
 
 
 class Stream:

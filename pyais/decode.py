@@ -1,3 +1,7 @@
+from functools import partial
+
+import bitarray
+
 from pyais.constants import (
     NavigationStatus,
     ManeuverIndicator,
@@ -9,8 +13,6 @@ from pyais.constants import (
     NavAid
 )
 from pyais.util import get_int, encode_bin_as_ascii6
-from functools import partial
-import bitarray
 
 
 def decode_msg_1(bit_arr: bitarray) -> dict:

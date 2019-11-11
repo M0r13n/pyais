@@ -11,7 +11,7 @@ For detailed information about AIS refer to the [AIS standard](https://en.wikipe
 Using this module is easy. If you want to parse a file, that contains AIS messages, just copy the following code and replace `filename` with your desired filename.
 
 ```python
-from pyais.stream import FileReaderStream
+from pyais import FileReaderStream
 
 filename = "sample.ais"
 
@@ -19,6 +19,16 @@ for msg in FileReaderStream(filename):
     decoded_message = msg.decode()
     ais_content = decoded_message.content
 ```
+
+It is possible to directly convert messages into JSON.
+
+```python
+from pyais import TCPStream
+
+for msg in TCPStream('ais.exploratorium.edu'):
+    json_data = msg.decode().to_json()
+```
+
 
 You can also parse a single message encoded as bytes or from a string:
 ```python

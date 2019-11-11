@@ -1,8 +1,8 @@
 """
 This are some debugging or performance methods and are not valid testcases.
 """
-from pyais.messages import NMEAMessage
-from pyais.stream import TCPStream, FileReaderStream
+from pyais import NMEAMessage
+from pyais import TCPStream, FileReaderStream
 import timeit
 import time
 import random
