@@ -37,7 +37,7 @@ jobs:
 
   publish:
     name: Publish Package
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - name: Create Distribution Package
         run: python3 setup.py sdist bdist_wheel
