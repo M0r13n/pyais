@@ -38,7 +38,7 @@ jobs:
   publish:
     name: Publish Package
     runs-on: ${{ matrix.os }}
-    if: build.status==success
+    if: jobs.build.status==success
     steps:
       - name: Create Distribution Package
         run: python3 setup.py sdist bdist_wheel
