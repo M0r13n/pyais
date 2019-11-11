@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name="pyais",
     version="0.0.2",
-    author="Leon Morten Richetr",
+    author="Leon Morten Richter",
     author_email="leon.morten@gmail.com",
     description="Ais message decoding",
     long_description=long_description,
