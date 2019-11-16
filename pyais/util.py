@@ -17,7 +17,7 @@ def decode_into_bit_array(data: bytes) -> bitarray:
 
     for i, c in enumerate(data):
         if c < 0x30 or c > 0x77 or 0x57 < c < 0x6:
-            raise ValueError("Invalid character")
+            raise ValueError(f"Invalid character: {chr(c)}")
 
         # Convert 8 bit binary to 6 bit binary
         c -= 0x30 if (c < 0x60) else 0x38

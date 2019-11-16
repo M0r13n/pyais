@@ -65,7 +65,7 @@ class FileReaderStream(Stream):
         try:
             file = open(self.filename, mode=self.mode)
         except Exception as e:
-            raise ValueError(f"Could not open file {self.filename}") from e
+            raise FileNotFoundError(f"Could not open file {self.filename}") from e
         super().__init__(file)
 
     def _iter_messages(self) -> Iterable[bytes]:
@@ -86,7 +86,7 @@ class TCPStream(Stream):
             sock.connect((host, port))
         except ConnectionRefusedError as e:
             sock.close()
-            raise ValueError(f"Failed to connect to {host}:{port}") from e
+            raise ConnectionRefusedError(f"Failed to connect to {host}:{port}") from e
         super().__init__(sock)
 
     def _iter_messages(self) -> Iterable[bytes]:

@@ -6,6 +6,7 @@ from pyais import TCPStream, FileReaderStream
 import timeit
 import time
 import random
+import cProfile
 
 MESSAGES = [
     NMEAMessage(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C"),
@@ -64,5 +65,14 @@ def error_test():
             print(f"Raised an exception ({str(problem)}) when trying to decode: {msg}")
 
 
-for msg in TCPStream('ais.exploratorium.edu'):
-    print(msg.decode().to_json())
+def decode_test():
+    start = time.time()
+    for msg in FileReaderStream('nmea-sample'):
+        msg.decode().to_json()
+    end = time.time()
+    print(f"Decoding messages took: {end - start} seconds")
+    return
+
+
+NMEAMessage(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5D").decode()
+cProfile.run('decode_test()', sort='time')

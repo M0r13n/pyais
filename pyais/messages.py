@@ -8,6 +8,7 @@ from bitarray import bitarray
 from pyais.decode import decode
 from pyais.util import decode_into_bit_array, get_int
 from pyais.ais_types import AISType
+from pyais.exceptions import InvalidNMEAMessageException, InvalidChecksumException
 
 
 class NMEAMessage(object):
@@ -40,8 +41,7 @@ class NMEAMessage(object):
             return
 
         if len(values) != 7:
-            raise ValueError("Invalid NMEA message provided. "
-                             "A NMEA message needs to have exactly 7 comma separeted entries.")
+            raise InvalidNMEAMessageException("A NMEA message needs to have exactly 7 comma separated entries.")
 
         # Unpack NMEA message parts
         (
@@ -70,7 +70,8 @@ class NMEAMessage(object):
 
         # Verify if the checksum is correct
         if not self.is_valid:
-            raise ValueError("Invalid Checksum. Message is invalid!")
+            raise InvalidChecksumException(
+                f"Invalid Checksum. Expected {self.checksum}, got {NMEAMessage.compute_checksum(self.data)}.")
 
         # Finally decode bytes into bits
         self.bit_array = decode_into_bit_array(self.data)

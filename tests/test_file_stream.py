@@ -7,7 +7,9 @@ class TestFileReaderStream(unittest.TestCase):
     FILENAME = "tests/ais_test_messages"
 
     def test_reader(self):
-        messages = [msg for msg in FileReaderStream(self.FILENAME)]
+        with FileReaderStream(self.FILENAME) as stream:
+            messages = [msg for msg in stream]
+
         assert len(messages) == 7
         for msg in messages:
             assert type(msg) == NMEAMessage
@@ -22,5 +24,5 @@ class TestFileReaderStream(unittest.TestCase):
             assert msg.decode().content is not None
 
     def test_invalid_filename(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(FileNotFoundError):
             FileReaderStream("doesnotexist")

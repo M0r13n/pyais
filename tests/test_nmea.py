@@ -1,5 +1,6 @@
 import unittest
 from pyais.messages import NMEAMessage, AISMessage
+from pyais.exceptions import InvalidNMEAMessageException, InvalidChecksumException
 
 
 class TestNMEA(unittest.TestCase):
@@ -14,10 +15,10 @@ class TestNMEA(unittest.TestCase):
         a = b"!AIVDM,,A,91b77=h3h00nHt0Q3r@@07000<0b,0*69"
         b = b"!AIVDM,1,1,,A,91b77=h3h00nHt0Q3r@@07000<0b,0*69,0,3"
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(InvalidNMEAMessageException):
             NMEAMessage(a)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(InvalidNMEAMessageException):
             NMEAMessage(b)
 
         c = b"!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*30"
@@ -80,7 +81,7 @@ class TestNMEA(unittest.TestCase):
         assert NMEAMessage(msg).is_valid
 
         msg = b"!AIVDM,1,1,,A,85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGt,0*47"
-        with self.assertRaises(ValueError):
+        with self.assertRaises(InvalidChecksumException):
             NMEAMessage(msg)
 
     def test_decode(self):

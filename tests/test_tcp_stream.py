@@ -18,5 +18,5 @@ class TestTCPStream(unittest.TestCase):
                 self.assertTrue(isinstance(msg.decode(), AISMessage))
 
     def test_invalid_endpoint(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ConnectionRefusedError):
             TCPStream("127.0.0.1", 55555)
