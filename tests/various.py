@@ -72,4 +72,5 @@ def decode_test():
     print(f"Decoding messages took: {end - start} seconds")
     return
 
+
 # cProfile.run('decode_test()', sort='time')

@@ -143,6 +143,7 @@ class TestAIS(unittest.TestCase):
         msg = NMEAMessage(b"!AIVDM,1,1,,B,403OtVAv>lba;o?Ia`E`4G?02H6k,0*44").decode()
         assert round(msg['lon'], 4) == -122.4648
         assert round(msg['lat'], 4) == 37.7943
+        assert msg['mmsi'] == 3669145
         assert msg['accuracy'] == 1
         assert msg['year'] == 2019
         assert msg['month'] == 11

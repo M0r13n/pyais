@@ -64,7 +64,7 @@ def decode_msg_4(bit_arr: bitarray) -> dict:
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
-        'mmsi': get_int_from_data(3, 38),
+        'mmsi': get_int_from_data(8, 38),
         'year': get_int_from_data(38, 52),
         'month': get_int_from_data(52, 56),
         'day': get_int_from_data(56, 61),
@@ -508,7 +508,7 @@ def decode_msg_24(bit_arr: bitarray) -> dict:
         'partno': get_int_from_data(38, 40)
     }
     # Part A
-    if len(bit_arr) == 160:
+    if not data['partno']:
         d = {
             'shipname': encode_bin_as_ascii6(bit_arr[40: 160])
         }
