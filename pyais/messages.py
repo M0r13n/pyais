@@ -1,12 +1,10 @@
-from functools import reduce
 from typing import Sequence
-from operator import xor
 import json
 
 from bitarray import bitarray
 
 from pyais.decode import decode
-from pyais.util import decode_into_bit_array, get_int
+from pyais.util import decode_into_bit_array, get_int, compute_checksum
 from pyais.ais_types import AISType
 from pyais.exceptions import InvalidNMEAMessageException, InvalidChecksumException
 
@@ -71,7 +69,7 @@ class NMEAMessage(object):
         # Verify if the checksum is correct
         if not self.is_valid:
             raise InvalidChecksumException(
-                f"Invalid Checksum. Expected {self.checksum}, got {NMEAMessage.compute_checksum(self.data)}.")
+                f"Invalid Checksum. Expected {self.checksum}, got {compute_checksum(self.data)}.")
 
         # Finally decode bytes into bits
         self.bit_array = decode_into_bit_array(self.data)
@@ -121,19 +119,9 @@ class NMEAMessage(object):
         messages[0].bit_array = bit_array
         return messages[0]
 
-    @staticmethod
-    def compute_checksum(msg: bytes) -> bytes:
-        """
-        Compute the checksum of a given message
-        :param msg: message
-        :return: hex
-        """
-        msg = msg[1:].split(b'*', 1)[0]
-        return reduce(xor, msg)
-
     @property
     def is_valid(self) -> bool:
-        return self.checksum == self.compute_checksum(self.raw)
+        return self.checksum == compute_checksum(self.raw)
 
     @property
     def is_single(self) -> bool:

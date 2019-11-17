@@ -6,7 +6,6 @@ from pyais import TCPStream, FileReaderStream
 import timeit
 import time
 import random
-import cProfile
 
 MESSAGES = [
     NMEAMessage(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C"),
@@ -73,6 +72,4 @@ def decode_test():
     print(f"Decoding messages took: {end - start} seconds")
     return
 
-
-NMEAMessage(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5D").decode()
-cProfile.run('decode_test()', sort='time')
+# cProfile.run('decode_test()', sort='time')

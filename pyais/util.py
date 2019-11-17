@@ -1,4 +1,5 @@
-from functools import partial
+from functools import partial, reduce
+from operator import xor
 from typing import Sequence, Iterable
 
 from bitarray import bitarray
@@ -74,3 +75,13 @@ def get_int(data: bitarray, ix_low, ix_high, signed=False) -> int:
     data = data[ix_low:ix_high]
     i = from_bytes_signed(data) if signed else from_bytes(data)
     return i >> shift
+
+
+def compute_checksum(msg: bytes) -> bytes:
+    """
+    Compute the checksum of a given message
+    :param msg: message
+    :return: hex
+    """
+    msg = msg[1:].split(b'*', 1)[0]
+    return reduce(xor, msg)
