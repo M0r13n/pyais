@@ -81,6 +81,10 @@ def decode_msg_4(bit_arr: bitarray) -> dict:
 
 
 def decode_msg_5(bit_arr: bitarray) -> dict:
+    """
+    Static and Voyage Related Data
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_5_static_and_voyage_related_data
+    """
     get_int_from_data = partial(get_int, bit_arr)
     return {
         'type': get_int_from_data(0, 6),
@@ -110,7 +114,6 @@ def decode_msg_6(bit_arr: bitarray) -> dict:
     """
     Binary Addresses Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_4_base_station_report
-    TODO: Data needs to be decoded according to the combination of DAC and FID.
     """
     get_int_from_data = partial(get_int, bit_arr)
     return {
@@ -122,7 +125,7 @@ def decode_msg_6(bit_arr: bitarray) -> dict:
         'retransmit': bit_arr[70],
         'dac': get_int_from_data(72, 82),
         'fid': get_int_from_data(82, 88),
-        'data_raw': bit_arr[88:].to01()
+        'data': bit_arr[88:].to01()
     }
 
 
@@ -151,7 +154,6 @@ def decode_msg_8(bit_arr: bitarray) -> dict:
     """
     Binary Acknowledge
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_8_binary_broadcast_message
-    TODO: Decode data according to DAC & FID
     """
     get_int_from_data = partial(get_int, bit_arr)
     return {
@@ -531,11 +533,88 @@ def decode_msg_24(bit_arr: bitarray) -> dict:
 
 
 def decode_msg_25(bit_arr: bitarray) -> dict:
-    pass
+    """
+    Single Slot Binary Message
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_25_single_slot_binary_message
+
+    NOTE: This message type is quite uncommon and
+    I was not able find any real world occurrence of the type.
+    Also documentation seems to vary. Use with caution.
+    """
+    get_int_from_data = partial(get_int, bit_arr)
+    data = {
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(8, 8),
+        'mmsi': get_int_from_data(8, 38),
+
+        'addressed': bit_arr[38],
+        'structured': bit_arr[39],
+    }
+
+    if data['addressed']:
+        d = {
+            'dest_mmsi': get_int_from_data(40, 70),
+        }
+        data.update(d)
+
+    lo_ix = 40 if data['addressed'] else 70
+    hi_ix = lo_ix + 16
+
+    if data['structured']:
+        d = {
+            'app_id': get_int_from_data(lo_ix, hi_ix),
+            'data': bit_arr[hi_ix:].to01()
+        }
+    else:
+        d = {
+            'data': bit_arr[lo_ix:].to01()
+        }
+    data.update(d)
+    return data
 
 
 def decode_msg_26(bit_arr: bitarray) -> dict:
-    pass
+    """
+    Multiple Slot Binary Message
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_26_multiple_slot_binary_message
+
+    NOTE: This message type is quite uncommon and
+    I was not able find any real world occurrence of the type.
+    Also documentation seems to vary. Use with caution.
+    """
+    get_int_from_data = partial(get_int, bit_arr)
+    radio_status_offset = len(bit_arr) - 20
+
+    data = {
+        'type': get_int_from_data(0, 6),
+        'repeat': get_int_from_data(8, 8),
+        'mmsi': get_int_from_data(8, 38),
+
+        'addressed': bit_arr[38],
+        'structured': bit_arr[39],
+        'radio': get_int_from_data(radio_status_offset, len(bit_arr))
+    }
+
+    if data['addressed']:
+        d = {
+            'dest_mmsi': get_int_from_data(40, 70),
+        }
+        data.update(d)
+
+    lo_ix = 40 if data['addressed'] else 70
+    hi_ix = lo_ix + 16
+    if data['structured']:
+        d = {
+            'app_id': get_int_from_data(lo_ix, hi_ix),
+            'data': bit_arr[hi_ix:radio_status_offset].to01()
+        }
+    else:
+        d = {
+            'data': bit_arr[lo_ix:radio_status_offset].to01()
+        }
+
+    data.update(d)
+    return data
 
 
 def decode_msg_27(bit_arr: bitarray) -> dict:

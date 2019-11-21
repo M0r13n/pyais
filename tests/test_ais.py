@@ -452,6 +452,26 @@ class TestAIS(unittest.TestCase):
         assert msg['to_starboard'] == 0
         assert msg['mothership_mmsi'] == 0
 
+    def test_msg_type_25(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,A,I6SWo?8P00a3PKpEKEVj0?vNP<65,0*73").decode()
+
+        assert msg['type'] == 25
+        assert msg['addressed']
+        assert not msg['structured']
+        assert msg['dest_mmsi'] == 134218384
+
+    def test_msg_type_26(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,A,JB3R0GO7p>vQL8tjw0b5hqpd0706kh9d3lR2vbl0400,2*40").decode()
+        assert msg['type'] == 26
+        assert msg['addressed']
+        assert msg['structured']
+        assert msg['dest_mmsi'] == 838351848
+
+        msg = NMEAMessage(b"!AIVDM,1,1,,A,J0@00@370>t0Lh3P0000200H:2rN92,4*14").decode()
+        assert msg['type'] == 26
+        assert not msg['addressed']
+        assert not msg['structured']
+
     def test_msg_type_27(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,B,KC5E2b@U19PFdLbMuc5=ROv62<7m,0*16").decode()
         assert msg['type'] == 27
