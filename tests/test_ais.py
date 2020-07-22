@@ -490,3 +490,25 @@ class TestAIS(unittest.TestCase):
         assert not NMEAMessage(b"AIVDM,2,2,1,B,00000000000,2*26").is_valid
         # Undefined epfd
         assert NMEAMessage(b"!AIVDM,1,1,,B,4>O7m7Iu@<9qUfbtm`vSnwvH20S8,0*46").decode()['epfd'] == EpfdType.Undefined
+
+    def test_multiline_message(self):
+        # these messages caused issue #3
+        msg_1_part_0 = b'!AIVDM,2,1,1,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*07'
+        msg_1_part_1 = b'!AIVDM,2,2,1,A,F@V@00000000000,2*35'
+
+        assert NMEAMessage.assemble_from_iterable(
+            messages=[
+                NMEAMessage(msg_1_part_0),
+                NMEAMessage(msg_1_part_1)
+            ]
+        ).decode().to_json()
+
+        msg_2_part_0 = b'!AIVDM,2,1,9,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*0F'
+        msg_2_part_1 = b'!AIVDM,2,2,9,A,F@V@00000000000,2*3D'
+
+        assert NMEAMessage.assemble_from_iterable(
+            messages=[
+                NMEAMessage(msg_2_part_0),
+                NMEAMessage(msg_2_part_1)
+            ]
+        ).decode().to_json()

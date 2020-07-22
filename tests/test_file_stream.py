@@ -1,3 +1,4 @@
+import pathlib
 import unittest
 from pyais.stream import FileReaderStream
 from pyais.messages import NMEAMessage
@@ -26,3 +27,10 @@ class TestFileReaderStream(unittest.TestCase):
     def test_invalid_filename(self):
         with self.assertRaises(FileNotFoundError):
             FileReaderStream("doesnotexist")
+
+    def test_large_file(self):
+        # The ais sample data is downloaded from https://www.aishub.net/ais-dispatcher
+        par_dir = pathlib.Path(__file__).parent.absolute()
+        large_file = par_dir.joinpath("nmea-sample")
+        for msg in FileReaderStream(large_file):
+            msg.decode()

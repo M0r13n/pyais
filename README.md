@@ -52,15 +52,22 @@ This module is a private project of mine and does not claim to be complete. I tr
 # Coverage
 Currently this module is able to decode most message types. There are only a few exceptions. These are messages that only occur in very rare cases and that you will probably never observe. The module was able to completely decode a 4 hour stream with real-time data from San Francisco Bay Area without any errors or problems. If you find a bug or missing feature, please create an issue.
 
-# Tests
-You should run all tests before you submit a new pull request to prevent regressions. Also run flake8.
+# For developers
+After you cloned the repo head into the `pyais` base directory.
 
-**Without Coverage**
-- `python -m unittest discover tests && flake8`
+Then install all dependencies:
 
-**With Coverage**
-- `pip install coverage`
-- `coverage run --source=pyais -m unittest discover tests && coverage report -m && flake8`
+```sh
+$ make init
+```
+
+Make sure that all tests pass and that there aren't any issues:
+
+```sh
+$ make test
+```
+
+Now you are ready to start developing on the project! Don't forget to add tests for every new change or feature!
 
 
 
