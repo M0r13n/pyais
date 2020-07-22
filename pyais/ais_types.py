@@ -1,8 +1,9 @@
-from enum import Enum
+from enum import IntEnum
 
 
-class AISType(Enum):
+class AISType(IntEnum):
     # Refer to https://gpsd.gitlab.io/gpsd/AIVDM.html
+    NOT_IMPLEMENTED = 0
     POS_CLASS_A1 = 1
     POS_CLASS_A2 = 2
     POS_CLASS_A3 = 3
@@ -30,7 +31,6 @@ class AISType(Enum):
     BINARY_SINGLE_SLOT = 25
     BINARY_MULTI_SLOT = 26
     LONG_RANGE_BROADCAST = 27
-    NOT_IMPLEMENTED = 0
 
     @classmethod
     def _missing_(cls, value):

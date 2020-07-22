@@ -1,5 +1,6 @@
 from socket import AF_INET, SOCK_STREAM, socket
 from typing import Iterable
+import typing
 
 from pyais.messages import NMEAMessage
 
@@ -70,6 +71,21 @@ class FileReaderStream(Stream):
 
     def _iter_messages(self) -> Iterable[bytes]:
         yield from self._fobj.readlines()
+
+
+class ByteStream(Stream):
+    """
+    Takes a iterable that contains ais messages as bytes and assembles them.
+    """
+
+    def __init__(self, iterable: typing.Iterable[bytes]):
+        self.iterable: typing.Iterable[bytes] = iterable
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return 0
+
+    def _iter_messages(self) -> Iterable[bytes]:
+        yield from self.iterable
 
 
 class TCPStream(Stream):

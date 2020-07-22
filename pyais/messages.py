@@ -1,5 +1,6 @@
 from typing import Sequence
 import json
+import typing
 
 from bitarray import bitarray
 
@@ -59,8 +60,8 @@ class NMEAMessage(object):
         self.msg_type = head[3:].decode('ascii')
 
         # Store other important parts
-        self.count = int(count)
-        self.index = int(index)
+        self.count: int = int(count)
+        self.index: int = int(index)
         self.seq_id = seq_id
         self.channel = channel
         self.data = data
@@ -94,9 +95,16 @@ class NMEAMessage(object):
             ]
         )
 
+    def __eq__(self, other):
+        return all([getattr(self, attr) == getattr(other, attr) for attr in self.__slots__])
+
     @classmethod
     def from_string(cls, nmea_str: str):
         return cls(str.encode(nmea_str))
+
+    @classmethod
+    def from_bytes(cls, nmea_byte_str: bytes):
+        return cls(nmea_byte_str)
 
     @classmethod
     def assemble_from_iterable(cls, messages: Sequence):
@@ -135,8 +143,19 @@ class NMEAMessage(object):
     def fragment_count(self) -> int:
         return self.count
 
-    def decode(self):
-        return AISMessage(self)
+    def decode(self, silent: bool = True):
+        """
+        Decode the message content.
+
+        @param silent: Boolean. If set to true errors are ignored and None is returned instead
+        """
+        try:
+            return AISMessage(self)
+        except Exception as e:
+            if silent:
+                return None
+
+            raise e
 
 
 class AISMessage(object):
@@ -147,13 +166,10 @@ class AISMessage(object):
     def __init__(self, nmea_message: NMEAMessage):
         self.nmea: NMEAMessage = nmea_message
         self.msg_type: AISType = AISType(nmea_message.ais_id)
-        self.content: dict = dict()
-        self.content = decode(self.nmea)
+        self.content: typing.Dict = decode(self.nmea)
 
-    def __getitem__(self, item):
-        if self.content is None:
-            return None
-        return self.content.get(item, None)
+    def __getitem__(self, item: str):
+        return self.content[item]
 
     def __str__(self):
         return str(self.content)

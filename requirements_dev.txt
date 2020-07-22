@@ -1,0 +1,6 @@
+bitarray
+flake8
+coverage
+nose
+twine
+

@@ -84,6 +84,22 @@ class TestNMEA(unittest.TestCase):
         with self.assertRaises(InvalidChecksumException):
             NMEAMessage(msg)
 
+    def test_from_bytes(self):
+        msg = b"!AIVDM,1,1,,A,85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs,0*47"
+        assert NMEAMessage(msg) == NMEAMessage.from_bytes(msg)
+
     def test_decode(self):
         msg = b"!AIVDM,1,1,,A,85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs,0*47"
         assert isinstance(NMEAMessage(msg).decode(), AISMessage)
+
+    def test_message_eq_method(self):
+        msg = b"!AIVDM,1,1,,B,F030p:j2N2P5aJR0r;6f3rj10000,0*11"
+
+        first_obj = NMEAMessage(msg)
+        second_obj = NMEAMessage(msg)
+
+        # make sure they are not the same object
+        assert not id(first_obj) == id(second_obj)
+
+        # but make sure they equal
+        assert first_obj == second_obj

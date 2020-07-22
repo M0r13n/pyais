@@ -16,7 +16,7 @@ def decode_into_bit_array(data: bytes) -> bitarray:
     """
     bit_arr = bitarray()
 
-    for i, c in enumerate(data):
+    for _, c in enumerate(data):
         if c < 0x30 or c > 0x77 or 0x57 < c < 0x6:
             raise ValueError(f"Invalid character: {chr(c)}")
 
@@ -28,10 +28,10 @@ def decode_into_bit_array(data: bytes) -> bitarray:
     return bit_arr
 
 
-def chunks(l: Sequence, n: int) -> Iterable:
+def chunks(sequence: Sequence, n: int) -> Iterable:
     """Yield successive n-sized chunks from l."""
-    for i in range(0, len(l), n):
-        yield l[i:i + n]
+    for i in range(0, len(sequence), n):
+        yield sequence[i:i + n]
 
 
 def encode_bin_as_ascii6(bit_arr: bitarray) -> str:
@@ -60,7 +60,7 @@ def encode_bin_as_ascii6(bit_arr: bitarray) -> str:
     return string.strip()
 
 
-def get_int(data: bitarray, ix_low, ix_high, signed=False) -> int:
+def get_int(data: bitarray, ix_low: int, ix_high: int, signed: bool = False) -> int:
     """
     Cast a subarray of a bitarray into an integer.
     The bitarray module adds tailing zeros when calling tobytes(), if the bitarray is not a multiple of 8.

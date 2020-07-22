@@ -1,3 +1,6 @@
+from pyais.stream import ByteStream
+
+from pyais.exceptions import UnknownMessageException
 import unittest
 from pyais.messages import NMEAMessage
 from pyais.ais_types import AISType
@@ -442,7 +445,6 @@ class TestAIS(unittest.TestCase):
         assert msg['type'] == 24
         assert msg['mmsi'] == 338091445
         assert msg['partno'] == 1
-        assert msg['shipname'] is None
         assert msg['shiptype'] == ShipType.PleasureCraft
         assert msg['vendorid'] == "FEC"
         assert msg['callsign'] == ""
@@ -473,7 +475,8 @@ class TestAIS(unittest.TestCase):
         assert not msg['structured']
 
     def test_msg_type_27(self):
-        msg = NMEAMessage(b"!AIVDM,1,1,,B,KC5E2b@U19PFdLbMuc5=ROv62<7m,0*16").decode()
+        msg = NMEAMessage(b"!AIVDM,1,1,,B,KC5E2b@U19PFdLbMuc5=ROv62<7m,0*16").decode(silent=False)
+        assert msg
         assert msg['type'] == 27
         assert msg['mmsi'] == 206914217
         assert msg['accuracy'] == 0
@@ -512,3 +515,30 @@ class TestAIS(unittest.TestCase):
                 NMEAMessage(msg_2_part_1)
             ]
         ).decode().to_json()
+
+    def test_byte_stream(self):
+        messages = [
+            b'!AIVDM,2,1,1,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*07',
+            b'!AIVDM,2,2,1,A,F@V@00000000000,2*35',
+            b'!AIVDM,2,1,9,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*0F',
+            b'!AIVDM,2,2,9,A,F@V@00000000000,2*3D',
+        ]
+        counter = 0
+        for msg in ByteStream(messages):
+            decoded = msg.decode()
+            assert decoded['shipname'] == 'NORDIC HAMBURG'
+            assert decoded['mmsi'] == 210035000
+            assert decoded
+            counter += 1
+        assert counter == 2
+
+    def test_fail_silently(self):
+        # this tests combines testing for an UnknownMessageException and the silent param at once
+        msg = b"!AIVDM,1,1,,A,U31<0OOP000CshrMdl600?wP00SL,0*43"
+        nmea = NMEAMessage(msg)
+
+        with self.assertRaises(UnknownMessageException):
+            nmea.decode(silent=False)
+
+        # by default errors are ignored and None is returned
+        assert nmea.decode() is None
