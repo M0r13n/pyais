@@ -1,6 +1,6 @@
 from functools import partial, reduce
 from operator import xor
-from typing import Sequence, Iterable
+from typing import OrderedDict, Sequence, Iterable
 
 from bitarray import bitarray
 
@@ -85,3 +85,28 @@ def compute_checksum(msg: bytes) -> bytes:
     """
     msg = msg[1:].split(b'*', 1)[0]
     return reduce(xor, msg)
+
+
+class FixedSizeDict(OrderedDict):
+    """
+    Fixed sized dictionary that only contains up to N keys.
+    """
+
+    def __init__(self, maxlen: int):
+        self.maxlen: int = maxlen
+
+    def __setitem__(self, k, v):
+        super().__setitem__(k, v)
+        # if the maximum number is reach delete the oldest n keys
+        if len(self) >= self.maxlen:
+            self._pop_oldest()
+
+    def _pop_oldest(self):
+        # instead of calling this method often, we delete a whole bunch of keys in one run
+        for _ in range(self._items_to_pop):
+            self.popitem(last=False)
+
+    @property
+    def _items_to_pop(self) -> int:
+        # delete 1/5th of keys
+        return self.maxlen // 5

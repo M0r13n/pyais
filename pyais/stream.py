@@ -1,5 +1,6 @@
+from pyais.util import FixedSizeDict
 from socket import AF_INET, SOCK_STREAM, socket
-from typing import Iterable
+from typing import Iterable, List
 import typing
 
 from pyais.messages import NMEAMessage
@@ -86,6 +87,76 @@ class ByteStream(Stream):
 
     def _iter_messages(self) -> Iterable[bytes]:
         yield from self.iterable
+
+
+class OutOfOrderByteStream(Stream):
+
+    def __init__(self, iterable: typing.Iterable[bytes]) -> None:
+        self.iterable: typing.Iterable[bytes] = iterable
+        self.queue = FixedSizeDict(10000)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        del self.iterable
+        del self.queue
+
+    def _split_nmea_header(self, msg: bytes):
+        """
+        Read the first part of the nmea header
+        """
+        parts = msg.split(b',')
+        self.seq_id = int(parts[3]) if parts[3] else -1
+        self.fragment_offset: int = int(parts[2]) - 1
+        self.fragment_count: int = int(parts[1])
+
+    def _yield_complete(self) -> typing.Optional[List[bytes]]:
+        """
+        Check if the message is complete and return it
+        """
+        queue: List[bytes] = self.queue[self.seq_id][0:self.fragment_count]
+        if all(queue[0: self.fragment_count]):
+            del self.queue[self.seq_id]
+            return queue[0: self.fragment_count]
+
+    def _add_to_queue(self, msg: bytes):
+        """
+        Append a new nmea message to queue
+        """
+        # MAX frag offset for any AIS NMEA is 9
+        msg_queue: list = ([None, ] * 9)
+        try:
+            # place the message at its correct position
+            msg_queue[self.fragment_offset] = msg
+        except IndexError:
+            # message is invalid clear it
+            del self.queue[self.seq_id]
+        self.queue[self.seq_id] = msg_queue
+
+    def _update_queue(self, msg: bytes) -> Iterable[bytes]:
+        """
+        Update an existing message queue that is not complete yet.
+        Return a list of fully assembled messages if message queue is complete.
+        """
+        msg_queue: list = self.queue[self.seq_id]
+        msg_queue[self.fragment_offset] = msg
+        complete: typing.Optional[List[bytes]] = self._yield_complete()
+        if complete:
+            yield from complete
+
+    def _iter_messages(self) -> Iterable[bytes]:
+        for msg in self.iterable:
+            print(msg)
+            # decode nmea header
+            self._split_nmea_header(msg)
+            if self.seq_id == -1:
+                yield msg
+            try:
+                complete = self._update_queue(msg)
+                if complete:
+                    yield from complete
+
+            except KeyError:
+                # place item a correct pos and then store the list
+                self._add_to_queue(msg)
 
 
 class TCPStream(Stream):

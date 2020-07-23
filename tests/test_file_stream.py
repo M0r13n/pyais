@@ -1,5 +1,6 @@
 import pathlib
 import unittest
+from unittest.case import skip
 from pyais.stream import FileReaderStream
 from pyais.messages import NMEAMessage
 
@@ -28,6 +29,7 @@ class TestFileReaderStream(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             FileReaderStream("doesnotexist")
 
+    @skip("This takes too long for now")
     def test_large_file(self):
         # The ais sample data is downloaded from https://www.aishub.net/ais-dispatcher
         par_dir = pathlib.Path(__file__).parent.absolute()

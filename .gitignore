@@ -36,3 +36,4 @@ tests/test-reports-*/*
 .mypy_cache/
 profiling_results
 venv/
+build/
