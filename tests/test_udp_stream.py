@@ -1,12 +1,59 @@
-import pathlib
-from unittest.case import skip
-from pyais.util import FixedSizeDict
+import socket
+import typing
+from tests.utils.skip import is_linux
+from tests.utils.timeout import time_limit
+import threading
+import time
 import unittest
-from pyais.stream import OutOfOrderByteStream
-from pyais.exceptions import UnknownMessageException
+
+from pyais.util import FixedSizeDict
+from pyais.stream import OutOfOrderByteStream, UDPStream
+
+MESSAGES = [
+    b'!AIVDM,2,1,1,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*07',
+    b"!AIVDM,2,1,7,A,543ri001fIOiEa4<0010u84@4000000000000016;hD854o506SRBkk0FAEP,0*07",
+    b'!AIVDM,2,1,9,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*0F',
+    b'!AIVDM,2,2,1,A,F@V@00000000000,2*35',
+    b"!AIVDM,2,2,7,A,00000000000,2*23",
+    b'!AIVDM,2,2,9,A,F@V@00000000000,2*3D',
+]
+
+
+class MockUDPServer(object):
+
+    def __init__(self, host, port) -> None:
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.host = host
+        self.port = port
+
+    def send(self):
+        time.sleep(0.1)
+        for msg in MESSAGES:
+            self.sock.sendto(msg + b"\r\n", (self.host, self.port))
+
+        self.sock.close()
+
+
+class TestOutOfOrderByteStream(OutOfOrderByteStream):
+    """
+    Subclass OutOfOrderByteStream to test itÄs message assembly logic without real sockets
+    """
+
+    def __init__(self, iterable: typing.Iterable[bytes]) -> None:
+        # just accept some messages which then will be used as input
+        self.iterable: typing.Iterable[bytes] = iterable
+        super().__init__(None)
+
+    def _get_messages(self) -> typing.Iterable[bytes]:
+        yield from (msg for msg in self.iterable)
 
 
 class TestOutOfOrder(unittest.TestCase):
+    def _spawn_test_server(self):
+        self.server = MockUDPServer('127.0.0.1', 9999)
+        self.server_thread = threading.Thread(target=self.server.send)
+        self.server_thread.start()
+
     def test_fixed_sized_dict(self):
         N = 10000
         queue = FixedSizeDict(N + 1)
@@ -27,6 +74,23 @@ class TestOutOfOrder(unittest.TestCase):
         # make sure only the oldest ones were deleted
         assert queue.popitem(last=False)[0] == (N // 5) + 1
 
+    @unittest.skipIf(not is_linux(), "Skipping because Signal is not available on non unix systems!")
+    def test_stream(self):
+        # Test the UDP stream with real data
+        with time_limit(1):  # make sure the function cannot run forever
+            self._spawn_test_server()
+            host = "127.0.0.1"
+            port = 9999
+            counter = 0
+            for msg in UDPStream(host, port):
+                assert msg.decode()
+                counter += 1
+
+                if counter == 3:
+                    break
+
+            self.server_thread.join()
+
     def test_out_of_order(self):
         messages = [
             b'!AIVDM,2,1,1,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*07',
@@ -35,7 +99,7 @@ class TestOutOfOrder(unittest.TestCase):
             b'!AIVDM,2,2,9,A,F@V@00000000000,2*3D',
         ]
         counter = 0
-        for msg in OutOfOrderByteStream(messages):
+        for msg in TestOutOfOrderByteStream(messages):
             msg.decode()
             counter += 1
         assert counter == 2
@@ -49,13 +113,13 @@ class TestOutOfOrder(unittest.TestCase):
             b'!AIVDM,2,2,9,A,F@V@00000000000,2*3D',
         ]
         counter = 0
-        for msg in OutOfOrderByteStream(messages):
+        for msg in TestOutOfOrderByteStream(messages):
             msg.decode()
             counter += 1
         assert counter == 2
 
     def test_split_nmea_header_method(self):
-        stream = OutOfOrderByteStream([])
+        stream = TestOutOfOrderByteStream([])
         msg = b'!AIVDM,2,1,1,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*07'
         stream._split_nmea_header(msg)
         assert stream.seq_id == 1
@@ -75,7 +139,7 @@ class TestOutOfOrder(unittest.TestCase):
             b'!AIVDM,2,2,1,A,F@V@00000000000,2*35',
         ]
         counter = 0
-        for msg in OutOfOrderByteStream(messages):
+        for msg in TestOutOfOrderByteStream(messages):
             msg.decode()
             counter += 1
 
@@ -91,14 +155,14 @@ class TestOutOfOrder(unittest.TestCase):
             b"!AIVDM,2,2,7,A,00000000000,2*23",
             b'!AIVDM,2,2,9,A,F@V@00000000000,2*3D',
         ]
-        stream = OutOfOrderByteStream(messages)
+        stream = TestOutOfOrderByteStream(messages)
         iter_steam = iter(stream)
 
         # assure that messages are deleted after they are yielded
         assert next(iter_steam).seq_id == b'1'
-        assert len(stream.queue) == 2
+        assert len(stream._queue) == 2
         assert next(iter_steam).seq_id == b'7'
-        assert len(stream.queue) == 1
+        assert len(stream._queue) == 1
 
     def test_three(self):
         messages = [
@@ -106,21 +170,6 @@ class TestOutOfOrder(unittest.TestCase):
             b"!AIVDM,3,2,5,A,8IBP:UFW<M0FVWS0DPK19@nh4UdS:OufWUIfPF5l1U9LILBn@9@F:41Q@U1EEOE3,0*1D",
             b"!AIVDM,3,3,5,A,j,0*79"
         ]
-        stream = OutOfOrderByteStream(messages)
+        stream = TestOutOfOrderByteStream(messages)
         iter_steam = iter(stream)
         assert next(iter_steam).decode()
-
-    @skip("This takes a while")
-    def test_can_decode_large_file(self):
-        par_dir = pathlib.Path(__file__).parent.absolute()
-        large_file = open(par_dir.joinpath("nmea-sample"), "rb")
-        lines = [line for line in large_file.readlines() if line]
-        counter = 0
-
-        for msg in OutOfOrderByteStream(lines):
-            try:
-                assert msg.decode(silent=False)
-            except UnknownMessageException:
-                pass
-            counter += 1
-        assert counter == 122933

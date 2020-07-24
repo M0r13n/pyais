@@ -41,6 +41,22 @@ message = NMEAMessage.from_string("!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*
 
 See the example folder for more examples.
 
+Another common use case is the reception of messages via UDP.
+This lib comes with an `UDPStream` class that enables just that. 
+This stream class also handles out-of-order delivery of messages, which can occur when using UDP.
+
+```py
+from pyais.stream import UDPStream
+
+host = "127.0.0.1"
+port = 55555
+
+for msg in UDPStream(host, port):
+    msg.decode()
+    # do something with it
+
+```
+
 # Performance Considerations
 You may refer to the [Code Review Stack Exchange question](https://codereview.stackexchange.com/questions/230258/decoding-of-binary-data-ais-from-socket).
 After a some research I decided to use the bitarray module as foundation.

@@ -1,5 +1,5 @@
 from pyais.util import FixedSizeDict
-from socket import AF_INET, SOCK_STREAM, socket
+from socket import AF_INET, SOCK_DGRAM, SOCK_STREAM, socket
 from typing import Iterable, List
 import typing
 
@@ -90,21 +90,28 @@ class ByteStream(Stream):
 
 
 class OutOfOrderByteStream(Stream):
+    """
+    Handles multipart NMEA that are delivered out of order.
 
-    def __init__(self, iterable: typing.Iterable[bytes]) -> None:
-        self.iterable: typing.Iterable[bytes] = iterable
-        self.queue = FixedSizeDict(10000)
+    This class is not attached to a datasource by default.
+    You need to subclass it and override _get_messages().
+    """
+
+    def __init__(self, *args, **kwargs):
+        # create a fixed sized message queue
+        self._queue = FixedSizeDict(10000)
+        super().__init__(*args, **kwargs)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        del self.iterable
-        del self.queue
+        del self._queue
+        super().__exit__(exc_type, exc_val, exc_tb)
 
     def _split_nmea_header(self, msg: bytes):
         """
-        Read the first part of the nmea header
+        Read the important parts of a NMEA header
         """
         parts = msg.split(b',')
-        self.seq_id = int(parts[3]) if parts[3] else -1
+        self.seq_id = int(parts[3]) if parts[3] else 0
         self.fragment_offset: int = int(parts[2]) - 1
         self.fragment_count: int = int(parts[1])
 
@@ -112,9 +119,11 @@ class OutOfOrderByteStream(Stream):
         """
         Check if the message is complete and return it
         """
-        queue: List[bytes] = self.queue[self.seq_id][0:self.fragment_count]
+        # get all messages for the current sequence number
+        queue: List[bytes] = self._queue[self.seq_id][0:self.fragment_count]
         if all(queue[0: self.fragment_count]):
-            del self.queue[self.seq_id]
+            # if all required messages are received yield them and free their space
+            del self._queue[self.seq_id]
             return queue[0: self.fragment_count]
 
     def _add_to_queue(self, msg: bytes):
@@ -128,35 +137,69 @@ class OutOfOrderByteStream(Stream):
             msg_queue[self.fragment_offset] = msg
         except IndexError:
             # message is invalid clear it
-            del self.queue[self.seq_id]
-        self.queue[self.seq_id] = msg_queue
+            del self._queue[self.seq_id]
+        self._queue[self.seq_id] = msg_queue
 
-    def _update_queue(self, msg: bytes) -> Iterable[bytes]:
+    def _update_queue(self, msg: bytes) -> typing.Optional[Iterable[bytes]]:
         """
         Update an existing message queue that is not complete yet.
-        Return a list of fully assembled messages if message queue is complete.
+        Return a list of fully assembled messages if all required messages for a given sequence number are received.
         """
-        msg_queue: list = self.queue[self.seq_id]
+        msg_queue: list = self._queue[self.seq_id]
         msg_queue[self.fragment_offset] = msg
         complete: typing.Optional[List[bytes]] = self._yield_complete()
         if complete:
             yield from complete
+        return None
 
     def _iter_messages(self) -> Iterable[bytes]:
-        for msg in self.iterable:
-            print(msg)
+        for msg in self._get_messages():
             # decode nmea header
             self._split_nmea_header(msg)
-            if self.seq_id == -1:
+            if not self.seq_id:
                 yield msg
             try:
                 complete = self._update_queue(msg)
-                if complete:
+                if complete is not None:
                     yield from complete
 
             except KeyError:
                 # place item a correct pos and then store the list
                 self._add_to_queue(msg)
+
+    def _get_messages(self) -> Iterable[bytes]:
+        """
+        Overwrite and attach to real datasource, e.g. UDP socket.
+        """
+        raise NotImplementedError()
+
+
+class UDPStream(OutOfOrderByteStream):
+
+    BUF_SIZE = 4096
+
+    def __init__(self, host: str, port: int):
+        sock = socket(AF_INET, SOCK_DGRAM)
+        sock.bind((host, port))
+        super().__init__(sock)
+
+    def _get_messages(self) -> Iterable[bytes]:
+        partial = b''
+        while True:
+            body, _ = self._fobj.recvfrom(self.BUF_SIZE)
+            # Server closed connection
+            if not body:
+                return None
+
+            lines = body.split(b'\r\n')
+
+            line = partial + lines[0]
+            if line:
+                yield line
+
+            yield from (line for line in lines[1:-1] if line)
+
+            partial = lines[-1]
 
 
 class TCPStream(Stream):
