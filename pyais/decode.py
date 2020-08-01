@@ -644,7 +644,7 @@ def decode_msg_27(bit_arr: bitarray.bitarray) -> typing.Dict:
 
 # Decoding Lookup Table
 DECODE_MSG = [
-    None,
+    decode_msg_1,  # there are messages with a zero (0) as an id. these seem to be the same as type 1 messages
     decode_msg_1,
     decode_msg_2,
     decode_msg_3,

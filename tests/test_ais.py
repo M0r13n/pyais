@@ -2,7 +2,7 @@ from pyais.stream import ByteStream
 
 from pyais.exceptions import UnknownMessageException
 import unittest
-from pyais.messages import NMEAMessage
+from pyais.messages import AISMessage, NMEAMessage
 from pyais.ais_types import AISType
 from pyais.constants import ManeuverIndicator, NavigationStatus, ShipType, NavAid, EpfdType
 
@@ -114,6 +114,22 @@ class TestAIS(unittest.TestCase):
         assert msg['second'] == 34
         assert msg['maneuver'] == ManeuverIndicator.NotAvailable
         assert msg['raim']
+
+    def test_decode_pos_1_2_3(self):
+        # weired message of type 0 as part of issue #4
+        msg: NMEAMessage = NMEAMessage(b"!AIVDM,1,1,,B,0S9edj0P03PecbBN`ja@0?w42cFC,0*7C")
+
+        assert msg.is_valid
+        content: AISMessage = msg.decode(silent=False)
+        assert msg
+
+        assert content['repeat'] == 2
+        assert content['mmsi'] == 211512520
+        assert content['turn'] == -128
+        assert content['speed'] == 0.3
+        assert round(content['lat'], 4) == 53.5427
+        assert round(content['lon'], 4) == 9.9794
+        assert round(content['course'], 1) == 0.0
 
     def test_msg_type_3(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,35NSH95001G?wopE`beasVk@0E5:,0*6F").decode()
