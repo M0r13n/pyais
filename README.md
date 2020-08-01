@@ -4,7 +4,7 @@
 [![codecov](https://codecov.io/gh/M0r13n/pyais/branch/master/graph/badge.svg)](https://codecov.io/gh/M0r13n/pyais)
 [![downloads](https://img.shields.io/pypi/dm/pyais)](https://pypi.org/project/pyais/)
   
-AIS message decoding. 100% pure Python. Supports AIVDM/AIVDO messages.
+AIS message decoding. 100% pure Python. Supports AIVDM/AIVDO messages. Supports single messages, files and TCP/UDP sockets.
 
 # General
 This module contains functions to decode and parse Automatic Identification System (AIS) serial messages.
