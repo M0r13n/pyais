@@ -131,6 +131,9 @@ class TestAIS(unittest.TestCase):
         assert round(content['lon'], 4) == 9.9794
         assert round(content['course'], 1) == 0.0
 
+        msg: NMEAMessage = NMEAMessage(b"!AIVDM,1,1,,B,0S9edj0P03PecbBN`ja@0?w42cFC,0*7C")
+        assert msg.decode().to_json()
+
     def test_msg_type_3(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,35NSH95001G?wopE`beasVk@0E5:,0*6F").decode()
         assert msg['type'] == 3
