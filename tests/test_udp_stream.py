@@ -44,7 +44,7 @@ class TestOutOfOrderByteStream(OutOfOrderByteStream):
         self.iterable: typing.Iterable[bytes] = iterable
         super().__init__(None)
 
-    def _get_messages(self) -> typing.Iterable[bytes]:
+    def read(self) -> typing.Iterable[bytes]:
         yield from (msg for msg in self.iterable)
 
 

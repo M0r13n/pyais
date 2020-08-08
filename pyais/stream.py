@@ -1,12 +1,13 @@
-from pyais.util import FixedSizeDict
-from socket import AF_INET, SOCK_DGRAM, SOCK_STREAM, socket
-from typing import Iterable, List
 import typing
+from abc import ABC, abstractmethod
+from socket import AF_INET, SOCK_DGRAM, SOCK_STREAM, socket
+from typing import Iterable, List, Generator
 
 from pyais.messages import NMEAMessage
+from pyais.util import FixedSizeDict
 
 
-class Stream:
+class Stream(ABC):
 
     def __init__(self, fobj):
         self._fobj = fobj
@@ -24,16 +25,13 @@ class Stream:
     def __next__(self):
         return next(iter(self))
 
-    def _iter_messages(self) -> Iterable[bytes]:
-        raise NotImplementedError()
-
-    def _assemble_messages(self):
-        queue = []
+    def _assemble_messages(self) -> Generator[NMEAMessage, None, None]:
+        queue: List[NMEAMessage] = []
 
         for line in self._iter_messages():
             # Try to parse the message
             try:
-                msg = NMEAMessage(line)
+                msg: NMEAMessage = NMEAMessage(line)
             except Exception as e:
                 raise ValueError(f'Failed to parse line "{line}"') from e
 
@@ -54,6 +52,13 @@ class Stream:
             else:
                 raise ValueError("Messages are out of order!")
 
+    def _iter_messages(self) -> Generator[bytes, None, None]:
+        yield from self.read()
+
+    @abstractmethod
+    def read(self) -> Generator[bytes, None, None]:
+        raise NotImplementedError()
+
 
 class FileReaderStream(Stream):
     """
@@ -70,7 +75,7 @@ class FileReaderStream(Stream):
             raise FileNotFoundError(f"Could not open file {self.filename}") from e
         super().__init__(file)
 
-    def _iter_messages(self) -> Iterable[bytes]:
+    def read(self) -> Generator[bytes, None, None]:
         yield from self._fobj.readlines()
 
 
@@ -81,15 +86,16 @@ class ByteStream(Stream):
 
     def __init__(self, iterable: typing.Iterable[bytes]):
         self.iterable: typing.Iterable[bytes] = iterable
+        super().__init__(None)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         return 0
 
-    def _iter_messages(self) -> Iterable[bytes]:
+    def read(self) -> Generator[bytes, None, None]:
         yield from self.iterable
 
 
-class OutOfOrderByteStream(Stream):
+class OutOfOrderByteStream(Stream, ABC):
     """
     Handles multipart NMEA that are delivered out of order.
 
@@ -152,8 +158,8 @@ class OutOfOrderByteStream(Stream):
             yield from complete
         return None
 
-    def _iter_messages(self) -> Iterable[bytes]:
-        for msg in self._get_messages():
+    def _iter_messages(self) -> Generator[bytes, None, None]:
+        for msg in self.read():
             # decode nmea header
             self._split_nmea_header(msg)
             if not self.seq_id:
@@ -167,26 +173,14 @@ class OutOfOrderByteStream(Stream):
                 # place item a correct pos and then store the list
                 self._add_to_queue(msg)
 
-    def _get_messages(self) -> Iterable[bytes]:
-        """
-        Overwrite and attach to real datasource, e.g. UDP socket.
-        """
-        raise NotImplementedError()
 
-
-class UDPStream(OutOfOrderByteStream):
-
+class SocketStream(Stream):
     BUF_SIZE = 4096
 
-    def __init__(self, host: str, port: int):
-        sock = socket(AF_INET, SOCK_DGRAM)
-        sock.bind((host, port))
-        super().__init__(sock)
-
-    def _get_messages(self) -> Iterable[bytes]:
+    def read(self) -> Generator[bytes, None, None]:
         partial = b''
         while True:
-            body, _ = self._fobj.recvfrom(self.BUF_SIZE)
+            body = self._fobj.recv(self.BUF_SIZE)
             # Server closed connection
             if not body:
                 return None
@@ -202,13 +196,19 @@ class UDPStream(OutOfOrderByteStream):
             partial = lines[-1]
 
 
-class TCPStream(Stream):
+class UDPStream(OutOfOrderByteStream, SocketStream):
+
+    def __init__(self, host: str, port: int):
+        sock = socket(AF_INET, SOCK_DGRAM)
+        sock.bind((host, port))
+        super().__init__(sock)
+
+
+class TCPStream(SocketStream):
     """
      NMEA0183 stream via socket. Refer to
      https://en.wikipedia.org/wiki/NMEA_0183
      """
-
-    BUF_SIZE = 4096
 
     def __init__(self, host: str, port: int = 80):
         sock = socket(AF_INET, SOCK_STREAM)
@@ -218,22 +218,3 @@ class TCPStream(Stream):
             sock.close()
             raise ConnectionRefusedError(f"Failed to connect to {host}:{port}") from e
         super().__init__(sock)
-
-    def _iter_messages(self) -> Iterable[bytes]:
-        partial = b''
-        while True:
-            body = self._fobj.recv(self.BUF_SIZE)
-
-            # Server closed connection
-            if not body:
-                return None
-
-            lines = body.split(b'\r\n')
-
-            line = partial + lines[0]
-            if line:
-                yield line
-
-            yield from (line for line in lines[1:-1] if line)
-
-            partial = lines[-1]
