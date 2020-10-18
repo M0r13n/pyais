@@ -1,6 +1,7 @@
 from functools import partial, reduce
 from operator import xor
-from typing import OrderedDict, Sequence, Iterable
+from collections import OrderedDict
+from typing import Sequence, Iterable
 
 from bitarray import bitarray
 

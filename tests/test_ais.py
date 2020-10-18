@@ -295,10 +295,9 @@ class TestAIS(unittest.TestCase):
         assert msg['mmsi'] == 3669720
         assert msg['mmsi1'] == 367014320
         assert msg['type1_1'] == 3
-
-        assert msg['mmsi2'] == 0
         assert msg['type1_2'] == 5
         assert msg['offset1_2'] == 617
+        assert msg['offset1_1'] == 516
 
     def test_msg_type_16(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,@01uEO@mMk7P<P00,0*18").decode()
@@ -309,7 +308,6 @@ class TestAIS(unittest.TestCase):
         assert msg['offset1'] == 200
         assert msg['increment1'] == 0
 
-        assert msg['mmsi2'] == 0
         assert msg['offset2'] == 0
         assert msg['increment1'] == 0
 
