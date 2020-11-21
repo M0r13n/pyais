@@ -13,4 +13,6 @@ build:
 check-build:
 	twine check dist/*
 
-test: run_tests flake 
+type-check: mypy .
+
+test: run_tests flake

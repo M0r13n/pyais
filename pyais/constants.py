@@ -22,7 +22,7 @@ class NavigationStatus(IntEnum):
     Undefined = 15
 
     @classmethod
-    def _missing_(cls, value):
+    def _missing_(cls, value) -> int:
         return NavigationStatus.Undefined
 
 
@@ -33,7 +33,7 @@ class ManeuverIndicator(IntEnum):
     UNDEFINED = 3
 
     @classmethod
-    def _missing_(cls, value):
+    def _missing_(cls, value) -> int:
         return ManeuverIndicator.UNDEFINED
 
 
@@ -49,7 +49,7 @@ class EpfdType(IntEnum):
     Galileo = 8
 
     @classmethod
-    def _missing_(cls, value):
+    def _missing_(cls, value) -> int:
         return EpfdType.Undefined
 
 
@@ -123,7 +123,7 @@ class ShipType(IntEnum):
     OtherType_NoAdditionalInformation = 99
 
     @classmethod
-    def _missing_(cls, value):
+    def _missing_(cls, value) -> int:
         if 24 < value < 30:
             return ShipType.WIG_Reserved
 
@@ -198,7 +198,7 @@ class NavAid(IntEnum):
     LIGHT_VESSEL = 31
 
     @classmethod
-    def _missing_(cls, value):
+    def _missing_(cls, value) -> int:
         return NavAid.DEFAULT
 
 
@@ -209,7 +209,7 @@ class TransmitMode(IntEnum):
     RESERVED = 3
 
     @classmethod
-    def _missing_(cls, value):
+    def _missing_(cls, value) -> int:
         return TransmitMode.TXA_TXB_RXA_RXB
 
 
@@ -223,7 +223,7 @@ class StationType(IntEnum):
     REGIONAL = 6
 
     @classmethod
-    def _missing_(cls, value):
+    def _missing_(cls, value) -> int:
         if 6 <= value <= 9:
             return StationType.REGIONAL
         if 10 <= value <= 15:
@@ -246,5 +246,5 @@ class StationIntervals(IntEnum):
     RESERVED = 11
 
     @classmethod
-    def _missing_(cls, value):
+    def _missing_(cls, value) -> int:
         return StationIntervals.RESERVED

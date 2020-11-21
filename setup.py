@@ -1,4 +1,4 @@
-import setuptools
+import setuptools  # type:ignore
 import os
 
 with open("README.md", "r") as fh:

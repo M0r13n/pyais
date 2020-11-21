@@ -1,6 +1,7 @@
 import unittest
-from pyais.messages import NMEAMessage, AISMessage
+
 from pyais.exceptions import InvalidNMEAMessageException, InvalidChecksumException
+from pyais.messages import NMEAMessage, AISMessage
 
 
 class TestNMEA(unittest.TestCase):

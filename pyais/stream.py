@@ -9,20 +9,20 @@ from pyais.util import FixedSizeDict
 
 class Stream(ABC):
 
-    def __init__(self, fobj):
+    def __init__(self, fobj) -> None:
         self._fobj = fobj
 
-    def __enter__(self):
+    def __enter__(self) -> "Stream":
         # Enables use of with statement
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self._fobj.close()
 
-    def __iter__(self):
+    def __iter__(self) -> Generator[NMEAMessage, None, None]:
         return self._assemble_messages()
 
-    def __next__(self):
+    def __next__(self) -> NMEAMessage:
         return next(iter(self))
 
     def _assemble_messages(self) -> Generator[NMEAMessage, None, None]:
@@ -33,7 +33,7 @@ class Stream(ABC):
             try:
                 msg: NMEAMessage = NMEAMessage(line)
             except Exception as e:
-                raise ValueError(f'Failed to parse line "{line}"') from e
+                raise ValueError(f'Failed to parse line "{line!r}"') from e
 
             # Be gentle and just skip invalid messages
             if not msg.is_valid:
@@ -65,9 +65,9 @@ class FileReaderStream(Stream):
     Read NMEA messages from file
     """
 
-    def __init__(self, filename, mode="rb"):
-        self.filename = filename
-        self.mode = mode
+    def __init__(self, filename: str, mode: str = "rb") -> None:
+        self.filename: str = filename
+        self.mode: str = mode
         # Try to open file
         try:
             file = open(self.filename, mode=self.mode)
@@ -84,12 +84,12 @@ class ByteStream(Stream):
     Takes a iterable that contains ais messages as bytes and assembles them.
     """
 
-    def __init__(self, iterable: typing.Iterable[bytes]):
+    def __init__(self, iterable: typing.Iterable[bytes]) -> None:
         self.iterable: typing.Iterable[bytes] = iterable
         super().__init__(None)
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        return 0
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        return
 
     def read(self) -> Generator[bytes, None, None]:
         yield from self.iterable
@@ -103,21 +103,21 @@ class OutOfOrderByteStream(Stream, ABC):
     You need to subclass it and override _get_messages().
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         # create a fixed sized message queue
-        self._queue = FixedSizeDict(10000)
+        self._queue: typing.Dict = FixedSizeDict(10000)
         super().__init__(*args, **kwargs)
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         del self._queue
         super().__exit__(exc_type, exc_val, exc_tb)
 
-    def _split_nmea_header(self, msg: bytes):
+    def _split_nmea_header(self, msg: bytes) -> None:
         """
         Read the important parts of a NMEA header
         """
-        parts = msg.split(b',')
-        self.seq_id = int(parts[3]) if parts[3] else 0
+        parts: typing.List[bytes] = msg.split(b',')
+        self.seq_id: int = int(parts[3]) if parts[3] else 0
         self.fragment_offset: int = int(parts[2]) - 1
         self.fragment_count: int = int(parts[1])
 
@@ -131,13 +131,14 @@ class OutOfOrderByteStream(Stream, ABC):
             # if all required messages are received yield them and free their space
             del self._queue[self.seq_id]
             return queue[0: self.fragment_count]
+        return None
 
-    def _add_to_queue(self, msg: bytes):
+    def _add_to_queue(self, msg: bytes) -> None:
         """
         Append a new nmea message to queue
         """
         # MAX frag offset for any AIS NMEA is 9
-        msg_queue: list = ([None, ] * 9)
+        msg_queue: List = ([None, ] * 9)
         try:
             # place the message at its correct position
             msg_queue[self.fragment_offset] = msg
@@ -178,7 +179,7 @@ class SocketStream(Stream):
     BUF_SIZE = 4096
 
     def read(self) -> Generator[bytes, None, None]:
-        partial = b''
+        partial: bytes = b''
         while True:
             body = self._fobj.recv(self.BUF_SIZE)
             # Server closed connection
@@ -198,8 +199,8 @@ class SocketStream(Stream):
 
 class UDPStream(OutOfOrderByteStream, SocketStream):
 
-    def __init__(self, host: str, port: int):
-        sock = socket(AF_INET, SOCK_DGRAM)
+    def __init__(self, host: str, port: int) -> None:
+        sock: socket = socket(AF_INET, SOCK_DGRAM)
         sock.bind((host, port))
         super().__init__(sock)
 
@@ -210,8 +211,8 @@ class TCPStream(SocketStream):
      https://en.wikipedia.org/wiki/NMEA_0183
      """
 
-    def __init__(self, host: str, port: int = 80):
-        sock = socket(AF_INET, SOCK_STREAM)
+    def __init__(self, host: str, port: int = 80) -> None:
+        sock: socket = socket(AF_INET, SOCK_STREAM)
         try:
             sock.connect((host, port))
         except ConnectionRefusedError as e:

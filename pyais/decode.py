@@ -1,8 +1,7 @@
-from functools import partial
-from pyais.exceptions import UnknownMessageException
 import typing
+from functools import partial
 
-import bitarray
+import bitarray  # type: ignore
 
 from pyais.constants import (
     NavigationStatus,
@@ -14,6 +13,7 @@ from pyais.constants import (
     StationIntervals,
     NavAid
 )
+from pyais.exceptions import UnknownMessageException
 from pyais.util import get_int, encode_bin_as_ascii6
 
 
@@ -457,6 +457,7 @@ def decode_msg_22(bit_arr: bitarray.bitarray) -> typing.Dict:
     }
 
     # Broadcast
+    d: typing.Dict[str, float] = {}
     if data['addressed']:
         d = {
             'dest1': get_int_from_data(69, 99),
@@ -512,14 +513,15 @@ def decode_msg_24(bit_arr: bitarray.bitarray) -> typing.Dict:
         'partno': get_int_from_data(38, 40)
     }
 
+    d: typing.Dict
     if not data['partno']:
         # Part A
-        d: typing.Dict = {
+        d = {
             'shipname': encode_bin_as_ascii6(bit_arr[40: 160])
         }
     else:
         # Part B
-        d: typing.Dict = {
+        d = {
             'shiptype': ShipType(get_int_from_data(40, 48)),
             'vendorid': encode_bin_as_ascii6(bit_arr[48: 66]),
             'model': get_int_from_data(66, 70),

@@ -1,9 +1,9 @@
+from collections import OrderedDict
 from functools import partial, reduce
 from operator import xor
-from collections import OrderedDict
-from typing import Sequence, Iterable
+from typing import Generator, Sequence, Any
 
-from bitarray import bitarray
+from bitarray import bitarray  # type: ignore
 
 from_bytes = partial(int.from_bytes, byteorder="big")
 from_bytes_signed = partial(int.from_bytes, byteorder="big", signed=True)
@@ -29,10 +29,9 @@ def decode_into_bit_array(data: bytes) -> bitarray:
     return bit_arr
 
 
-def chunks(sequence: Sequence, n: int) -> Iterable:
+def chunks(sequence: Sequence, n: int) -> Generator[bitarray, None, None]:
     """Yield successive n-sized chunks from l."""
-    for i in range(0, len(sequence), n):
-        yield sequence[i:i + n]
+    return (sequence[i:i + n] for i in range(0, len(sequence), n))
 
 
 def encode_bin_as_ascii6(bit_arr: bitarray) -> str:
@@ -41,9 +40,9 @@ def encode_bin_as_ascii6(bit_arr: bitarray) -> str:
     :param bit_arr: array of bits
     :return: ASCII String
     """
-    string = ""
+    string: str = ""
     for c in chunks(bit_arr, 6):
-        n = from_bytes(c.tobytes()) >> 2
+        n: int = from_bytes(c.tobytes()) >> 2
 
         # Last entry may not have 6 bits
         if len(c) != 6:
@@ -72,13 +71,13 @@ def get_int(data: bitarray, ix_low: int, ix_high: int, signed: bool = False) -> 
     :param signed: True if the value should be interpreted as a signed integer
     :return: a normal integer (int)
     """
-    shift = (8 - ((ix_high - ix_low) % 8)) % 8
+    shift: int = (8 - ((ix_high - ix_low) % 8)) % 8
     data = data[ix_low:ix_high]
-    i = from_bytes_signed(data) if signed else from_bytes(data)
+    i: int = from_bytes_signed(data) if signed else from_bytes(data)
     return i >> shift
 
 
-def compute_checksum(msg: bytes) -> bytes:
+def compute_checksum(msg: bytes) -> int:
     """
     Compute the checksum of a given message
     :param msg: message
@@ -93,16 +92,17 @@ class FixedSizeDict(OrderedDict):
     Fixed sized dictionary that only contains up to N keys.
     """
 
-    def __init__(self, maxlen: int):
+    def __init__(self, maxlen: int) -> None:
+        super().__init__()
         self.maxlen: int = maxlen
 
-    def __setitem__(self, k, v):
+    def __setitem__(self, k: str, v: Any) -> None:
         super().__setitem__(k, v)
         # if the maximum number is reach delete the oldest n keys
         if len(self) >= self.maxlen:
             self._pop_oldest()
 
-    def _pop_oldest(self):
+    def _pop_oldest(self) -> Any:
         # instead of calling this method often, we delete a whole bunch of keys in one run
         for _ in range(self._items_to_pop):
             self.popitem(last=False)

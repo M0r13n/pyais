@@ -1,13 +1,12 @@
-from typing import Sequence
 import json
 import typing
 
-from bitarray import bitarray
+from bitarray import bitarray  # type: ignore
 
-from pyais.decode import decode
-from pyais.util import decode_into_bit_array, get_int, compute_checksum
 from pyais.ais_types import AISType
+from pyais.decode import decode
 from pyais.exceptions import InvalidNMEAMessageException, InvalidChecksumException
+from pyais.util import decode_into_bit_array, get_int, compute_checksum
 
 
 class NMEAMessage(object):
@@ -25,12 +24,12 @@ class NMEAMessage(object):
         'bit_array'
     )
 
-    def __init__(self, raw: bytes):
-        # Set all values to None initially
-        [setattr(self, name, None) for name in self.__slots__]
+    def __init__(self, raw: bytes) -> None:
+        # Initial values
+        self.checksum: int = -1
 
         # Store raw data
-        self.raw = raw
+        self.raw: bytes = raw
 
         # An AIS NMEA message consists of seven, comma separated parts
         values = raw.split(b",")
@@ -54,17 +53,17 @@ class NMEAMessage(object):
         ) = values
 
         # The talker is identified by the next 2 characters
-        self.talker = head[1:3].decode('ascii')
+        self.talker: str = head[1:3].decode('ascii')
 
         # The type of message is then identified by the next 3 characters
-        self.msg_type = head[3:].decode('ascii')
+        self.msg_type: str = head[3:].decode('ascii')
 
         # Store other important parts
         self.count: int = int(count)
         self.index: int = int(index)
-        self.seq_id = seq_id
-        self.channel = channel
-        self.data = data
+        self.seq_id: bytes = seq_id
+        self.channel: bytes = channel
+        self.data: bytes = data
         self.checksum = int(checksum[2:], 16)
 
         # Verify if the checksum is correct
@@ -73,10 +72,10 @@ class NMEAMessage(object):
                 f"Invalid Checksum. Expected {self.checksum}, got {compute_checksum(self.data)}.")
 
         # Finally decode bytes into bits
-        self.bit_array = decode_into_bit_array(self.data)
-        self.ais_id = get_int(self.bit_array, 0, 6)
+        self.bit_array: bitarray = decode_into_bit_array(self.data)
+        self.ais_id: int = get_int(self.bit_array, 0, 6)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.raw)
 
     def __dict__(self):
@@ -95,19 +94,19 @@ class NMEAMessage(object):
             ]
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return all([getattr(self, attr) == getattr(other, attr) for attr in self.__slots__])
 
     @classmethod
-    def from_string(cls, nmea_str: str):
+    def from_string(cls, nmea_str: str) -> "NMEAMessage":
         return cls(str.encode(nmea_str))
 
     @classmethod
-    def from_bytes(cls, nmea_byte_str: bytes):
+    def from_bytes(cls, nmea_byte_str: bytes) -> "NMEAMessage":
         return cls(nmea_byte_str)
 
     @classmethod
-    def assemble_from_iterable(cls, messages: Sequence):
+    def assemble_from_iterable(cls, messages: typing.Sequence) -> "NMEAMessage":
         """
         Assemble a multiline message from a sequence of NMEA messages.
         :param messages: Sequence of NMEA messages
@@ -143,7 +142,7 @@ class NMEAMessage(object):
     def fragment_count(self) -> int:
         return self.count
 
-    def decode(self, silent: bool = True):
+    def decode(self, silent: bool = True) -> typing.Optional["AISMessage"]:
         """
         Decode the message content.
 
@@ -163,15 +162,15 @@ class AISMessage(object):
     Initializes a generic AIS message.
     """
 
-    def __init__(self, nmea_message: NMEAMessage):
+    def __init__(self, nmea_message: NMEAMessage) -> None:
         self.nmea: NMEAMessage = nmea_message
         self.msg_type: AISType = AISType(nmea_message.ais_id)
         self.content: typing.Dict = decode(self.nmea)
 
-    def __getitem__(self, item: str):
+    def __getitem__(self, item: str) -> typing.Any:
         return self.content[item]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.content)
 
     def __dict__(self):
@@ -180,7 +179,7 @@ class AISMessage(object):
             'decoded': self.content
         }
 
-    def to_json(self):
+    def to_json(self) -> str:
         return json.dumps(
             self.__dict__(),
             indent=4

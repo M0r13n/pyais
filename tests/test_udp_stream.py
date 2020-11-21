@@ -1,13 +1,13 @@
 import socket
-import typing
-from tests.utils.skip import is_linux
-from tests.utils.timeout import time_limit
 import threading
 import time
+import typing
 import unittest
 
-from pyais.util import FixedSizeDict
 from pyais.stream import OutOfOrderByteStream, UDPStream
+from pyais.util import FixedSizeDict
+from tests.utils.skip import is_linux
+from tests.utils.timeout import time_limit
 
 MESSAGES = [
     b'!AIVDM,2,1,1,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*07',
@@ -44,7 +44,7 @@ class TestOutOfOrderByteStream(OutOfOrderByteStream):
         self.iterable: typing.Iterable[bytes] = iterable
         super().__init__(None)
 
-    def read(self) -> typing.Iterable[bytes]:
+    def read(self) -> typing.Generator[bytes, None, None]:
         yield from (msg for msg in self.iterable)
 
 
