@@ -37,4 +37,4 @@ jobs:
         run: flake8
 
       - name: Run Mypy
-        run: mypy .
+        run: mypy --strict .
