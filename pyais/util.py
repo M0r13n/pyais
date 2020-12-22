@@ -1,9 +1,14 @@
 from collections import OrderedDict
 from functools import partial, reduce
 from operator import xor
-from typing import Generator, Sequence, Any
+from typing import Any, Generator, Hashable, TYPE_CHECKING
 
 from bitarray import bitarray  # type: ignore
+
+if TYPE_CHECKING:
+    BaseDict = OrderedDict[Hashable, Any]
+else:
+    BaseDict = OrderedDict
 
 from_bytes = partial(int.from_bytes, byteorder="big")
 from_bytes_signed = partial(int.from_bytes, byteorder="big", signed=True)
@@ -29,7 +34,7 @@ def decode_into_bit_array(data: bytes) -> bitarray:
     return bit_arr
 
 
-def chunks(sequence: Sequence, n: int) -> Generator[bitarray, None, None]:
+def chunks(sequence: bitarray, n: int) -> Generator[bitarray, None, None]:
     """Yield successive n-sized chunks from l."""
     return (sequence[i:i + n] for i in range(0, len(sequence), n))
 
@@ -87,7 +92,7 @@ def compute_checksum(msg: bytes) -> int:
     return reduce(xor, msg)
 
 
-class FixedSizeDict(OrderedDict):
+class FixedSizeDict(BaseDict):
     """
     Fixed sized dictionary that only contains up to N keys.
     """
@@ -96,7 +101,7 @@ class FixedSizeDict(OrderedDict):
         super().__init__()
         self.maxlen: int = maxlen
 
-    def __setitem__(self, k: str, v: Any) -> None:
+    def __setitem__(self, k: Hashable, v: Any) -> None:
         super().__setitem__(k, v)
         # if the maximum number is reach delete the oldest n keys
         if len(self) >= self.maxlen:

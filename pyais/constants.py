@@ -22,7 +22,7 @@ class NavigationStatus(IntEnum):
     Undefined = 15
 
     @classmethod
-    def _missing_(cls, value) -> int:
+    def _missing_(cls, value: object) -> int:
         return NavigationStatus.Undefined
 
 
@@ -33,7 +33,7 @@ class ManeuverIndicator(IntEnum):
     UNDEFINED = 3
 
     @classmethod
-    def _missing_(cls, value) -> int:
+    def _missing_(cls, value: object) -> int:
         return ManeuverIndicator.UNDEFINED
 
 
@@ -49,7 +49,7 @@ class EpfdType(IntEnum):
     Galileo = 8
 
     @classmethod
-    def _missing_(cls, value) -> int:
+    def _missing_(cls, value: object) -> int:
         return EpfdType.Undefined
 
 
@@ -123,27 +123,28 @@ class ShipType(IntEnum):
     OtherType_NoAdditionalInformation = 99
 
     @classmethod
-    def _missing_(cls, value) -> int:
-        if 24 < value < 30:
-            return ShipType.WIG_Reserved
+    def _missing_(cls, value: object) -> int:
+        if isinstance(value, int):
+            if 24 < value < 30:
+                return ShipType.WIG_Reserved
 
-        if 44 < value < 49:
-            return ShipType.HSC_Reserved
+            if 44 < value < 49:
+                return ShipType.HSC_Reserved
 
-        if 55 < value < 58:
-            return ShipType.SPARE
+            if 55 < value < 58:
+                return ShipType.SPARE
 
-        if 64 < value < 69:
-            return ShipType.Passenger_Reserved
+            if 64 < value < 69:
+                return ShipType.Passenger_Reserved
 
-        if 74 < value < 79:
-            return ShipType.Cargo_Reserved
+            if 74 < value < 79:
+                return ShipType.Cargo_Reserved
 
-        if 84 < value < 89:
-            return ShipType.Tanker_Reserved
+            if 84 < value < 89:
+                return ShipType.Tanker_Reserved
 
-        if 94 < value < 99:
-            return ShipType.OtherType_Reserved
+            if 94 < value < 99:
+                return ShipType.OtherType_Reserved
 
         return ShipType.NotAvailable
 
@@ -198,7 +199,7 @@ class NavAid(IntEnum):
     LIGHT_VESSEL = 31
 
     @classmethod
-    def _missing_(cls, value) -> int:
+    def _missing_(cls, value: object) -> int:
         return NavAid.DEFAULT
 
 
@@ -209,7 +210,7 @@ class TransmitMode(IntEnum):
     RESERVED = 3
 
     @classmethod
-    def _missing_(cls, value) -> int:
+    def _missing_(cls, value: object) -> int:
         return TransmitMode.TXA_TXB_RXA_RXB
 
 
@@ -223,11 +224,12 @@ class StationType(IntEnum):
     REGIONAL = 6
 
     @classmethod
-    def _missing_(cls, value) -> int:
-        if 6 <= value <= 9:
-            return StationType.REGIONAL
-        if 10 <= value <= 15:
-            return StationType.RESERVED
+    def _missing_(cls, value: object) -> int:
+        if isinstance(value, int):
+            if 6 <= value <= 9:
+                return StationType.REGIONAL
+            if 10 <= value <= 15:
+                return StationType.RESERVED
         return StationType.ALL
 
 
@@ -246,5 +248,5 @@ class StationIntervals(IntEnum):
     RESERVED = 11
 
     @classmethod
-    def _missing_(cls, value) -> int:
+    def _missing_(cls, value: object) -> int:
         return StationIntervals.RESERVED
