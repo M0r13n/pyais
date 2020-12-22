@@ -21,13 +21,17 @@ setuptools.setup(
     url="https://github.com/M0r13n/pyais",
     license="MIT",
     packages=setuptools.find_packages(),
+    package_data={
+        "pyais": ["py.typed"]
+    },
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Intended Audience :: Developers",
         "Topic :: Communications",
-        "Topic :: System :: Networking"
+        "Topic :: System :: Networking",
+        "Typing :: Typed",
     ],
     keywords=["AIS", "ship", "decoding", "nmea"],
     python_requires='>=3.6',
