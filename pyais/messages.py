@@ -1,5 +1,5 @@
 import json
-from typing import Any, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence
 
 from bitarray import bitarray  # type: ignore
 
@@ -78,7 +78,7 @@ class NMEAMessage(object):
     def __str__(self) -> str:
         return str(self.raw)
 
-    def __dict__(self):  # type: ignore
+    def asdict(self) -> Dict[str, Any]:
         def serializable(o: object) -> Any:
             if isinstance(o, bytes):
                 return o.decode('utf-8')
@@ -173,14 +173,14 @@ class AISMessage(object):
     def __str__(self) -> str:
         return str(self.content)
 
-    def __dict__(self):  # type: ignore
+    def asdict(self) -> Dict[str, Any]:
         return {
-            'nmea': self.nmea.__dict__(),  # type: ignore
+            'nmea': self.nmea.asdict(),
             'decoded': self.content
         }
 
     def to_json(self) -> str:
         return json.dumps(
-            self.__dict__(),  # type: ignore
+            self.asdict(),
             indent=4
         )
