@@ -1,5 +1,5 @@
 import json
-import typing
+from typing import Any, Optional, Sequence
 
 from bitarray import bitarray  # type: ignore
 
@@ -78,8 +78,8 @@ class NMEAMessage(object):
     def __str__(self) -> str:
         return str(self.raw)
 
-    def __dict__(self):
-        def serializable(o):
+    def __dict__(self):  # type: ignore
+        def serializable(o: object) -> Any:
             if isinstance(o, bytes):
                 return o.decode('utf-8')
             elif isinstance(o, bitarray):
@@ -94,7 +94,7 @@ class NMEAMessage(object):
             ]
         )
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         return all([getattr(self, attr) == getattr(other, attr) for attr in self.__slots__])
 
     @classmethod
@@ -106,7 +106,7 @@ class NMEAMessage(object):
         return cls(nmea_byte_str)
 
     @classmethod
-    def assemble_from_iterable(cls, messages: typing.Sequence) -> "NMEAMessage":
+    def assemble_from_iterable(cls, messages: Sequence["NMEAMessage"]) -> "NMEAMessage":
         """
         Assemble a multiline message from a sequence of NMEA messages.
         :param messages: Sequence of NMEA messages
@@ -142,7 +142,7 @@ class NMEAMessage(object):
     def fragment_count(self) -> int:
         return self.count
 
-    def decode(self, silent: bool = True) -> typing.Optional["AISMessage"]:
+    def decode(self, silent: bool = True) -> Optional["AISMessage"]:
         """
         Decode the message content.
 
@@ -165,22 +165,22 @@ class AISMessage(object):
     def __init__(self, nmea_message: NMEAMessage) -> None:
         self.nmea: NMEAMessage = nmea_message
         self.msg_type: AISType = AISType(nmea_message.ais_id)
-        self.content: typing.Dict = decode(self.nmea)
+        self.content = decode(self.nmea)
 
-    def __getitem__(self, item: str) -> typing.Any:
+    def __getitem__(self, item: str) -> Any:
         return self.content[item]
 
     def __str__(self) -> str:
         return str(self.content)
 
-    def __dict__(self):
+    def __dict__(self):  # type: ignore
         return {
-            'nmea': self.nmea.__dict__(),
+            'nmea': self.nmea.__dict__(),  # type: ignore
             'decoded': self.content
         }
 
     def to_json(self) -> str:
         return json.dumps(
-            self.__dict__(),
+            self.__dict__(),  # type: ignore
             indent=4
         )

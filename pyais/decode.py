@@ -1,5 +1,5 @@
-import typing
 from functools import partial
+from typing import Any, Dict
 
 import bitarray  # type: ignore
 
@@ -14,10 +14,11 @@ from pyais.constants import (
     NavAid
 )
 from pyais.exceptions import UnknownMessageException
+from pyais import messages
 from pyais.util import get_int, encode_bin_as_ascii6
 
 
-def decode_msg_1(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_1(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
@@ -42,14 +43,14 @@ def decode_msg_1(bit_arr: bitarray.bitarray) -> typing.Dict:
     }
 
 
-def decode_msg_2(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_2(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
     """
     return decode_msg_1(bit_arr)
 
 
-def decode_msg_3(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_3(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     AIS Vessel position report using ITDMA (Incremental Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
@@ -57,7 +58,7 @@ def decode_msg_3(bit_arr: bitarray.bitarray) -> typing.Dict:
     return decode_msg_1(bit_arr)
 
 
-def decode_msg_4(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_4(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_4_base_station_report
@@ -82,7 +83,7 @@ def decode_msg_4(bit_arr: bitarray.bitarray) -> typing.Dict:
     }
 
 
-def decode_msg_5(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_5(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     Static and Voyage Related Data
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_5_static_and_voyage_related_data
@@ -112,7 +113,7 @@ def decode_msg_5(bit_arr: bitarray.bitarray) -> typing.Dict:
     }
 
 
-def decode_msg_6(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_6(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     Binary Addresses Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_4_base_station_report
@@ -131,7 +132,7 @@ def decode_msg_6(bit_arr: bitarray.bitarray) -> typing.Dict:
     }
 
 
-def decode_msg_7(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_7(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     Binary Acknowledge
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_7_binary_acknowledge
@@ -152,7 +153,7 @@ def decode_msg_7(bit_arr: bitarray.bitarray) -> typing.Dict:
     }
 
 
-def decode_msg_8(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_8(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     Binary Acknowledge
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_8_binary_broadcast_message
@@ -168,7 +169,7 @@ def decode_msg_8(bit_arr: bitarray.bitarray) -> typing.Dict:
     }
 
 
-def decode_msg_9(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_9(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     Standard SAR Aircraft Position Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_9_standard_sar_aircraft_position_report
@@ -192,7 +193,7 @@ def decode_msg_9(bit_arr: bitarray.bitarray) -> typing.Dict:
     }
 
 
-def decode_msg_10(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_10(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     UTC/Date Inquiry
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_10_utc_date_inquiry
@@ -206,7 +207,7 @@ def decode_msg_10(bit_arr: bitarray.bitarray) -> typing.Dict:
     }
 
 
-def decode_msg_11(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_11(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     UTC/Date Response
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_11_utc_date_response
@@ -214,7 +215,7 @@ def decode_msg_11(bit_arr: bitarray.bitarray) -> typing.Dict:
     return decode_msg_4(bit_arr)
 
 
-def decode_msg_12(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_12(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     Addressed Safety-Related Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_12_addressed_safety_related_message
@@ -231,14 +232,14 @@ def decode_msg_12(bit_arr: bitarray.bitarray) -> typing.Dict:
     }
 
 
-def decode_msg_13(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_13(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     Identical to type 7
     """
     return decode_msg_7(bit_arr)
 
 
-def decode_msg_14(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_14(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     Safety-Related Broadcast Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_14_safety_related_broadcast_message
@@ -252,7 +253,7 @@ def decode_msg_14(bit_arr: bitarray.bitarray) -> typing.Dict:
     }
 
 
-def decode_msg_15(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_15(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     Interrogation
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_15_interrogation
@@ -273,7 +274,7 @@ def decode_msg_15(bit_arr: bitarray.bitarray) -> typing.Dict:
     }
 
 
-def decode_msg_16(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_16(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     Assignment Mode Command
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_16_assignment_mode_command
@@ -292,7 +293,7 @@ def decode_msg_16(bit_arr: bitarray.bitarray) -> typing.Dict:
     }
 
 
-def decode_msg_17(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_17(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     DGNSS Broadcast Binary Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_17_dgnss_broadcast_binary_message
@@ -308,7 +309,7 @@ def decode_msg_17(bit_arr: bitarray.bitarray) -> typing.Dict:
     }
 
 
-def decode_msg_18(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_18(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     Standard Class B CS Position Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_18_standard_class_b_cs_position_report
@@ -337,7 +338,7 @@ def decode_msg_18(bit_arr: bitarray.bitarray) -> typing.Dict:
     }
 
 
-def decode_msg_19(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_19(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     Extended Class B CS Position Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_19_extended_class_b_cs_position_report
@@ -368,7 +369,7 @@ def decode_msg_19(bit_arr: bitarray.bitarray) -> typing.Dict:
     }
 
 
-def decode_msg_20(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_20(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     Data Link Management Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_20_data_link_management_message
@@ -401,7 +402,7 @@ def decode_msg_20(bit_arr: bitarray.bitarray) -> typing.Dict:
     }
 
 
-def decode_msg_21(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_21(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     Aid-to-Navigation Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_21_aid_to_navigation_report
@@ -435,7 +436,7 @@ def decode_msg_21(bit_arr: bitarray.bitarray) -> typing.Dict:
     }
 
 
-def decode_msg_22(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_22(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     Channel Management
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_22_channel_management
@@ -457,7 +458,7 @@ def decode_msg_22(bit_arr: bitarray.bitarray) -> typing.Dict:
     }
 
     # Broadcast
-    d: typing.Dict[str, float] = {}
+    d: Dict[str, float] = {}
     if data['addressed']:
         d = {
             'dest1': get_int_from_data(69, 99),
@@ -476,7 +477,7 @@ def decode_msg_22(bit_arr: bitarray.bitarray) -> typing.Dict:
     return data
 
 
-def decode_msg_23(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_23(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     Group Assignment Command
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_23_group_assignment_command
@@ -500,20 +501,20 @@ def decode_msg_23(bit_arr: bitarray.bitarray) -> typing.Dict:
     }
 
 
-def decode_msg_24(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_24(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     Static Data Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_24_static_data_report
     """
     get_int_from_data = partial(get_int, bit_arr)
-    data: typing.Dict = {
+    data = {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(8, 8),
         'mmsi': get_int_from_data(8, 38),
         'partno': get_int_from_data(38, 40)
     }
 
-    d: typing.Dict
+    d: Dict[str, Any]
     if not data['partno']:
         # Part A
         d = {
@@ -537,7 +538,7 @@ def decode_msg_24(bit_arr: bitarray.bitarray) -> typing.Dict:
     return data
 
 
-def decode_msg_25(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_25(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     Single Slot Binary Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_25_single_slot_binary_message
@@ -578,7 +579,7 @@ def decode_msg_25(bit_arr: bitarray.bitarray) -> typing.Dict:
     return data
 
 
-def decode_msg_26(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_26(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     Multiple Slot Binary Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_26_multiple_slot_binary_message
@@ -622,7 +623,7 @@ def decode_msg_26(bit_arr: bitarray.bitarray) -> typing.Dict:
     return data
 
 
-def decode_msg_27(bit_arr: bitarray.bitarray) -> typing.Dict:
+def decode_msg_27(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     Long Range AIS Broadcast message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_27_long_range_ais_broadcast_message
@@ -677,7 +678,7 @@ DECODE_MSG = [
 ]
 
 
-def _decode(msg) -> typing.Dict:
+def _decode(msg: "messages.NMEAMessage") -> Dict[str, Any]:
     """
     Decodes a given NMEA message.
     """
@@ -687,7 +688,7 @@ def _decode(msg) -> typing.Dict:
         raise UnknownMessageException(f"The message {msg} is not currently supported!") from e
 
 
-def decode(msg) -> typing.Dict:
+def decode(msg: "messages.NMEAMessage") -> Dict[str, Any]:
     """
     Decodes a given message.
 

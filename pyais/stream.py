@@ -1,23 +1,28 @@
-import typing
 from abc import ABC, abstractmethod
 from socket import AF_INET, SOCK_DGRAM, SOCK_STREAM, socket
-from typing import Iterable, List, Generator
+from typing import (
+    Any, BinaryIO, Generator, Generic, Iterable, List, Optional, TypeVar, cast
+)
 
 from pyais.messages import NMEAMessage
 from pyais.util import FixedSizeDict
 
 
-class Stream(ABC):
+F = TypeVar("F", BinaryIO, socket, None)
 
-    def __init__(self, fobj) -> None:
-        self._fobj = fobj
 
-    def __enter__(self) -> "Stream":
+class Stream(Generic[F]):
+
+    def __init__(self, fobj: F) -> None:
+        self._fobj: F = fobj
+
+    def __enter__(self) -> "Stream[F]":
         # Enables use of with statement
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        self._fobj.close()
+    def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
+        if self._fobj is not None:
+            self._fobj.close()
 
     def __iter__(self) -> Generator[NMEAMessage, None, None]:
         return self._assemble_messages()
@@ -60,7 +65,7 @@ class Stream(ABC):
         raise NotImplementedError()
 
 
-class FileReaderStream(Stream):
+class FileReaderStream(Stream[BinaryIO]):
     """
     Read NMEA messages from file
     """
@@ -70,7 +75,7 @@ class FileReaderStream(Stream):
         self.mode: str = mode
         # Try to open file
         try:
-            file = open(self.filename, mode=self.mode)
+            file = cast(BinaryIO, open(self.filename, mode=self.mode))
         except Exception as e:
             raise FileNotFoundError(f"Could not open file {self.filename}") from e
         super().__init__(file)
@@ -79,23 +84,23 @@ class FileReaderStream(Stream):
         yield from self._fobj.readlines()
 
 
-class ByteStream(Stream):
+class ByteStream(Stream[None]):
     """
     Takes a iterable that contains ais messages as bytes and assembles them.
     """
 
-    def __init__(self, iterable: typing.Iterable[bytes]) -> None:
-        self.iterable: typing.Iterable[bytes] = iterable
+    def __init__(self, iterable: Iterable[bytes]) -> None:
+        self.iterable: Iterable[bytes] = iterable
         super().__init__(None)
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
         return
 
     def read(self) -> Generator[bytes, None, None]:
         yield from self.iterable
 
 
-class OutOfOrderByteStream(Stream, ABC):
+class OutOfOrderByteStream(Stream[F], ABC):
     """
     Handles multipart NMEA that are delivered out of order.
 
@@ -103,12 +108,12 @@ class OutOfOrderByteStream(Stream, ABC):
     You need to subclass it and override _get_messages().
     """
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         # create a fixed sized message queue
-        self._queue: typing.Dict = FixedSizeDict(10000)
+        self._queue = FixedSizeDict(10000)
         super().__init__(*args, **kwargs)
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
         del self._queue
         super().__exit__(exc_type, exc_val, exc_tb)
 
@@ -116,12 +121,12 @@ class OutOfOrderByteStream(Stream, ABC):
         """
         Read the important parts of a NMEA header
         """
-        parts: typing.List[bytes] = msg.split(b',')
+        parts: List[bytes] = msg.split(b',')
         self.seq_id: int = int(parts[3]) if parts[3] else 0
         self.fragment_offset: int = int(parts[2]) - 1
         self.fragment_count: int = int(parts[1])
 
-    def _yield_complete(self) -> typing.Optional[List[bytes]]:
+    def _yield_complete(self) -> Optional[List[bytes]]:
         """
         Check if the message is complete and return it
         """
@@ -138,7 +143,7 @@ class OutOfOrderByteStream(Stream, ABC):
         Append a new nmea message to queue
         """
         # MAX frag offset for any AIS NMEA is 9
-        msg_queue: List = ([None, ] * 9)
+        msg_queue: List[Optional[bytes]] = ([None, ] * 9)
         try:
             # place the message at its correct position
             msg_queue[self.fragment_offset] = msg
@@ -147,14 +152,14 @@ class OutOfOrderByteStream(Stream, ABC):
             del self._queue[self.seq_id]
         self._queue[self.seq_id] = msg_queue
 
-    def _update_queue(self, msg: bytes) -> typing.Optional[Iterable[bytes]]:
+    def _update_queue(self, msg: bytes) -> Optional[Iterable[bytes]]:
         """
         Update an existing message queue that is not complete yet.
         Return a list of fully assembled messages if all required messages for a given sequence number are received.
         """
-        msg_queue: list = self._queue[self.seq_id]
+        msg_queue: List[bytes] = self._queue[self.seq_id]
         msg_queue[self.fragment_offset] = msg
-        complete: typing.Optional[List[bytes]] = self._yield_complete()
+        complete: Optional[List[bytes]] = self._yield_complete()
         if complete:
             yield from complete
         return None
@@ -175,7 +180,7 @@ class OutOfOrderByteStream(Stream, ABC):
                 self._add_to_queue(msg)
 
 
-class SocketStream(Stream):
+class SocketStream(Stream[socket]):
     BUF_SIZE = 4096
 
     def read(self) -> Generator[bytes, None, None]:
@@ -197,7 +202,7 @@ class SocketStream(Stream):
             partial = lines[-1]
 
 
-class UDPStream(OutOfOrderByteStream, SocketStream):
+class UDPStream(OutOfOrderByteStream[socket], SocketStream):
 
     def __init__(self, host: str, port: int) -> None:
         sock: socket = socket(AF_INET, SOCK_DGRAM)

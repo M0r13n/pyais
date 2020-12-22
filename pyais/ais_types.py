@@ -33,5 +33,5 @@ class AISType(IntEnum):
     LONG_RANGE_BROADCAST = 27
 
     @classmethod
-    def _missing_(cls, value) -> int:
+    def _missing_(cls, value: object) -> int:
         return AISType.NOT_IMPLEMENTED
