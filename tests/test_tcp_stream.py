@@ -42,12 +42,13 @@ class MockTCPServer(object):
                     # send all at once and then close
                     for msg in MESSAGES:
                         conn.send(msg + b"\r\n")
-                return
+                break
         finally:
             self.sock.close()
 
 
 class TestTCPStream(unittest.TestCase):
+
     def _spawn_test_server(self):
         self.server = MockTCPServer('127.0.0.1', 55555)
         self.server_thread = threading.Thread(target=self.server.listen)
@@ -73,3 +74,4 @@ class TestTCPStream(unittest.TestCase):
                     break
 
             self.server_thread.join()
+            self.server.sock.close()  # Always close the server

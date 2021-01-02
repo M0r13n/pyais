@@ -48,7 +48,7 @@ class TestAIS(unittest.TestCase):
     "decoded": {
         "type": 1,
         "repeat": 0,
-        "mmsi": 367533950,
+        "mmsi": "367533950",
         "status": 0,
         "turn": -128,
         "speed": 0.0,
@@ -90,7 +90,7 @@ class TestAIS(unittest.TestCase):
 
     def test_msg_type_1(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C").decode()
-        assert msg.content == {'type': 1, 'repeat': 0, 'mmsi': 366053209,
+        assert msg.content == {'type': 1, 'repeat': 0, 'mmsi': "366053209",
                                'status': NavigationStatus.RestrictedManoeuverability, 'turn': 0,
                                'speed': 0,
                                'accuracy': 0,
@@ -101,7 +101,7 @@ class TestAIS(unittest.TestCase):
 
         msg = NMEAMessage(b"!AIVDM,1,1,,A,15NPOOPP00o?b=bE`UNv4?w428D;,0*24").decode()
         assert msg['type'] == 1
-        assert msg['mmsi'] == 367533950
+        assert msg['mmsi'] == "367533950"
         assert msg['repeat'] == 0
         assert msg['status'] == NavigationStatus.UnderWayUsingEngine
         assert msg['turn'] == -128
@@ -124,7 +124,7 @@ class TestAIS(unittest.TestCase):
         assert msg
 
         assert content['repeat'] == 2
-        assert content['mmsi'] == 211512520
+        assert content['mmsi'] == "211512520"
         assert content['turn'] == -128
         assert content['speed'] == 0.3
         assert round(content['lat'], 4) == 53.5427
@@ -137,7 +137,7 @@ class TestAIS(unittest.TestCase):
     def test_msg_type_3(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,35NSH95001G?wopE`beasVk@0E5:,0*6F").decode()
         assert msg['type'] == 3
-        assert msg['mmsi'] == 367581220
+        assert msg['mmsi'] == "367581220"
         assert msg['repeat'] == 0
         assert msg['status'] == NavigationStatus.Moored
         assert msg['turn'] == 0
@@ -165,7 +165,7 @@ class TestAIS(unittest.TestCase):
         msg = NMEAMessage(b"!AIVDM,1,1,,B,403OtVAv>lba;o?Ia`E`4G?02H6k,0*44").decode()
         assert round(msg['lon'], 4) == -122.4648
         assert round(msg['lat'], 4) == 37.7943
-        assert msg['mmsi'] == 3669145
+        assert msg['mmsi'] == "003669145"
         assert msg['accuracy'] == 1
         assert msg['year'] == 2019
         assert msg['month'] == 11
@@ -192,13 +192,13 @@ class TestAIS(unittest.TestCase):
     def test_msg_type_6(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,B,6B?n;be:cbapalgc;i6?Ow4,2*4A").decode()
         assert msg['seqno'] == 3
-        assert msg['dest_mmsi'] == 313240222
+        assert msg['dest_mmsi'] == "313240222"
         assert msg['dac'] == 669
         assert msg['fid'] == 11
 
     def test_msg_type_7(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,702R5`hwCjq8,0*6B").decode()
-        assert msg['mmsi1'] == 265538450
+        assert msg['mmsi1'] == "265538450"
 
     def test_msg_type_8(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs,0*47").decode()
@@ -206,7 +206,7 @@ class TestAIS(unittest.TestCase):
         assert msg.nmea.is_valid
         assert msg['repeat'] == 0
         assert msg.msg_type == AISType.BINARY_BROADCAST
-        assert msg['mmsi'] == 366999712
+        assert msg['mmsi'] == "366999712"
         assert msg['dac'] == 366
         assert msg['fid'] == 56
         assert msg['data'] == "00111010010100111101101110110111101111100100101001110111001100010011011111111" \
@@ -218,7 +218,7 @@ class TestAIS(unittest.TestCase):
         msg = NMEAMessage(b"!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*30").decode()
         assert msg.msg_type == AISType.SAR_AIRCRAFT_POS
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == 111232511
+        assert msg['mmsi'] == "111232511"
         assert msg['alt'] == 303
         assert msg['speed'] == 42
         assert msg['accuracy'] == 0
@@ -231,10 +231,10 @@ class TestAIS(unittest.TestCase):
 
     def test_msg_type_10(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,B,:5MlU41GMK6@,0*6C").decode()
-        assert msg['dest_mmsi'] == 366832740
+        assert msg['dest_mmsi'] == "366832740"
 
         msg = NMEAMessage(b"!AIVDM,1,1,,B,:6TMCD1GOS60,0*5B").decode()
-        assert msg['dest_mmsi'] == 366972000
+        assert msg['dest_mmsi'] == "366972000"
 
     def test_msg_type_11(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,B,;4R33:1uUK2F`q?mOt@@GoQ00000,0*5D").decode()
@@ -253,18 +253,18 @@ class TestAIS(unittest.TestCase):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,<5?SIj1;GbD07??4,0*38").decode()
         assert msg['type'] == 12
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == 351853000
+        assert msg['mmsi'] == "351853000"
         assert msg['seqno'] == 0
-        assert msg['dest_mmsi'] == 316123456
+        assert msg['dest_mmsi'] == "316123456"
         assert msg['retransmit'] == 0
         assert msg['text'] == "GOOD"
 
         msg = NMEAMessage(b"!AIVDM,1,1,,A,<42Lati0W:Ov=C7P6B?=Pjoihhjhqq0,2*2B").decode()
         assert msg['type'] == 12
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == 271002099
+        assert msg['mmsi'] == "271002099"
         assert msg['seqno'] == 0
-        assert msg['dest_mmsi'] == 271002111
+        assert msg['dest_mmsi'] == "271002111"
         assert msg['retransmit'] == 1
         assert msg['text'] == "MSG FROM 271002099"
 
@@ -272,28 +272,28 @@ class TestAIS(unittest.TestCase):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,=39UOj0jFs9R,0*65").decode()
         assert msg['type'] == 13
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == 211378120
-        assert msg['mmsi1'] == 211217560
+        assert msg['mmsi'] == "211378120"
+        assert msg['mmsi1'] == "211217560"
 
     def test_msg_type_14(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,>5?Per18=HB1U:1@E=B0m<L,2*51").decode()
         assert msg['type'] == 14
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == 351809000
+        assert msg['mmsi'] == "351809000"
         assert msg['text'] == "RCVD YR TEST MSG"
 
     def test_msg_type_15(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,?5OP=l00052HD00,2*5B").decode()
         assert msg['type'] == 15
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == 368578000
+        assert msg['mmsi'] == "368578000"
         assert msg['offset1_1'] == 0
 
         msg = NMEAMessage(b"!AIVDM,1,1,,B,?h3Ovn1GP<K0<P@59a0,2*04").decode()
         assert msg['type'] == 15
         assert msg['repeat'] == 3
-        assert msg['mmsi'] == 3669720
-        assert msg['mmsi1'] == 367014320
+        assert msg['mmsi'] == "003669720"
+        assert msg['mmsi1'] == "367014320"
         assert msg['type1_1'] == 3
         assert msg['type1_2'] == 5
         assert msg['offset1_2'] == 617
@@ -303,8 +303,8 @@ class TestAIS(unittest.TestCase):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,@01uEO@mMk7P<P00,0*18").decode()
         assert msg['type'] == 16
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == 2053501
-        assert msg['mmsi1'] == 224251000
+        assert msg['mmsi'] == "002053501"
+        assert msg['mmsi1'] == "224251000"
         assert msg['offset1'] == 200
         assert msg['increment1'] == 0
 
@@ -319,7 +319,7 @@ class TestAIS(unittest.TestCase):
         n = 0x7c0556c07031febbf52924fe33fa2933ffa0fd2932fdb7062922fe3809292afde9122929fcf7002923ffd20c29aaaa
         assert msg['type'] == 17
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == 2734450
+        assert msg['mmsi'] == "002734450"
         assert msg['lon'] == 17478
         assert msg['lat'] == 35992
         assert msg['data'] == n
@@ -327,7 +327,7 @@ class TestAIS(unittest.TestCase):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,A0476BQ>J8`<h2JpH:4P0?j@2mTEw8`=DP1DEnqvj0,0*79").decode()
         assert msg['type'] == 17
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == 4310602
+        assert msg['mmsi'] == "004310602"
         assert msg['lat'] == 20582
         assert msg['lon'] == 80290
         assert msg['data'] == 14486955885545814640451754168044205828166539334830080
@@ -335,7 +335,7 @@ class TestAIS(unittest.TestCase):
     def test_msg_type_18(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,B5NJ;PP005l4ot5Isbl03wsUkP06,0*76").decode()
         assert msg['type'] == 18
-        assert msg['mmsi'] == 367430530
+        assert msg['mmsi'] == "367430530"
         assert msg['speed'] == 0
         assert msg['accuracy'] == 0
         assert round(msg['lat'], 2) == 37.79
@@ -353,7 +353,7 @@ class TestAIS(unittest.TestCase):
     def test_msg_type_19(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,B,C5N3SRgPEnJGEBT>NhWAwwo862PaLELTBJ:V00000000S0D:R220,0*0B").decode()
         assert msg['type'] == 19
-        assert msg['mmsi'] == 367059850
+        assert msg['mmsi'] == "367059850"
         assert round(msg['speed'], 1) == 8.7
         assert msg['accuracy'] == 0
         assert round(msg['lat'], 2) == 29.54
@@ -371,7 +371,7 @@ class TestAIS(unittest.TestCase):
     def test_msg_type_20(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,D028rqP<QNfp000000000000000,2*0C").decode()
         assert msg['type'] == 20
-        assert msg['mmsi'] == 2243302
+        assert msg['mmsi'] == "002243302"
         assert msg['offset1'] == 200
         assert msg['number1'] == 5
         assert msg['timeout1'] == 7
@@ -388,7 +388,7 @@ class TestAIS(unittest.TestCase):
             NMEAMessage(b"!AIVDM,2,2,7,B,@20,4*54")
         ]).decode()
         assert msg['type'] == 21
-        assert msg['mmsi'] == 316021442
+        assert msg['mmsi'] == "316021442"
         assert msg['aid_type'] == NavAid.REFERENCE_POINT
         assert msg['name'] == "DFO2"
         assert msg['accuracy'] == 1
@@ -410,7 +410,7 @@ class TestAIS(unittest.TestCase):
         # Broadcast
         msg = NMEAMessage(b"!AIVDM,1,1,,B,F030p:j2N2P5aJR0r;6f3rj10000,0*11").decode()
         assert msg['type'] == 22
-        assert msg['mmsi'] == 3160107
+        assert msg['mmsi'] == "003160107"
         assert msg['channel_a'] == 2087
         assert msg['channel_b'] == 2088
         assert msg['power'] == 0
@@ -430,14 +430,14 @@ class TestAIS(unittest.TestCase):
         # Addressed
         msg = NMEAMessage(b"!AIVDM,1,1,,A,F@@W>gOP00PH=JrN9l000?wB2HH;,0*44").decode()
         assert msg['type'] == 22
-        assert msg['mmsi'] == 17419965
+        assert msg['mmsi'] == "017419965"
         assert msg['channel_a'] == 3584
         assert msg['channel_b'] == 8
         assert msg['power'] == 1
         assert msg['addressed'] == 1
 
-        assert msg['dest1'] == 28144881
-        assert msg['dest2'] == 268435519
+        assert msg['dest1'] == "028144881"
+        assert msg['dest2'] == "268435519"
 
         assert msg['band_a'] == 0
         assert msg['band_b'] == 0
@@ -451,7 +451,7 @@ class TestAIS(unittest.TestCase):
     def test_msg_type_23(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,B,G02:Kn01R`sn@291nj600000900,2*12").decode()
         assert msg['type'] == 23
-        assert msg['mmsi'] == 2268120
+        assert msg['mmsi'] == "002268120"
         assert msg['ne_lon'] == 157.8
         assert round(msg['ne_lat'], 1) == 3064.2
         assert round(msg['sw_lon'], 1) == 109.6
@@ -460,7 +460,7 @@ class TestAIS(unittest.TestCase):
     def test_msg_type_24(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,H52KMeDU653hhhi0000000000000,0*1A").decode()
         assert msg['type'] == 24
-        assert msg['mmsi'] == 338091445
+        assert msg['mmsi'] == "338091445"
         assert msg['partno'] == 1
         assert msg['shiptype'] == ShipType.PleasureCraft
         assert msg['vendorid'] == "FEC"
@@ -477,14 +477,14 @@ class TestAIS(unittest.TestCase):
         assert msg['type'] == 25
         assert msg['addressed']
         assert not msg['structured']
-        assert msg['dest_mmsi'] == 134218384
+        assert msg['dest_mmsi'] == "134218384"
 
     def test_msg_type_26(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,JB3R0GO7p>vQL8tjw0b5hqpd0706kh9d3lR2vbl0400,2*40").decode()
         assert msg['type'] == 26
         assert msg['addressed']
         assert msg['structured']
-        assert msg['dest_mmsi'] == 838351848
+        assert msg['dest_mmsi'] == "838351848"
 
         msg = NMEAMessage(b"!AIVDM,1,1,,A,J0@00@370>t0Lh3P0000200H:2rN92,4*14").decode()
         assert msg['type'] == 26
@@ -495,7 +495,7 @@ class TestAIS(unittest.TestCase):
         msg = NMEAMessage(b"!AIVDM,1,1,,B,KC5E2b@U19PFdLbMuc5=ROv62<7m,0*16").decode(silent=False)
         assert msg
         assert msg['type'] == 27
-        assert msg['mmsi'] == 206914217
+        assert msg['mmsi'] == "206914217"
         assert msg['accuracy'] == 0
         assert msg['raim'] == 0
         assert msg['status'] == NavigationStatus.NotUnderCommand
@@ -544,7 +544,7 @@ class TestAIS(unittest.TestCase):
         for msg in ByteStream(messages):
             decoded = msg.decode()
             assert decoded['shipname'] == 'NORDIC HAMBURG'
-            assert decoded['mmsi'] == 210035000
+            assert decoded['mmsi'] == "210035000"
             assert decoded
             counter += 1
         assert counter == 2

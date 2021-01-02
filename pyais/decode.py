@@ -15,7 +15,7 @@ from pyais.constants import (
 )
 from pyais.exceptions import UnknownMessageException
 from pyais import messages
-from pyais.util import get_int, encode_bin_as_ascii6
+from pyais.util import get_int, encode_bin_as_ascii6, get_mmsi
 
 
 def decode_msg_1(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
@@ -27,7 +27,7 @@ def decode_msg_1(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
-        'mmsi': get_int_from_data(8, 38),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
         'status': NavigationStatus(get_int_from_data(38, 42)),
         'turn': get_int_from_data(42, 50, signed=True),
         'speed': get_int_from_data(50, 60) / 10.0,
@@ -67,7 +67,7 @@ def decode_msg_4(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
-        'mmsi': get_int_from_data(8, 38),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
         'year': get_int_from_data(38, 52),
         'month': get_int_from_data(52, 56),
         'day': get_int_from_data(56, 61),
@@ -92,7 +92,7 @@ def decode_msg_5(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
-        'mmsi': get_int_from_data(8, 38),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
         'ais_version': get_int_from_data(38, 40),
         'imo': get_int_from_data(40, 70),
         'callsign': encode_bin_as_ascii6(bit_arr[70:112]),
@@ -122,9 +122,9 @@ def decode_msg_6(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
-        'mmsi': get_int_from_data(8, 38),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
         'seqno': get_int_from_data(38, 40),
-        'dest_mmsi': get_int_from_data(40, 70),
+        'dest_mmsi': get_mmsi(bit_arr, 40, 70),
         'retransmit': bit_arr[70],
         'dac': get_int_from_data(72, 82),
         'fid': get_int_from_data(82, 88),
@@ -141,14 +141,14 @@ def decode_msg_7(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
-        'mmsi': get_int_from_data(8, 38),
-        'mmsi1': get_int_from_data(40, 70),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
+        'mmsi1': get_mmsi(bit_arr, 40, 70),
         'mmsiseq1': get_int_from_data(70, 72),
-        'mmsi2': get_int_from_data(72, 102),
+        'mmsi2': get_mmsi(bit_arr, 72, 102),
         'mmsiseq2': get_int_from_data(102, 104),
-        'mmsi3': get_int_from_data(104, 134),
+        'mmsi3': get_mmsi(bit_arr, 104, 134),
         'mmsiseq3': get_int_from_data(134, 136),
-        'mmsi4': get_int_from_data(136, 166),
+        'mmsi4': get_mmsi(bit_arr, 136, 166),
         'mmsiseq4': get_int_from_data(166, 168)
     }
 
@@ -162,7 +162,7 @@ def decode_msg_8(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
-        'mmsi': get_int_from_data(8, 38),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
         'dac': get_int_from_data(40, 50),
         'fid': get_int_from_data(50, 56),
         'data': bit_arr[56:].to01()
@@ -178,7 +178,7 @@ def decode_msg_9(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
-        'mmsi': get_int_from_data(8, 38),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
         'alt': get_int_from_data(38, 50),
         'speed': get_int_from_data(50, 60),
         'accuracy': bit_arr[60],
@@ -202,8 +202,8 @@ def decode_msg_10(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
-        'mmsi': get_int_from_data(8, 38),
-        'dest_mmsi': get_int_from_data(40, 70)
+        'mmsi': get_mmsi(bit_arr, 8, 38),
+        'dest_mmsi': get_mmsi(bit_arr, 40, 70)
     }
 
 
@@ -224,9 +224,9 @@ def decode_msg_12(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
-        'mmsi': get_int_from_data(8, 38),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
         'seqno': get_int_from_data(38, 40),
-        'dest_mmsi': get_int_from_data(40, 70),
+        'dest_mmsi': get_mmsi(bit_arr, 40, 70),
         'retransmit': bit_arr[70],
         'text': encode_bin_as_ascii6(bit_arr[72:])
     }
@@ -248,7 +248,7 @@ def decode_msg_14(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
-        'mmsi': get_int_from_data(8, 38),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
         'text': encode_bin_as_ascii6(bit_arr[40:])
     }
 
@@ -262,13 +262,13 @@ def decode_msg_15(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
-        'mmsi': get_int_from_data(8, 38),
-        'mmsi1': get_int_from_data(40, 70),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
+        'mmsi1': get_mmsi(bit_arr, 40, 70),
         'type1_1': get_int_from_data(70, 76),
         'offset1_1': get_int_from_data(76, 88),
         'type1_2': get_int_from_data(90, 96),
         'offset1_2': get_int_from_data(96, 108),
-        'mmsi2': get_int_from_data(110, 140),
+        'mmsi2': get_mmsi(bit_arr, 110, 140),
         'type2_1': get_int_from_data(140, 146),
         'offset2_1': get_int_from_data(146, 157),
     }
@@ -283,11 +283,11 @@ def decode_msg_16(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
-        'mmsi': get_int_from_data(8, 38),
-        'mmsi1': get_int_from_data(40, 70),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
+        'mmsi1': get_mmsi(bit_arr, 40, 70),
         'offset1': get_int_from_data(70, 82),
         'increment1': get_int_from_data(82, 92),
-        'mmsi2': get_int_from_data(92, 122),
+        'mmsi2': get_mmsi(bit_arr, 92, 122),
         'offset2': get_int_from_data(122, 134),
         'increment2': get_int_from_data(134, 144)
     }
@@ -302,7 +302,7 @@ def decode_msg_17(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
-        'mmsi': get_int_from_data(8, 38),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
         'lon': get_int_from_data(40, 58, signed=True),
         'lat': get_int_from_data(58, 75, signed=True),
         'data': get_int_from_data(80, 816)
@@ -318,7 +318,7 @@ def decode_msg_18(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(8, 8),
-        'mmsi': get_int_from_data(8, 38),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
         'speed': get_int_from_data(46, 56) * 0.1,
         'accuracy': bit_arr[56],
         'lon': get_int_from_data(57, 85, signed=True) / 600000.0,
@@ -347,7 +347,7 @@ def decode_msg_19(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(8, 8),
-        'mmsi': get_int_from_data(8, 38),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
         'speed': get_int_from_data(46, 56) * 0.1,
         'accuracy': bit_arr[56],
         'lon': get_int_from_data(57, 85, signed=True) / 600000.0,
@@ -378,7 +378,7 @@ def decode_msg_20(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(8, 8),
-        'mmsi': get_int_from_data(8, 38),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
 
         'offset1': get_int_from_data(40, 52),
         'number1': get_int_from_data(52, 56),
@@ -411,7 +411,7 @@ def decode_msg_21(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(8, 8),
-        'mmsi': get_int_from_data(8, 38),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
 
         'aid_type': NavAid(get_int_from_data(38, 43)),
         'name': encode_bin_as_ascii6(bit_arr[43:163]),
@@ -445,7 +445,7 @@ def decode_msg_22(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     data = {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(8, 8),
-        'mmsi': get_int_from_data(8, 38),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
 
         'channel_a': get_int_from_data(40, 52),
         'channel_b': get_int_from_data(52, 64),
@@ -458,11 +458,11 @@ def decode_msg_22(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     }
 
     # Broadcast
-    d: Dict[str, float] = {}
+    d: Dict[str, Any] = {}
     if data['addressed']:
         d = {
-            'dest1': get_int_from_data(69, 99),
-            'dest2': get_int_from_data(104, 134),
+            'dest1': get_mmsi(bit_arr, 69, 99),
+            'dest2': get_mmsi(bit_arr, 104, 134),
         }
     # Addressed
     else:
@@ -486,7 +486,7 @@ def decode_msg_23(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(8, 8),
-        'mmsi': get_int_from_data(8, 38),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
 
         'ne_lon': get_int_from_data(40, 58, signed=True) * 0.1,
         'ne_lat': get_int_from_data(58, 75, signed=True) * 0.1,
@@ -510,7 +510,7 @@ def decode_msg_24(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     data = {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(8, 8),
-        'mmsi': get_int_from_data(8, 38),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
         'partno': get_int_from_data(38, 40)
     }
 
@@ -548,18 +548,19 @@ def decode_msg_25(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     Also documentation seems to vary. Use with caution.
     """
     get_int_from_data = partial(get_int, bit_arr)
-    data = {
+    data: Dict[str, Any] = {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(8, 8),
-        'mmsi': get_int_from_data(8, 38),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
 
         'addressed': bit_arr[38],
         'structured': bit_arr[39],
     }
 
+    d: Dict[str, Any]
     if data['addressed']:
         d = {
-            'dest_mmsi': get_int_from_data(40, 70),
+            'dest_mmsi': get_mmsi(bit_arr, 40, 70),
         }
         data.update(d)
 
@@ -594,21 +595,23 @@ def decode_msg_26(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     data = {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(8, 8),
-        'mmsi': get_int_from_data(8, 38),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
 
         'addressed': bit_arr[38],
         'structured': bit_arr[39],
         'radio': get_int_from_data(radio_status_offset, len(bit_arr))
     }
 
+    d: Dict[str, Any]
     if data['addressed']:
         d = {
-            'dest_mmsi': get_int_from_data(40, 70),
+            'dest_mmsi': get_mmsi(bit_arr, 40, 70),
         }
         data.update(d)
 
     lo_ix = 40 if data['addressed'] else 70
     hi_ix = lo_ix + 16
+
     if data['structured']:
         d = {
             'app_id': get_int_from_data(lo_ix, hi_ix),
@@ -632,7 +635,7 @@ def decode_msg_27(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     return {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(8, 8),
-        'mmsi': get_int_from_data(8, 38),
+        'mmsi': get_mmsi(bit_arr, 8, 38),
 
         'accuracy': bit_arr[38],
         'raim': bit_arr[39],
