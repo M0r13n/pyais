@@ -82,6 +82,16 @@ def get_int(data: bitarray, ix_low: int, ix_high: int, signed: bool = False) -> 
     return i >> shift
 
 
+def get_mmsi(data: bitarray, ix_low: int, ix_high: int) -> str:
+    """
+    A Maritime Mobile Service Identity (MMSI) is a series of nine digits.
+    Every digit is required and therefore we can NOT use a int.
+    See: issue #6
+    """
+    mmsi_int: int = get_int(data, ix_low, ix_high)
+    return str(mmsi_int).zfill(9)
+
+
 def compute_checksum(msg: bytes) -> int:
     """
     Compute the checksum of a given message
