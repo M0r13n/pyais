@@ -7,8 +7,9 @@ run_tests:
 flake:
 	python -m flake8
 
+.PHONY: build
 build:
-	rm -rf dist/ && python setup.py sdist bdist_wheel
+	rm -rf dist/ && rm -rf build/ && python setup.py sdist bdist_wheel
 
 check-build:
 	twine check dist/*

@@ -557,5 +557,23 @@ class TestAIS(unittest.TestCase):
         with self.assertRaises(UnknownMessageException):
             nmea.decode(silent=False)
 
-        # by default errors are ignored and None is returned
-        assert nmea.decode() is None
+        # by default errors are ignored and an empty AIS message is returned
+        assert nmea.decode() is not None
+        assert isinstance(nmea.decode(), AISMessage)
+        text = """{
+    "nmea": {
+        "ais_id": 37,
+        "raw": "!AIVDM,1,1,,A,U31<0OOP000CshrMdl600?wP00SL,0*43",
+        "talker": "AI",
+        "msg_type": "VDM",
+        "count": 1,
+        "index": 1,
+        "seq_id": "",
+        "channel": "A",
+        "data": "U31<0OOP000CshrMdl600?wP00SL",
+        "checksum": 67,
+        "bit_array": "100101000011000001001100000000011111011111100000000000000000000000010011111011110000111010011101101100110100000110000000000000001111111111100000000000000000100011011100"
+    },
+    "decoded": {}
+}"""
+        assert nmea.decode().to_json() == text

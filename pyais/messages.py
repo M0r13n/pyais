@@ -148,13 +148,14 @@ class NMEAMessage(object):
 
         @param silent: Boolean. If set to true errors are ignored and None is returned instead
         """
+        msg = AISMessage(self)
         try:
-            return AISMessage(self)
+            msg.decode()
         except Exception as e:
-            if silent:
-                return None
+            if not silent:
+                raise e
 
-            raise e
+        return msg
 
 
 class AISMessage(object):
@@ -163,8 +164,15 @@ class AISMessage(object):
     """
 
     def __init__(self, nmea_message: NMEAMessage) -> None:
+        """Creates an initial empty AIS message"""
         self.nmea: NMEAMessage = nmea_message
-        self.msg_type: AISType = AISType(nmea_message.ais_id)
+        self.msg_type: AISType = AISType.NOT_IMPLEMENTED
+        self.content: Dict[str, Any] = {}
+
+    def decode(self) -> None:
+        """Decodes the given message and extracts it's type and content.
+        This function potentially fails, if the message is malformed."""
+        self.msg_type = AISType(self.nmea.ais_id)
         self.content = decode(self.nmea)
 
     def __getitem__(self, item: str) -> Any:
