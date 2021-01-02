@@ -36,3 +36,13 @@ class TestFileReaderStream(unittest.TestCase):
         large_file = par_dir.joinpath("nmea-sample")
         for msg in FileReaderStream(large_file):
             msg.decode()
+
+    def test_marine_traffic_sample(self):
+        """Test some messages from https://help.marinetraffic.com/hc/en-us
+        /articles/215626187-I-am-an-AIS-data-contributor-Can-you-share-more-data-with-me-"""
+
+        par_dir = pathlib.Path(__file__).parent.absolute()
+        nmea_file = par_dir.joinpath("nmea_data_sample.txt")
+
+        for msg in FileReaderStream(nmea_file):
+            assert msg.decode()
