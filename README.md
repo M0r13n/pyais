@@ -6,6 +6,11 @@
   
 AIS message decoding. 100% pure Python. Supports AIVDM/AIVDO messages. Supports single messages, files and TCP/UDP sockets.
 
+# Acknowledgements
+![Jetbrains Logo](./docs/jetbrains_logo.svg)
+
+This project is a grateful recipient of the [free Jetbrains Open Source sponsorship](https://www.jetbrains.com/?from=pyais). Thank you. 🙇
+
 # General
 This module contains functions to decode and parse Automatic Identification System (AIS) serial messages.
 For detailed information about AIS refer to the [AIS standard](https://en.wikipedia.org/wiki/Automatic_identification_system#Message_format).
@@ -70,6 +75,31 @@ This module is a private project of mine and does not claim to be complete. I tr
 
 # Coverage
 Currently this module is able to decode most message types. There are only a few exceptions. These are messages that only occur in very rare cases and that you will probably never observe. The module was able to completely decode a 4 hour stream with real-time data from San Francisco Bay Area without any errors or problems. If you find a bug or missing feature, please create an issue.
+
+
+# Known Issues
+
+During installation, you may encounter problems due to missing header files. The error looks like this:
+
+````sh
+...
+
+    bitarray/_bitarray.c:13:10: fatal error: Python.h: No such file or directory
+       13 | #include "Python.h"
+          |          ^~~~~~~~~~
+    compilation terminated.
+    error: command 'x86_64-linux-gnu-gcc' failed with exit status 1
+
+...
+
+````
+
+In  order to solve this issue, you need to install header files and static libraries for python dev:
+
+````sh
+$ sudo apt install python3-dev
+````
+
 
 # For developers
 After you cloned the repo head into the `pyais` base directory.

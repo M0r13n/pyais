@@ -1,4 +1,5 @@
 bitarray
+wheel
 flake8
 coverage
 nose
