@@ -8,7 +8,7 @@ AIS message decoding. 100% pure Python. Supports AIVDM/AIVDO messages. Supports 
 
 # Acknowledgements
 ![Jetbrains Logo](./docs/jetbrains_logo.svg)
-<img src="./docs/jetbrains_logo.svg">
+
 This project is a grateful recipient of the [free Jetbrains Open Source sponsorship](https://www.jetbrains.com/?from=pyais). Thank you. 🙇
 
 # General
