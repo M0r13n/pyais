@@ -1,4 +1,4 @@
-from enum import IntEnum
+from enum import IntEnum, Enum
 
 # Keywords
 UNDEFINED = 'ndefined'
@@ -6,6 +6,26 @@ RESERVED = 'Reserved'
 NULL = 'N/A'
 ANSI_RED = '\x1b[31m'
 ANSI_RESET = '\x1b[0m'
+
+
+class TalkerID(str, Enum):
+    """ Enum of all  NMEA talker IDs.
+    See: https://gpsd.gitlab.io/gpsd/AIVDM.html#_talker_ids"""
+    Base_Station = "AB"
+    Dependent_Base_Station = "AD"
+    Mobile_Station = "AI"
+    Navigation_Station = "AN"
+    Receiving_Station = "AR"
+    Limited_Base_Station = "AS"
+    Transmitting_Station = "AT"
+    Repeater_Station = "AX"
+    Base_Station_Deprecated = "BS"
+    Physical_Shore_Station = "SA"
+    UNDEFINED = "UNDEFINED"
+
+    @classmethod
+    def _missing_(cls, value: object) -> str:
+        return TalkerID.UNDEFINED
 
 
 class NavigationStatus(IntEnum):

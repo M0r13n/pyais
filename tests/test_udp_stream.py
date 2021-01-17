@@ -82,12 +82,13 @@ class TestOutOfOrder(unittest.TestCase):
             host = "127.0.0.1"
             port = 9999
             counter = 0
-            for msg in UDPStream(host, port):
-                assert msg.decode()
-                counter += 1
+            with UDPStream(host, port) as stream:
+                for msg in stream:
+                    assert msg.decode()
+                    counter += 1
 
-                if counter == 3:
-                    break
+                    if counter == 3:
+                        break
 
             self.server_thread.join()
 

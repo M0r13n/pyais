@@ -21,37 +21,28 @@ MESSAGES = [
 ]
 
 
-class MockTCPServer(object):
-    """
-    Simple TCP server that sends all messages from MESSAGES once a client connected
-    """
+def tcp_mock_server(host, port) -> None:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind((host, port))
+    sock.listen(1)
 
-    def __init__(self, host, port) -> None:
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.bind((host, port))
-        self.sock.listen(1)
-        self.host = host
-        self.port = port
-
-    def listen(self):
-        try:
-            while True:
-                # wait for a connection
-                conn, _ = self.sock.accept()
-                if conn:
-                    # send all at once and then close
-                    for msg in MESSAGES:
-                        conn.send(msg + b"\r\n")
+    try:
+        while True:
+            # wait for a connection
+            conn, _ = sock.accept()
+            if conn:
+                # send all at once and then close
+                for msg in MESSAGES:
+                    conn.send(msg + b"\r\n")
                 break
-        finally:
-            self.sock.close()
+    finally:
+        sock.close()
 
 
 class TestTCPStream(unittest.TestCase):
 
     def _spawn_test_server(self):
-        self.server = MockTCPServer('127.0.0.1', 55555)
-        self.server_thread = threading.Thread(target=self.server.listen)
+        self.server_thread = threading.Thread(target=tcp_mock_server, args=("127.0.0.1", 55555))
         self.server_thread.start()
 
     def test_default_buf_size(self):
@@ -64,14 +55,14 @@ class TestTCPStream(unittest.TestCase):
     @unittest.skipIf(not is_linux(), "Skipping because Signal is not available on non unix systems!")
     def test_tcp_stream(self):
         # limit execution time to 1 second in case of potential deadlocks -> prevent test from running forever
-        with time_limit(1):
+        with time_limit(2):
             self._spawn_test_server()
 
-            for i, msg in enumerate(TCPStream("127.0.0.1", 55555)):
-                assert msg.decode()
-                # make sure all messages were received
-                if i == len(MESSAGES) - 1:
-                    break
+            with TCPStream("127.0.0.1", 55555) as stream:
+                for i, msg in enumerate(stream):
+                    assert msg.decode()
+                    # make sure all messages were received
+                    if i == len(MESSAGES) - 1:
+                        break
 
-            self.server_thread.join()
-            self.server.sock.close()  # Always close the server
+        self.server_thread.join()

@@ -44,5 +44,6 @@ class TestFileReaderStream(unittest.TestCase):
         par_dir = pathlib.Path(__file__).parent.absolute()
         nmea_file = par_dir.joinpath("nmea_data_sample.txt")
 
-        for msg in FileReaderStream(nmea_file):
-            assert msg.decode()
+        with FileReaderStream(nmea_file) as stream:
+            for msg in stream:
+                assert msg.decode()
