@@ -39,7 +39,7 @@ def decode_msg_1(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
         'second': get_int_from_data(137, 143),
         'maneuver': ManeuverIndicator(get_int_from_data(143, 145)),
         'raim': bit_arr[148],
-        'radio': get_int_from_data(149, bit_arr.length()),
+        'radio': get_int_from_data(149, len(bit_arr)),
     }
 
 

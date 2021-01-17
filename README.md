@@ -62,7 +62,7 @@ for msg in UDPStream(host, port):
 
 ```
 
-I also wrote a [blog post AIS decoding](https://leonrichter.de/posts/pyais/) and this lib. 
+I also wrote a [blog post about AIS decoding](https://leonrichter.de/posts/pyais/) and this lib. 
 
 # Performance Considerations
 You may refer to the [Code Review Stack Exchange question](https://codereview.stackexchange.com/questions/230258/decoding-of-binary-data-ais-from-socket).

@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional, Sequence
 from bitarray import bitarray  # type: ignore
 
 from pyais.ais_types import AISType
+from pyais.constants import TalkerID
 from pyais.decode import decode
 from pyais.exceptions import InvalidNMEAMessageException, InvalidChecksumException
 from pyais.util import decode_into_bit_array, get_int, compute_checksum
@@ -53,7 +54,8 @@ class NMEAMessage(object):
         ) = values
 
         # The talker is identified by the next 2 characters
-        self.talker: str = head[1:3].decode('ascii')
+        talker: str = head[1:3].decode('ascii')
+        self.talker: TalkerID = TalkerID(talker)
 
         # The type of message is then identified by the next 3 characters
         self.msg_type: str = head[3:].decode('ascii')
