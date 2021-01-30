@@ -469,7 +469,7 @@ class TestAIS(unittest.TestCase):
         assert msg['to_stern'] == 0
         assert msg['to_port'] == 0
         assert msg['to_starboard'] == 0
-        assert msg['mothership_mmsi'] == 0
+        assert msg['mothership_mmsi'] == "000000000"
 
     def test_msg_type_25(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,I6SWo?8P00a3PKpEKEVj0?vNP<65,0*73").decode()

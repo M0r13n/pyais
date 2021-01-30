@@ -532,7 +532,7 @@ def decode_msg_24(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
             'to_stern': get_int_from_data(141, 150),
             'to_port': get_int_from_data(150, 156),
             'to_starboard': get_int_from_data(156, 162),
-            'mothership_mmsi': get_int_from_data(132, 162)
+            'mothership_mmsi': get_mmsi(bit_arr, 132, 162)
         }
     data.update(d)
     return data
