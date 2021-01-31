@@ -42,7 +42,7 @@ def tcp_mock_server(host, port) -> None:
 class TestTCPStream(unittest.TestCase):
 
     def _spawn_test_server(self):
-        self.server_thread = threading.Thread(target=tcp_mock_server, args=("127.0.0.1", 55555))
+        self.server_thread = threading.Thread(target=tcp_mock_server, args=("0.0.0.0", 55555))
         self.server_thread.start()
 
     def test_default_buf_size(self):
@@ -50,7 +50,7 @@ class TestTCPStream(unittest.TestCase):
 
     def test_invalid_endpoint(self):
         with self.assertRaises(ConnectionRefusedError):
-            TCPStream("127.0.0.1", 55555)
+            TCPStream("0.0.0.0", 55555)
 
     @unittest.skipIf(not is_linux(), "Skipping because Signal is not available on non unix systems!")
     def test_tcp_stream(self):
@@ -58,7 +58,7 @@ class TestTCPStream(unittest.TestCase):
         with time_limit(2):
             self._spawn_test_server()
 
-            with TCPStream("127.0.0.1", 55555) as stream:
+            with TCPStream("0.0.0.0", 55555) as stream:
                 for i, msg in enumerate(stream):
                     assert msg.decode()
                     # make sure all messages were received
