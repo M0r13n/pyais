@@ -1,12 +1,12 @@
+import sys
 from abc import ABC, abstractmethod
 from socket import AF_INET, SOCK_DGRAM, SOCK_STREAM, socket
 from typing import (
-    Any, BinaryIO, Generator, Generic, Iterable, List, Optional, TypeVar, cast
+    Any, BinaryIO, Generator, Generic, Iterable, List, Optional, TypeVar, cast, TextIO
 )
 
 from pyais.messages import NMEAMessage
 from pyais.util import FixedSizeDict
-
 
 F = TypeVar("F", BinaryIO, socket, None)
 
@@ -35,10 +35,7 @@ class Stream(Generic[F]):
 
         for line in self._iter_messages():
             # Try to parse the message
-            try:
-                msg: NMEAMessage = NMEAMessage(line)
-            except Exception as e:
-                raise ValueError(f'Failed to parse line "{line!r}"') from e
+            msg: NMEAMessage = NMEAMessage(line)
 
             # Be gentle and just skip invalid messages
             if not msg.is_valid:
@@ -65,7 +62,17 @@ class Stream(Generic[F]):
         raise NotImplementedError()
 
 
-class FileReaderStream(Stream[BinaryIO]):
+class BinaryIOStream(Stream[BinaryIO]):
+    """Read messages from a file-like object"""
+
+    def __init__(self, file: BinaryIO) -> None:
+        super().__init__(file)
+
+    def read(self) -> Generator[bytes, None, None]:
+        yield from self._fobj.readlines()
+
+
+class FileReaderStream(BinaryIOStream):
     """
     Read NMEA messages from file
     """
@@ -75,13 +82,11 @@ class FileReaderStream(Stream[BinaryIO]):
         self.mode: str = mode
         # Try to open file
         try:
-            file = cast(BinaryIO, open(self.filename, mode=self.mode))
+            file = open(self.filename, mode=self.mode)
+            file = cast(BinaryIO, file)
         except Exception as e:
             raise FileNotFoundError(f"Could not open file {self.filename}") from e
         super().__init__(file)
-
-    def read(self) -> Generator[bytes, None, None]:
-        yield from self._fobj.readlines()
 
 
 class ByteStream(Stream[None]):
