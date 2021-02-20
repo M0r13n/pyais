@@ -1,5 +1,6 @@
-import setuptools  # type:ignore
 import os
+
+import setuptools  # type:ignore
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -48,6 +49,11 @@ setuptools.setup(
         "deploy": [
             "twine",
             "wheel"
+        ]
+    },
+    entry_points={
+        "console_scripts": [
+            'ais-decode=pyais.main:main'
         ]
     }
 )

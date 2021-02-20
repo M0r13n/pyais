@@ -1,13 +1,17 @@
 import argparse
 import sys
-from _io import BufferedReader
-from typing import List, BinaryIO, TextIO
+from typing import List, Tuple, Type
 
 from pyais.exceptions import InvalidChecksumException
 from pyais.stream import ByteStream, TCPStream, UDPStream, BinaryIOStream
 
+SOCKET_OPTIONS: Tuple[str, str] = ('udp', 'tcp')
 
-def parse_arguments() -> argparse.ArgumentParser:
+# Error Codes
+INVALID_CHECKSUM_ERROR = 21
+
+
+def arg_parser() -> argparse.ArgumentParser:
     """Create a new ArgumentParser instance that serves as a entry point to the pyais application.
     All possible commandline options and parameters must be defined here.
     The goal is to create a grep-like interface:
@@ -21,7 +25,7 @@ def parse_arguments() -> argparse.ArgumentParser:
     sub_parsers = main_parser.add_subparsers()
 
     # Modes
-    # Currently two mutual exclusive modes are supported: TCP/UDP or file
+    # Currently three mutual exclusive modes are supported: TCP/UDP / file / single messages as arguments
     # By default the program accepts input from STDIN
     # Optional subparsers server as subcommands that handle socket connections and file reading
     main_parser.add_argument(
@@ -49,7 +53,7 @@ def parse_arguments() -> argparse.ArgumentParser:
         '--type',
         default='udp',
         nargs='?',
-        choices=['udp', 'tcp']
+        choices=SOCKET_OPTIONS
     )
 
     socket_parser.set_defaults(func=decode_from_socket)
@@ -78,44 +82,54 @@ def parse_arguments() -> argparse.ArgumentParser:
 
 
 def print_error(*args, **kwargs):
+    """Wrapper around the default print function that writes to STDERR."""
     print(*args, **kwargs, file=sys.stdout)
 
 
 def decode_from_socket(args) -> int:
-    if args.type == "udp":
-        stream = UDPStream
+    """Connect a socket and start decoding."""
+    t: str = args.type
+    stream_cls: Type
+    if t == "udp":
+        stream_cls = UDPStream
+    elif t == "tcp":
+        stream_cls = TCPStream
     else:
-        stream = TCPStream
+        raise ValueError("args.type must be either TCP or UDP.")
 
-    with stream(args.destination, args.port) as s:
+    with stream_cls(args.destination, args.port) as s:
         try:
             for msg in s:
                 decoded_message = msg.decode(silent=True)
                 print(decoded_message, file=args.out_file)
         except KeyboardInterrupt:
-            # do nothing here
+            # Catch KeyboardInterrupts in order to close the socket and free associated resources
             return 0
     return 0
 
 
 def decode_single(args) -> int:
-    """Decode a list of single messages."""
+    """Decode a list of messages."""
     messages: List[str] = args.messages
-    messages_as_bytes: List[bytes] = [msg.encode() for msg in messages]
+    messages_as_bytes: List[bytes] = [msg.encode() for msg in messages if isinstance(msg, str)]
     try:
         for msg in ByteStream(messages_as_bytes):
             print(msg.decode(), file=args.out_file)
     except InvalidChecksumException:
-        print_error(f"Checksum invalid")
-        return 1
+        print_error("Checksum invalid")
+        return INVALID_CHECKSUM_ERROR
     return 0
 
 
 def decode_from_file(args) -> int:
+    """Decode messages from a file-like object."""
     if not args.in_file:
-        file: BinaryIO = sys.stdin.buffer
+        # This is needed, because it is not possible to open STDOUT in binary mode (it is text mode by default)
+        # Therefore it is None by default and we interact with the buffer directly
+        file = sys.stdin.buffer
     else:
-        file: BinaryIO = args.in_file
+        # If the file is not None, then it was opened during argument parsing
+        file = args.in_file
 
     with BinaryIOStream(file) as s:
         try:
@@ -123,16 +137,15 @@ def decode_from_file(args) -> int:
                 decoded_message = msg.decode(silent=True)
                 print(decoded_message, file=args.out_file)
         except KeyboardInterrupt:
-            # do nothing here
+            # Catch KeyboardInterrupts in order to close the file descriptor and free associated resources
             return 0
     return 0
 
 
 def main() -> int:
-    main_parser = parse_arguments()
+    main_parser = arg_parser()
     namespace: argparse.Namespace = main_parser.parse_args()
     exit_code: int = namespace.func(namespace)
-
     return exit_code
 
 

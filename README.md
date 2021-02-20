@@ -70,6 +70,24 @@ for msg in UDPStream(host, port):
 
 ```
 
+# Commandline utility
+If you install the library a commandline utility is installed to your PATH. This commandline interface offers access to common actions like decoding single messages, reading from files or connection to sockets.
+
+```shell
+$ ais-decode --help
+usage: ais-decode [-h] [-f [IN_FILE]] [-o OUT_FILE] {socket,single} ...
+
+AIS message decoding. 100% pure Python.Supports AIVDM/AIVDO messages. Supports single messages, files and TCP/UDP sockets.
+
+positional arguments:
+  {socket,single}
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -f [IN_FILE], --file [IN_FILE]
+  -o OUT_FILE, --out-file OUT_FILE
+
+```
 I also wrote a [blog post about AIS decoding](https://leonrichter.de/posts/pyais/) and this lib. 
 
 # Performance Considerations

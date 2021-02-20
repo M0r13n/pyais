@@ -1,8 +1,7 @@
-import sys
 from abc import ABC, abstractmethod
 from socket import AF_INET, SOCK_DGRAM, SOCK_STREAM, socket
 from typing import (
-    Any, BinaryIO, Generator, Generic, Iterable, List, Optional, TypeVar, cast, TextIO
+    Any, BinaryIO, Generator, Generic, Iterable, List, Optional, TypeVar, cast
 )
 
 from pyais.messages import NMEAMessage
