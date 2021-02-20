@@ -88,6 +88,52 @@ optional arguments:
   -o OUT_FILE, --out-file OUT_FILE
 
 ```
+
+
+### Decode messages passed as arguments
+Because there are some special characters in AIS messages, you need to pass the arguments wrapped in single quotes (''). Otherwise, you may encounter weird issues with the bash shell.
+```shell
+$ ais-decode single '!AIVDM,1,1,,A,15NPOOPP00o?b=bE`UNv4?w428D;,0*24'
+{'type': 1, 'repeat': 0, 'mmsi': '367533950', 'status': <NavigationStatus.UnderWayUsingEngine: 0>, 'turn': -128, 'speed': 0.0, 'accuracy': True, 'lon': -122.40823166666667, 'lat': 37.808418333333336, 'course': 360.0, 'heading': 511, 'second': 34, 'maneuver': <ManeuverIndicator.NotAvailable: 0>, 'raim': True, 'radio': 34059}
+```
+
+### Decode messages from stdin
+The program reads content from STDIN by default. So you can use it like grep:
+```shell
+$ cat tests/ais_test_messages | ais-decode
+{'type': 1, 'repeat': 0, 'mmsi': '227006760', 'status': <NavigationStatus.UnderWayUsingEngine: 0>, 'turn': -128, 'speed': 0.0, 'accuracy': False, 'lon': 0.13138, 'lat': 49.47557666666667, 'course': 36.7, 'heading': 511, 'second': 14, 'maneuver': <ManeuverIndicator.NotAvailable: 0>, 'raim': False, 'radio': 22136}
+{'type': 1, 'repeat': 0, 'mmsi': '205448890', 'status': <NavigationStatus.UnderWayUsingEngine: 0>, 'turn': -128, 'speed': 0.0, 'accuracy': True, 'lon': 4.419441666666667, 'lat': 51.237658333333336, 'course': 63.300000000000004, 'heading': 511, 'second': 15, 'maneuver': <ManeuverIndicator.NotAvailable: 0>, 'raim': True, 'radio': 2248}
+{'type': 1, 'repeat': 0, 'mmsi': '000786434', 'status': <NavigationStatus.UnderWayUsingEngine: 0>, 'turn': -128, 'speed': 1.6, 'accuracy': True, 'lon': 5.320033333333333, 'lat': 51.967036666666665, 'course': 112.0, 'heading': 511, 'second': 15, 'maneuver': <ManeuverIndicator.NoSpecialManeuver: 1>, 'raim': False, 'radio': 153208}
+...
+```
+
+It is possible to read from a file by using the `-f` option
+```shell
+$ ais-decode -f tests/ais_test_messages 
+{'type': 1, 'repeat': 0, 'mmsi': '227006760', 'status': <NavigationStatus.UnderWayUsingEngine: 0>, 'turn': -128, 'speed': 0.0, 'accuracy': False, 'lon': 0.13138, 'lat': 49.47557666666667, 'course': 36.7, 'heading': 511, 'second': 14, 'maneuver': <ManeuverIndicator.NotAvailable: 0>, 'raim': False, 'radio': 22136}
+{'type': 1, 'repeat': 0, 'mmsi': '205448890', 'status': <NavigationStatus.UnderWayUsingEngine: 0>, 'turn': -128, 'speed': 0.0, 'accuracy': True, 'lon': 4.419441666666667, 'lat': 51.237658333333336, 'course': 63.300000000000004, 'heading': 511, 'second': 15, 'maneuver': <ManeuverIndicator.NotAvailable: 0>, 'raim': True, 'radio': 2248}
+```
+
+### Decode from socket
+By default the program will open a UDP socket
+```shell
+$ ais-decode socket localhost 12345
+```
+but you can also connect to a TCP socket by setting the `-t tcp` parameter.
+```shell
+$ ais-decode socket localhost 12345 -t tcp
+```
+
+### Write content to file
+By default, the program writes it's output to STDOUT. But you can write to a file by passing the `-o` option. You need to add this option before invoking any of the subcommands, due to the way `argparse` parses it's arguments.
+```shell
+$ ais-decode -o /tmp/some_file.tmp single '!AIVDM,2,1,1,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*07' '!AIVDM,2,2,1,A,F@V@00000000000,2*35' 
+
+# This is same as redirecting the output to a file
+
+$ ais-decode single '!AIVDM,2,1,1,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*07' '!AIVDM,2,2,1,A,F@V@00000000000,2*35' > /tmp/file
+```
+
 I also wrote a [blog post about AIS decoding](https://leonrichter.de/posts/pyais/) and this lib. 
 
 # Performance Considerations

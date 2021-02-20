@@ -1,6 +1,6 @@
 import argparse
 import sys
-from typing import List, Tuple, Type
+from typing import List, Tuple, Type, Any, Union
 
 from pyais.exceptions import InvalidChecksumException
 from pyais.stream import ByteStream, TCPStream, UDPStream, BinaryIOStream
@@ -81,15 +81,15 @@ def arg_parser() -> argparse.ArgumentParser:
     return main_parser
 
 
-def print_error(*args, **kwargs):
+def print_error(*args: Any, **kwargs: Any) -> None:
     """Wrapper around the default print function that writes to STDERR."""
     print(*args, **kwargs, file=sys.stdout)
 
 
-def decode_from_socket(args) -> int:
+def decode_from_socket(args: argparse.Namespace) -> int:
     """Connect a socket and start decoding."""
     t: str = args.type
-    stream_cls: Type
+    stream_cls: Type[Union[UDPStream, TCPStream]]
     if t == "udp":
         stream_cls = UDPStream
     elif t == "tcp":
@@ -108,7 +108,7 @@ def decode_from_socket(args) -> int:
     return 0
 
 
-def decode_single(args) -> int:
+def decode_single(args: argparse.Namespace) -> int:
     """Decode a list of messages."""
     messages: List[str] = args.messages
     messages_as_bytes: List[bytes] = [msg.encode() for msg in messages if isinstance(msg, str)]
@@ -121,7 +121,7 @@ def decode_single(args) -> int:
     return 0
 
 
-def decode_from_file(args) -> int:
+def decode_from_file(args: argparse.Namespace) -> int:
     """Decode messages from a file-like object."""
     if not args.in_file:
         # This is needed, because it is not possible to open STDOUT in binary mode (it is text mode by default)
