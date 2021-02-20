@@ -16,6 +16,13 @@ This project is a grateful recipient of the [free Jetbrains Open Source sponsors
 This module contains functions to decode and parse Automatic Identification System (AIS) serial messages.
 For detailed information about AIS refer to the [AIS standard](https://en.wikipedia.org/wiki/Automatic_identification_system#Message_format).
 
+# Installation
+The project is available at Pypi:
+
+```shell
+$ pip install pyais
+```
+
 # Usage
 Using this module is easy. If you want to parse a file, that contains AIS messages, just copy the following code and replace `filename` with your desired filename.
 
@@ -77,7 +84,7 @@ For comparison, the C++ based [libais module](https://github.com/schwehr/libais)
 This module is a private project of mine and does not claim to be complete. I try to improve and extend it, but there may be bugs. If you find such a bug feel free to submit an issue or even better create a pull-request. :-)
 
 # Coverage
-Currently this module is able to decode most message types. There are only a few exceptions. These are messages that only occur in very rare cases and that you will probably never observe. The module was able to completely decode a 4 hour stream with real-time data from San Francisco Bay Area without any errors or problems. If you find a bug or missing feature, please create an issue.
+Currently, this module is able to decode most message types. There are only a few exceptions. These are messages that only occur in very rare cases and that you will probably never observe. The module was able to completely decode a 4 hour stream with real-time data from San Francisco Bay Area without any errors or problems. If you find a bug or missing feature, please create an issue.
 
 
 # Known Issues
@@ -110,7 +117,7 @@ After you cloned the repo head into the `pyais` base directory.
 Then install all dependencies:
 
 ```sh
-$ make init
+$ pip install .[test]
 ```
 
 Make sure that all tests pass and that there aren't any issues:
