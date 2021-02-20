@@ -37,5 +37,17 @@ setuptools.setup(
     python_requires='>=3.6',
     install_requires=[
         "bitarray"
-    ]
+    ],
+    extras_require={
+        "test": [
+            "flake8",
+            "coverage",
+            "nose",
+            "mypy",
+        ],
+        "deploy": [
+            "twine",
+            "wheel"
+        ]
+    }
 )

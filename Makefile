@@ -1,11 +1,8 @@
-init:
-	pip install -r requirements_dev.txt
-
 run_tests:
 	nosetests -v  --with-coverage --cover-package pyais tests/*.py
 
 flake:
-	python -m flake8
+	flake8
 
 .PHONY: build
 build:

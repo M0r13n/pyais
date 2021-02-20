@@ -1,7 +1,0 @@
-bitarray
-wheel
-flake8
-coverage
-nose
-twine
-mypy
