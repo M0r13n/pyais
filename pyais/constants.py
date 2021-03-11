@@ -102,7 +102,7 @@ class ShipType(IntEnum):
     # 50's
     PilotVessel = 50
     SearchAndRescueVessel = 51
-    Trug = 52
+    Tug = 52
     PortTender = 53
     AntiPollutionEquipment = 54
     LawEnforcement = 55
