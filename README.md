@@ -16,6 +16,9 @@ This project is a grateful recipient of the [free Jetbrains Open Source sponsors
 This module contains functions to decode and parse Automatic Identification System (AIS) serial messages.
 For detailed information about AIS refer to the [AIS standard](https://en.wikipedia.org/wiki/Automatic_identification_system#Message_format).
 
+# Features/Improvements
+I open to any form of idea to further improve this library. If you have an idea or a feature request - just open an issue. :-)
+
 # Installation
 The project is available at Pypi:
 
