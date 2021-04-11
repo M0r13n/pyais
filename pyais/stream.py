@@ -8,11 +8,26 @@ from pyais.messages import NMEAMessage
 from pyais.util import FixedSizeDict
 
 F = TypeVar("F", BinaryIO, socket, None)
+DOLLAR_SIGN = ord("$")
+EXCLAMATION_POINT = ord("!")
+
+
+def should_parse(byte_str: bytes) -> bool:
+    """Return True if a given byte string seems to be NMEA message.
+    This method does **NOT** validate the message, but uses a heuristic
+    approach to check (or guess) if byte string is a valid nmea_message.
+    """
+    # The byte sequence is not empty and starts with a $ or a ! and has 6 ','
+    return len(byte_str) > 0 and byte_str[0] in (DOLLAR_SIGN, EXCLAMATION_POINT) and byte_str.count(b",") == 6
 
 
 class Stream(Generic[F]):
 
     def __init__(self, fobj: F) -> None:
+        """
+        Create a new Stream-like object.
+        @param fobj: A file-like or socket object.
+        """
         self._fobj: F = fobj
 
     def __enter__(self) -> "Stream[F]":
@@ -27,6 +42,7 @@ class Stream(Generic[F]):
         return self._assemble_messages()
 
     def __next__(self) -> NMEAMessage:
+        """Returns the next decoded NMEA message."""
         return next(iter(self))
 
     def _assemble_messages(self) -> Generator[NMEAMessage, None, None]:
@@ -54,7 +70,8 @@ class Stream(Generic[F]):
                 raise ValueError("Messages are out of order!")
 
     def _iter_messages(self) -> Generator[bytes, None, None]:
-        yield from self.read()
+        # Do not parse lines, that are obviously not NMEA messages
+        return (line for line in self.read() if should_parse(line))
 
     @abstractmethod
     def read(self) -> Generator[bytes, None, None]:

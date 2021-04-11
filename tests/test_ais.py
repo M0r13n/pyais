@@ -115,6 +115,11 @@ class TestAIS(unittest.TestCase):
         assert msg['maneuver'] == ManeuverIndicator.NotAvailable
         assert msg['raim']
 
+        msg = NMEAMessage(b"!AIVDM,1,1,,B,181:Kjh01ewHFRPDK1s3IRcn06sd,0*08").decode()
+        assert msg['course'] == 87.0
+        assert msg['mmsi'] == "538090443"
+        assert msg['speed'] == 10.9
+
     def test_decode_pos_1_2_3(self):
         # weired message of type 0 as part of issue #4
         msg: NMEAMessage = NMEAMessage(b"!AIVDM,1,1,,B,0S9edj0P03PecbBN`ja@0?w42cFC,0*7C")
