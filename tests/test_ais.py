@@ -52,18 +52,18 @@ class TestAIS(unittest.TestCase):
         "status": 0,
         "turn": -128,
         "speed": 0.0,
-        "accuracy": true,
+        "accuracy": 1,
         "lon": -122.40823166666667,
         "lat": 37.808418333333336,
         "course": 360.0,
         "heading": 511,
         "second": 34,
         "maneuver": 0,
-        "raim": true,
+        "raim": 1,
         "radio": 34059
     }
 }"""
-        assert json_dump == text
+        self.assertEqual(json_dump, text)
 
     def test_msg_type(self):
         """
@@ -193,6 +193,7 @@ class TestAIS(unittest.TestCase):
         assert msg['to_starboard'] == 31
         assert msg['draught'] == 12.2
         assert msg['destination'] == "NEW YORK"
+        assert msg['dte'] == 0
 
     def test_msg_type_6(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,B,6B?n;be:cbapalgc;i6?Ow4,2*4A").decode()

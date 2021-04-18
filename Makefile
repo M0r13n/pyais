@@ -12,6 +12,6 @@ check-build:
 	twine check dist/*
 
 type-check:
-	mypy .
+	mypy ./pyais
 
 test: run_tests flake type-check
