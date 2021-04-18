@@ -1,6 +1,6 @@
 import unittest
 
-from pyais.exceptions import InvalidNMEAMessageException, InvalidChecksumException
+from pyais.exceptions import InvalidNMEAMessageException
 from pyais.messages import NMEAMessage, AISMessage
 
 
@@ -82,8 +82,7 @@ class TestNMEA(unittest.TestCase):
         assert NMEAMessage(msg).is_valid
 
         msg = b"!AIVDM,1,1,,A,85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGt,0*47"
-        with self.assertRaises(InvalidChecksumException):
-            NMEAMessage(msg)
+        self.assertFalse(NMEAMessage(msg).is_valid)
 
     def test_from_bytes(self):
         msg = b"!AIVDM,1,1,,A,85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs,0*47"
@@ -104,3 +103,14 @@ class TestNMEA(unittest.TestCase):
 
         # but make sure they equal
         assert first_obj == second_obj
+
+    def test_wrong_type(self):
+        with self.assertRaises(ValueError):
+            NMEAMessage("!AIVDM,1,1,,B,F030p:j2N2P5aJR0r;6f3rj10000,0*11")
+
+        with self.assertRaises(ValueError):
+            NMEAMessage(123)
+
+    def test_invalid_msg_with_wrong_type(self):
+        with self.assertRaises(InvalidNMEAMessageException):
+            NMEAMessage(b"GPSD,1,1,,B,F030p:j2N2P5aJR0r;6f3rj10000,0*11")

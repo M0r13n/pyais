@@ -25,13 +25,6 @@ class TestMainApp(unittest.TestCase):
 
         assert decode_single(DemoNamespace()) == 0
 
-    def test_decode_single_checksum_error(self):
-        class DemoNamespace:
-            messages = ["!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*31"]
-            out_file = None
-
-        assert decode_single(DemoNamespace()) == 21
-
     def test_decode_from_file(self):
         class DemoNamespace:
             in_file = open("tests/ais_test_messages", "rb")

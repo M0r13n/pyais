@@ -51,8 +51,16 @@ for msg in TCPStream('ais.exploratorium.edu'):
 
 You can also parse a single message encoded as bytes or from a string:
 ```python
+from pyais import NMEAMessage, decode_raw
+
 message = NMEAMessage(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
 message = NMEAMessage.from_string("!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
+
+# or newer 
+
+msg = decode_raw("!AIVDM,1,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")
+msg = decode_raw(b"!AIVDM,1,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")
+
 ```
 
 See the example folder for more examples.

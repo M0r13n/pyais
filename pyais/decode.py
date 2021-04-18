@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
 import bitarray  # type: ignore
 
@@ -698,3 +698,17 @@ def decode(msg: "messages.NMEAMessage") -> Dict[str, Any]:
     @param msg: A object of type NMEAMessage to decode
     """
     return _decode(msg)
+
+
+def decode_raw(msg: Union[str, bytes]) -> Dict[str, Any]:
+    """
+    Decode single message.
+    @param msg: A AIS message, that can be either bytes or str (UTF-8) encoded.
+    @return: A dictionary of the decoded key-value pairs.
+    """
+    if isinstance(msg, bytes):
+        return decode(messages.NMEAMessage(msg))
+    elif isinstance(msg, str):
+        return decode(messages.NMEAMessage.from_string(msg))
+    else:
+        raise ValueError(f"msg must be of type 'str' or 'bytes', but was '{type(msg)}'")
