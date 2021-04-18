@@ -25,8 +25,10 @@ class MockFile:
         Read until EOF using readline() and return a list containing the lines thus read.
         """
         buf = []
-        while x := self.readline():
-            buf.append(x)
+        line = self.readline()
+        while line:
+            buf.append(line)
+            line = self.readline()
         return buf
 
 
