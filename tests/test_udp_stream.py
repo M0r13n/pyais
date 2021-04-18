@@ -167,7 +167,7 @@ class TestOutOfOrder(unittest.TestCase):
 
     def test_three(self):
         messages = [
-            b"AIVDM,3,1,5,A,36KVnDh02wawaHPDA8T8h6tT8000t=AV=maD7?>BWiKIE@TR<2QfvaAF1ST4H31B,0*35",
+            b"!AIVDM,3,1,5,A,36KVnDh02wawaHPDA8T8h6tT8000t=AV=maD7?>BWiKIE@TR<2QfvaAF1ST4H31B,0*35",
             b"!AIVDM,3,2,5,A,8IBP:UFW<M0FVWS0DPK19@nh4UdS:OufWUIfPF5l1U9LILBn@9@F:41Q@U1EEOE3,0*1D",
             b"!AIVDM,3,3,5,A,j,0*79"
         ]

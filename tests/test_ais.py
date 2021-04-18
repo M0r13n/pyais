@@ -512,8 +512,6 @@ class TestAIS(unittest.TestCase):
         assert msg['gnss'] == 0
 
     def test_broken_messages(self):
-        # Not valid
-        assert not NMEAMessage(b"AIVDM,2,2,1,B,00000000000,2*26").is_valid
         # Undefined epfd
         assert NMEAMessage(b"!AIVDM,1,1,,B,4>O7m7Iu@<9qUfbtm`vSnwvH20S8,0*46").decode()['epfd'] == EpfdType.Undefined
 

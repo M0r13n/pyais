@@ -2,7 +2,6 @@ import argparse
 import sys
 from typing import List, Tuple, Type, Any, Union
 
-from pyais.exceptions import InvalidChecksumException
 from pyais.stream import ByteStream, TCPStream, UDPStream, BinaryIOStream
 
 SOCKET_OPTIONS: Tuple[str, str] = ('udp', 'tcp')
@@ -112,12 +111,10 @@ def decode_single(args: argparse.Namespace) -> int:
     """Decode a list of messages."""
     messages: List[str] = args.messages
     messages_as_bytes: List[bytes] = [msg.encode() for msg in messages if isinstance(msg, str)]
-    try:
-        for msg in ByteStream(messages_as_bytes):
-            print(msg.decode(), file=args.out_file)
-    except InvalidChecksumException:
-        print_error("Checksum invalid")
-        return INVALID_CHECKSUM_ERROR
+    for msg in ByteStream(messages_as_bytes):
+        print(msg.decode(), file=args.out_file)
+        if not msg.is_valid:
+            print_error("WARNING: Checksum invalid")
     return 0
 
 

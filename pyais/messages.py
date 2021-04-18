@@ -6,8 +6,108 @@ from bitarray import bitarray  # type: ignore
 from pyais.ais_types import AISType
 from pyais.constants import TalkerID
 from pyais.decode import decode
-from pyais.exceptions import InvalidNMEAMessageException, InvalidChecksumException
+from pyais.exceptions import InvalidNMEAMessageException
 from pyais.util import decode_into_bit_array, get_int, compute_checksum
+
+
+def validate_message(msg: bytes) -> None:
+    """
+    Validates a given message.
+    It checks if the messages complies with the AIS standard.
+    It is based on:
+        1. https://en.wikipedia.org/wiki/Automatic_identification_system
+        2. https://en.wikipedia.org/wiki/NMEA_0183
+
+    If not errors are found, nothing is returned.
+    Otherwise an InvalidNMEAMessageException is raised.
+    """
+    values = msg.split(b",")
+
+    # A message has exactly 7 comma separated values
+    if len(values) != 7:
+        raise InvalidNMEAMessageException(
+            "A NMEA message needs to have exactly 7 comma separated entries."
+        )
+
+    # The only allowed blank value may be the message ID
+    if not values[0]:
+        raise InvalidNMEAMessageException(
+            "The NMEA message type is empty!"
+        )
+
+    if not values[1]:
+        raise InvalidNMEAMessageException(
+            "Number of sentences is empty!"
+        )
+
+    if not values[2]:
+        raise InvalidNMEAMessageException(
+            "Sentence number is empty!"
+        )
+
+    if not values[4]:
+        raise InvalidNMEAMessageException(
+            "The AIS channel (A or B) is empty."
+        )
+
+    if not values[5]:
+        raise InvalidNMEAMessageException(
+            "The NMEA message body (payload) is empty."
+        )
+
+    if not values[6]:
+        raise InvalidNMEAMessageException(
+            "NMEA checksum (NMEA 0183 Standard CRC16) is empty."
+        )
+
+    try:
+        sentence_num = int(values[1])
+        if sentence_num > 9:
+            raise InvalidNMEAMessageException(
+                "Number of sentences exceeds limit of 9 total sentences."
+            )
+    except ValueError:
+        raise InvalidNMEAMessageException(
+            "Invalid sentence number. No Number."
+        )
+
+    if values[2]:
+        try:
+            sentence_num = int(values[2])
+            if sentence_num > 9:
+                raise InvalidNMEAMessageException(
+                    " Sentence number exceeds limit of 9 total sentences."
+                )
+        except ValueError:
+            raise InvalidNMEAMessageException(
+                "Invalid Sentence number. No Number."
+            )
+
+    if values[3]:
+        try:
+            sentence_num = int(values[3])
+            if sentence_num > 9:
+                raise InvalidNMEAMessageException(
+                    "Number of sequential message ID exceeds limit of 9 total sentences."
+                )
+        except ValueError:
+            raise InvalidNMEAMessageException(
+                "Invalid  sequential message ID. No Number."
+            )
+
+    # It should not have more than 82 chars (including starting $ or ! and <LF>)
+    if len(msg) > 82:
+        raise InvalidNMEAMessageException(
+            f"{msg.decode('utf-8')} has more than 82 characters."
+        )
+
+    # Only encapsulated messages are currently supported
+    if values[0][0] != 0x21:
+        # https://en.wikipedia.org/wiki/Automatic_identification_system
+        raise InvalidNMEAMessageException(
+            "'NMEAMessage' only supports !AIVDM/!AIVDO encapsulated messages. "
+            f"These start with an '!', but got '{chr(values[0][0])}'"
+        )
 
 
 class NMEAMessage(object):
@@ -26,6 +126,11 @@ class NMEAMessage(object):
     )
 
     def __init__(self, raw: bytes) -> None:
+        if not isinstance(raw, bytes):
+            raise ValueError(f"'NMEAMessage' only accepts bytes, but got '{type(raw)}'")
+
+        validate_message(raw)
+
         # Initial values
         self.checksum: int = -1
 
@@ -34,13 +139,6 @@ class NMEAMessage(object):
 
         # An AIS NMEA message consists of seven, comma separated parts
         values = raw.split(b",")
-
-        # Only encapsulated messages are currently supported
-        if values[0][0] != 0x21:
-            return
-
-        if len(values) != 7:
-            raise InvalidNMEAMessageException("A NMEA message needs to have exactly 7 comma separated entries.")
 
         # Unpack NMEA message parts
         (
@@ -67,11 +165,6 @@ class NMEAMessage(object):
         self.channel: bytes = channel
         self.data: bytes = data
         self.checksum = int(checksum[2:], 16)
-
-        # Verify if the checksum is correct
-        if not self.is_valid:
-            raise InvalidChecksumException(
-                f"Invalid Checksum. Expected {self.checksum}, got {compute_checksum(self.data)}.")
 
         # Finally decode bytes into bits
         self.bit_array: bitarray = decode_into_bit_array(self.data)
@@ -101,7 +194,7 @@ class NMEAMessage(object):
 
     @classmethod
     def from_string(cls, nmea_str: str) -> "NMEAMessage":
-        return cls(str.encode(nmea_str))
+        return cls(nmea_str.encode('utf-8'))
 
     @classmethod
     def from_bytes(cls, nmea_byte_str: bytes) -> "NMEAMessage":

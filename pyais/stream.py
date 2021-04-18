@@ -4,6 +4,7 @@ from typing import (
     Any, BinaryIO, Generator, Generic, Iterable, List, Optional, TypeVar, cast
 )
 
+from pyais.exceptions import InvalidNMEAMessageException
 from pyais.messages import NMEAMessage
 from pyais.util import FixedSizeDict
 
@@ -49,11 +50,11 @@ class Stream(Generic[F]):
         queue: List[NMEAMessage] = []
 
         for line in self._iter_messages():
-            # Try to parse the message
-            msg: NMEAMessage = NMEAMessage(line)
 
             # Be gentle and just skip invalid messages
-            if not msg.is_valid:
+            try:
+                msg: NMEAMessage = NMEAMessage(line)
+            except InvalidNMEAMessageException:
                 continue
 
             if msg.is_single:

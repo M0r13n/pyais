@@ -24,10 +24,10 @@ class MockFile:
         """
         Read until EOF using readline() and return a list containing the lines thus read.
         """
-        l = []
+        buf = []
         while x := self.readline():
-            l.append(x)
-        return l
+            buf.append(x)
+        return buf
 
 
 class TestGenericStream(unittest.TestCase):
@@ -37,7 +37,7 @@ class TestGenericStream(unittest.TestCase):
         If the stream does not contain any data, nothing should happen.
         """
         mock_file = MockFile([b""])
-        for msg in BinaryIOStream(mock_file):
+        for _ in BinaryIOStream(mock_file):
             # This should never happen
             self.assertFalse(True)
 
@@ -49,3 +49,12 @@ class TestGenericStream(unittest.TestCase):
         mock_file = MockFile([b"Foo", b"Bar", b"1337", valid])
         for msg in BinaryIOStream(mock_file):
             self.assertEqual(msg.raw, valid)
+
+    def test_invalid_msg(self):
+        mock_file = MockFile([
+            b"AIVDM,1,1,,B,B43JRq00LhTWc5VejDI>wwWUoP06,0*29",
+            b"$AIVDM,1,1,,B,B43JRq00LhTWc5VejDI>wwWUoP06,0*29",
+            b"!GPSD,1,1,,B,B43JRq00LhTWc5dsfsdfdssdsccccccccccccccdfdsdsfdsfsdfVejDI>wwWUoP06,0*29",
+        ])
+        for msg in BinaryIOStream(mock_file):
+            print(msg.decode())
