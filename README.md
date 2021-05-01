@@ -8,7 +8,7 @@
   
 AIS message decoding. 100% pure Python. Supports AIVDM/AIVDO messages. Supports single messages, files and TCP/UDP sockets.
 
-You can find the full documentation on [readthedocs](https://readthedocs.org/projects/pyais/).
+You can find the full documentation on [readthedocs](https://pyais.readthedocs.io/en/latest/).
 
 # Acknowledgements
 ![Jetbrains Logo](./docs/jetbrains_logo.svg)
