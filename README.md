@@ -4,8 +4,11 @@
 [![codecov](https://codecov.io/gh/M0r13n/pyais/branch/master/graph/badge.svg)](https://codecov.io/gh/M0r13n/pyais)
 [![downloads](https://img.shields.io/pypi/dm/pyais)](https://pypi.org/project/pyais/)
 ![CI](https://github.com/M0r13n/pyais/workflows/CI/badge.svg)
+[![Documentation Status](https://readthedocs.org/projects/pyais/badge/?version=latest)](https://pyais.readthedocs.io/en/latest/?badge=latest)
   
 AIS message decoding. 100% pure Python. Supports AIVDM/AIVDO messages. Supports single messages, files and TCP/UDP sockets.
+
+You can find the full documentation on [readthedocs](https://readthedocs.org/projects/pyais/).
 
 # Acknowledgements
 ![Jetbrains Logo](./docs/jetbrains_logo.svg)
