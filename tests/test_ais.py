@@ -1,10 +1,10 @@
-from pyais.stream import ByteStream
-
-from pyais.exceptions import UnknownMessageException
 import unittest
-from pyais.messages import AISMessage, NMEAMessage
+
 from pyais.ais_types import AISType
 from pyais.constants import ManeuverIndicator, NavigationStatus, ShipType, NavAid, EpfdType
+from pyais.exceptions import UnknownMessageException
+from pyais.messages import AISMessage, NMEAMessage
+from pyais.stream import ByteStream
 
 
 class TestAIS(unittest.TestCase):
