@@ -1,6 +1,9 @@
 # These are all requirements for development
 # These requirements are not needed for using the module
 
+# BASE
+bitarray
+
 # TEST
 flake8
 coverage
