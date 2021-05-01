@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence, Tuple, Type
 
 from bitarray import bitarray  # type: ignore
 
@@ -264,17 +264,21 @@ class AISMessage(object):
         self.msg_type: AISType = AISType.NOT_IMPLEMENTED
         self.content: Dict[str, Any] = {}
 
-    def decode(self) -> None:
-        """Decodes the given message and extracts it's type and content.
-        This function potentially fails, if the message is malformed."""
-        self.msg_type = AISType(self.nmea.ais_id)
-        self.content = decode(self.nmea)
-
     def __getitem__(self, item: str) -> Any:
         return self.content[item]
 
     def __str__(self) -> str:
         return str(self.content)
+
+    @property
+    def fields(self) -> Tuple[Tuple[str, Type[Any]], ...]:
+        return tuple([(str(key), type(value)) for (key, value) in self.content.items()])
+
+    def decode(self) -> None:
+        """Decodes the given message and extracts it's type and content.
+        This function potentially fails, if the message is malformed."""
+        self.msg_type = AISType(self.nmea.ais_id)
+        self.content = decode(self.nmea)
 
     def asdict(self) -> Dict[str, Any]:
         return {

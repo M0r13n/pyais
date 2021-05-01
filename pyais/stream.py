@@ -22,22 +22,20 @@ def should_parse(byte_str: bytes) -> bool:
     return len(byte_str) > 0 and byte_str[0] in (DOLLAR_SIGN, EXCLAMATION_POINT) and byte_str.count(b",") == 6
 
 
-class Stream(Generic[F]):
+class AssembleMessages(ABC):
+    """
+    Base class that assembles multiline messages.
+    Offers a iterator like interface.
 
-    def __init__(self, fobj: F) -> None:
-        """
-        Create a new Stream-like object.
-        @param fobj: A file-like or socket object.
-        """
-        self._fobj: F = fobj
+    This class comes without a __init__ method, because it should never be instantiated!
+    """
 
-    def __enter__(self) -> "Stream[F]":
+    def __enter__(self) -> "AssembleMessages":
         # Enables use of with statement
         return self
 
     def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
-        if self._fobj is not None:
-            self._fobj.close()
+        return None
 
     def __iter__(self) -> Generator[NMEAMessage, None, None]:
         return self._assemble_messages()
@@ -70,9 +68,59 @@ class Stream(Generic[F]):
             else:
                 raise ValueError("Messages are out of order!")
 
+    @abstractmethod
+    def _iter_messages(self) -> Generator[bytes, None, None]:
+        raise NotImplementedError("Implement me!")
+
+
+class IterMessages(AssembleMessages):
+
+    def __init__(self, messages: Iterable[bytes]):
+        # If the user passes a single byte string make it into a list
+        if isinstance(messages, bytes):
+            messages = [messages, ]
+        self.messages: Iterable[bytes] = messages
+
+    @classmethod
+    def from_strings(cls, messages: Iterable[str], ignore_encoding_errors: bool = False,
+                     encoding: str = "utf-8") -> "IterMessages":
+        # If the users passes a single message as string, make it a list
+        if isinstance(messages, str):
+            messages = [messages, ]
+
+        encoded: List[bytes] = []
+        for message in messages:
+            try:
+                encoded.append(message.encode(encoding))
+            except UnicodeEncodeError as e:
+                if ignore_encoding_errors:
+                    # Just skip and carry on
+                    continue
+                raise e
+
+        return IterMessages(encoded)
+
+    def _iter_messages(self) -> Generator[bytes, None, None]:
+        # Transform self.messages into a generator
+        yield from (message for message in self.messages)
+
+
+class Stream(AssembleMessages, Generic[F], ABC):
+
+    def __init__(self, fobj: F) -> None:
+        """
+        Create a new Stream-like object.
+        @param fobj: A file-like or socket object.
+        """
+        self._fobj: F = fobj
+
+    def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
+        if self._fobj is not None:
+            self._fobj.close()
+
     def _iter_messages(self) -> Generator[bytes, None, None]:
         # Do not parse lines, that are obviously not NMEA messages
-        return (line for line in self.read() if should_parse(line))
+        yield from (line for line in self.read() if should_parse(line))
 
     @abstractmethod
     def read(self) -> Generator[bytes, None, None]:

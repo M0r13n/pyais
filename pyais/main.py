@@ -19,7 +19,7 @@ def arg_parser() -> argparse.ArgumentParser:
     main_parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog="ais-decode",
         description="AIS message decoding. 100% pure Python."
-                    "Supports AIVDM/AIVDO messages. Supports single messages, files and TCP/UDP sockets.",
+                    "Supports AIVDM/AIVDO messages. Supports single messages, files and TCP/UDP sockets.rst.",
     )
     sub_parsers = main_parser.add_subparsers()
 

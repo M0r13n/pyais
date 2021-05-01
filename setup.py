@@ -39,18 +39,6 @@ setuptools.setup(
     install_requires=[
         "bitarray"
     ],
-    extras_require={
-        "test": [
-            "flake8",
-            "coverage",
-            "nose",
-            "mypy",
-        ],
-        "deploy": [
-            "twine",
-            "wheel"
-        ]
-    },
     entry_points={
         "console_scripts": [
             'ais-decode=pyais.main:main'

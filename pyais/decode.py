@@ -3,6 +3,7 @@ from typing import Any, Dict, Union
 
 import bitarray  # type: ignore
 
+from pyais import messages
 from pyais.constants import (
     NavigationStatus,
     ManeuverIndicator,
@@ -14,7 +15,6 @@ from pyais.constants import (
     NavAid
 )
 from pyais.exceptions import UnknownMessageException
-from pyais import messages
 from pyais.util import get_int, encode_bin_as_ascii6, get_mmsi
 
 
@@ -700,15 +700,26 @@ def decode(msg: "messages.NMEAMessage") -> Dict[str, Any]:
     return _decode(msg)
 
 
-def decode_raw(msg: Union[str, bytes]) -> Dict[str, Any]:
+def decode_msg(*args: Union[str, bytes]) -> Dict[str, Any]:
     """
     Decode single message.
-    @param msg: A AIS message, that can be either bytes or str (UTF-8) encoded.
+
+    This method is ONLY meant to decode a SINGLE (multiline) message.
+    Pass every part of a single as an argument.
+
+    @param args: A AIS message, that can be either bytes or str (UTF-8) encoded.
+                For multiline messages, pass all parts.
     @return: A dictionary of the decoded key-value pairs.
+
     """
-    if isinstance(msg, bytes):
-        return decode(messages.NMEAMessage(msg))
-    elif isinstance(msg, str):
-        return decode(messages.NMEAMessage.from_string(msg))
-    else:
-        raise ValueError(f"msg must be of type 'str' or 'bytes', but was '{type(msg)}'")
+    # Make everything bytes
+    message_as_bytes = tuple(msg.encode('utf-8') if isinstance(msg, str) else msg for msg in args)
+
+    # Create temporary messages
+    temp = [messages.NMEAMessage(m) for m in message_as_bytes]
+
+    # Assemble temporary messages
+    final = messages.NMEAMessage.assemble_from_iterable(temp)
+
+    # Decode
+    return final.decode(silent=False).content  # type: ignore

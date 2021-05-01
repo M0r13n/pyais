@@ -50,16 +50,17 @@ for msg in TCPStream('ais.exploratorium.edu'):
 
 
 You can also parse a single message encoded as bytes or from a string:
+
 ```python
-from pyais import NMEAMessage, decode_raw
+from pyais import NMEAMessage, decode_msg
 
 message = NMEAMessage(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
 message = NMEAMessage.from_string("!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
 
 # or newer 
 
-msg = decode_raw("!AIVDM,1,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")
-msg = decode_raw(b"!AIVDM,1,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")
+msg = decode_msg("!AIVDM,1,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")
+msg = decode_msg(b"!AIVDM,1,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")
 
 ```
 
@@ -88,7 +89,7 @@ If you install the library a commandline utility is installed to your PATH. This
 $ ais-decode --help
 usage: ais-decode [-h] [-f [IN_FILE]] [-o OUT_FILE] {socket,single} ...
 
-AIS message decoding. 100% pure Python.Supports AIVDM/AIVDO messages. Supports single messages, files and TCP/UDP sockets.
+AIS message decoding. 100% pure Python.Supports AIVDM/AIVDO messages. Supports single messages, files and TCP/UDP sockets.rst.
 
 positional arguments:
   {socket,single}
