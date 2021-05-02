@@ -181,3 +181,11 @@ class TestNMEA(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             _ = msg[1:3]
+
+    def test_deprecated(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,A,15Mj23P000G?q7fK>g:o7@1:0L3S,0*1B")
+
+        self.assertEqual(msg.count, msg.fragment_count)
+        self.assertEqual(msg.index, msg.fragment_number)
+        self.assertEqual(msg.seq_id, msg.message_id)
+        self.assertEqual(msg.data, msg.payload)

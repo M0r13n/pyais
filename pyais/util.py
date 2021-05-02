@@ -20,8 +20,7 @@ def deprecated(f: Callable[[Any], Any]) -> Callable[[Any], Any]:
     def wrapper(self: Any) -> Any:
         warnings.simplefilter('always', DeprecationWarning)  # turn off filter
         warnings.warn(f"{f.__name__} is deprecated and will be removed soon.",
-                      category=DeprecationWarning,
-                      stacklevel=2)
+                      category=DeprecationWarning)
         warnings.simplefilter('default', DeprecationWarning)  # reset filter
 
         return f(self)
