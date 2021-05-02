@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, Optional, Sequence, Tuple, Type
+from typing import Any, Dict, Optional, Sequence, Tuple, Type, Union
 
 from bitarray import bitarray  # type: ignore
 
@@ -7,7 +7,7 @@ from pyais.ais_types import AISType
 from pyais.constants import TalkerID
 from pyais.decode import decode
 from pyais.exceptions import InvalidNMEAMessageException
-from pyais.util import decode_into_bit_array, get_int, compute_checksum
+from pyais.util import decode_into_bit_array, get_int, compute_checksum, deprecated
 
 
 def validate_message(msg: bytes) -> None:
@@ -115,12 +115,13 @@ class NMEAMessage(object):
         'ais_id',
         'raw',
         'talker',
-        'msg_type',
-        'count',
-        'index',
-        'seq_id',
+        'type',
+        'message_fragments',
+        'fragment_number',
+        'message_id',
         'channel',
-        'data',
+        'payload',
+        'fill_bits',
         'checksum',
         'bit_array'
     )
@@ -143,11 +144,11 @@ class NMEAMessage(object):
         # Unpack NMEA message parts
         (
             head,
-            count,
-            index,
-            seq_id,
+            message_fragments,
+            fragment_number,
+            message_id,
             channel,
-            data,
+            payload,
             checksum
         ) = values
 
@@ -156,38 +157,58 @@ class NMEAMessage(object):
         self.talker: TalkerID = TalkerID(talker)
 
         # The type of message is then identified by the next 3 characters
-        self.msg_type: str = head[3:].decode('ascii')
+        self.type: str = head[3:].decode('ascii')
 
-        # Store other important parts
-        self.count: int = int(count)
-        self.index: int = int(index)
-        self.seq_id: bytes = seq_id
-        self.channel: bytes = channel
-        self.data: bytes = data
+        # Total number of fragments
+        self.message_fragments: int = int(message_fragments)
+        # Current fragment index
+        self.fragment_number: int = int(fragment_number)
+        # Optional message index for multiline messages
+        self.message_id: Optional[int] = int(message_id) if message_id else None
+        # Channel (A or B)
+        self.channel: str = channel.decode('ascii')
+        # Decoded message payload as byte string
+        self.payload: bytes = payload
+        # Fill bits (0 to 5)
+        self.fill_bits: int = int(chr(checksum[0]))
+        # Message Checksum (hex value)
         self.checksum = int(checksum[2:], 16)
 
         # Finally decode bytes into bits
-        self.bit_array: bitarray = decode_into_bit_array(self.data)
+        self.bit_array: bitarray = decode_into_bit_array(self.payload)
         self.ais_id: int = get_int(self.bit_array, 0, 6)
 
     def __str__(self) -> str:
         return str(self.raw)
 
+    def __getitem__(self, item: str) -> Union[int, str, bytes, bitarray]:
+        if isinstance(item, str):
+            try:
+                return getattr(self, item)
+            except AttributeError:
+                raise KeyError(item)
+        else:
+            raise TypeError(f"Index must be str, not {type(item).__name__}")
+
     def asdict(self) -> Dict[str, Any]:
-        def serializable(o: object) -> Any:
-            if isinstance(o, bytes):
-                return o.decode('utf-8')
-            elif isinstance(o, bitarray):
-                return o.to01()
-
-            return o
-
-        return dict(
-            [
-                (slot, serializable(getattr(self, slot)))
-                for slot in self.__slots__
-            ]
-        )
+        """
+        Convert the class to dict.
+        @return: A dictionary that holds all fields, defined in __slots__
+        """
+        return {
+            'ais_id': self.ais_id,  # int
+            'raw': self.raw.decode('ascii'),  # str
+            'talker': self.talker.value,  # str
+            'type': self.type,  # str
+            'message_fragments': self.message_fragments,  # int
+            'fragment_number': self.fragment_number,  # int
+            'message_id': self.message_id,  # None or int
+            'channel': self.channel,  # str
+            'payload': self.payload.decode('ascii'),  # str
+            'fill_bits': self.fill_bits,  # int
+            'checksum': self.checksum,  # int
+            'bit_array': self.bit_array.to01(),  # str
+        }
 
     def __eq__(self, other: object) -> bool:
         return all([getattr(self, attr) == getattr(other, attr) for attr in self.__slots__])
@@ -213,11 +234,11 @@ class NMEAMessage(object):
 
         for msg in messages:
             raw += msg.raw
-            data += msg.data
+            data += msg.payload
             bit_array += msg.bit_array
 
         messages[0].raw = raw
-        messages[0].data = data
+        messages[0].payload = data
         messages[0].bit_array = bit_array
         return messages[0]
 
@@ -227,7 +248,7 @@ class NMEAMessage(object):
 
     @property
     def is_single(self) -> bool:
-        return not self.seq_id and self.index == self.count == 1
+        return not self.message_id and self.fragment_number == self.message_fragments == 1
 
     @property
     def is_multi(self) -> bool:
@@ -235,7 +256,43 @@ class NMEAMessage(object):
 
     @property
     def fragment_count(self) -> int:
-        return self.count
+        return self.message_fragments
+
+    @deprecated
+    def count(self) -> int:
+        """
+        Only there fore legacy compatibility.
+        Was renamed to `message_fragments`
+        @return: message_fragments as int
+        """
+        return self.message_fragments
+
+    @deprecated
+    def index(self) -> int:
+        """
+        Only there fore legacy compatibility.
+        Was renamed to `fragment_number`
+        @return:  fragment_number as int
+        """
+        return self.fragment_number
+
+    @deprecated
+    def seq_id(self) -> Optional[int]:
+        """
+        Only there fore legacy compatibility.
+        Was renamed to `message_id`
+        @return: message_id as int
+        """
+        return self.message_id
+
+    @deprecated
+    def data(self) -> bytes:
+        """
+        Only there fore legacy compatibility.
+        Was renamed to `payload`
+        @return: payload as sequence of bytes
+        """
+        return self.payload
 
     def decode(self, silent: bool = True) -> Optional["AISMessage"]:
         """

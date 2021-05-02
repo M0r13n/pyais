@@ -36,12 +36,13 @@ class TestAIS(unittest.TestCase):
         "ais_id": 1,
         "raw": "!AIVDM,1,1,,A,15NPOOPP00o?b=bE`UNv4?w428D;,0*24",
         "talker": "AI",
-        "msg_type": "VDM",
-        "count": 1,
-        "index": 1,
-        "seq_id": "",
+        "type": "VDM",
+        "message_fragments": 1,
+        "fragment_number": 1,
+        "message_id": null,
         "channel": "A",
-        "data": "15NPOOPP00o?b=bE`UNv4?w428D;",
+        "payload": "15NPOOPP00o?b=bE`UNv4?w428D;",
+        "fill_bits": 0,
         "checksum": 36,
         "bit_array": "000001000101011110100000011111011111100000100000000000000000110111001111101010001101101010010101101000100101011110111110000100001111111111000100000010001000010100001011"
     },
@@ -569,15 +570,16 @@ class TestAIS(unittest.TestCase):
         "ais_id": 37,
         "raw": "!AIVDM,1,1,,A,U31<0OOP000CshrMdl600?wP00SL,0*43",
         "talker": "AI",
-        "msg_type": "VDM",
-        "count": 1,
-        "index": 1,
-        "seq_id": "",
+        "type": "VDM",
+        "message_fragments": 1,
+        "fragment_number": 1,
+        "message_id": null,
         "channel": "A",
-        "data": "U31<0OOP000CshrMdl600?wP00SL",
+        "payload": "U31<0OOP000CshrMdl600?wP00SL",
+        "fill_bits": 0,
         "checksum": 67,
         "bit_array": "100101000011000001001100000000011111011111100000000000000000000000010011111011110000111010011101101100110100000110000000000000001111111111100000000000000000100011011100"
     },
     "decoded": {}
 }"""
-        assert nmea.decode().to_json() == text
+        self.assertEqual(nmea.decode().to_json(), text)

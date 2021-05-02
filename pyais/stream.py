@@ -62,7 +62,7 @@ class AssembleMessages(ABC):
             elif msg.is_multi:
                 queue.append(msg)
 
-                if msg.index == msg.count:
+                if msg.fragment_number == msg.message_fragments:
                     yield msg.assemble_from_iterable(queue)
                     queue.clear()
             else:

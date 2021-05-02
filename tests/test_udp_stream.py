@@ -160,9 +160,9 @@ class TestOutOfOrder(unittest.TestCase):
         iter_steam = iter(stream)
 
         # assure that messages are deleted after they are yielded
-        assert next(iter_steam).seq_id == b'1'
+        assert next(iter_steam).message_id == 1
         assert len(stream._queue) == 2
-        assert next(iter_steam).seq_id == b'7'
+        assert next(iter_steam).message_id == 7
         assert len(stream._queue) == 1
 
     def test_three(self):

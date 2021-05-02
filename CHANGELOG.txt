@@ -2,6 +2,21 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 1.6.0  2 May 2021
+-------------------------------------------------------------------------------
+
+
+* Makes `NMEAMessage` subscribable
+* Adds documentation on readthedocs.org
+* Renames instance attributes of `NMEAMessage`:
+    - msg_type to type
+    - count to message_fragments
+    - index to fragment_number
+    - seq_id to message_id
+    - data to payload#
+* Adds fill_bits field to NMEAMessage
+
+-------------------------------------------------------------------------------
  Version 1.4.0  6 Mar 2021
 -------------------------------------------------------------------------------
 

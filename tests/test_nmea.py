@@ -1,4 +1,7 @@
 import unittest
+from pprint import pprint
+
+from bitarray import bitarray
 
 from pyais.exceptions import InvalidNMEAMessageException
 from pyais.messages import NMEAMessage, AISMessage
@@ -62,19 +65,20 @@ class TestNMEA(unittest.TestCase):
         Test value type
         """
         msg = b"!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*30"
-        assert NMEAMessage(msg).msg_type == "VDM"
+        assert NMEAMessage(msg).type == "VDM"
         msg = b"!AIVDM,1,1,,A,8@30oni?1j020@00,0*23"
-        assert NMEAMessage(msg).msg_type == "VDM"
+        assert NMEAMessage(msg).type == "VDM"
 
     def test_attrs(self):
         msg = b"!AIVDM,1,1,,A,85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs,0*47"
         nmea = NMEAMessage(msg)
 
         assert nmea.ais_id == 8
-        assert nmea.count == 1
-        assert nmea.index == 1
-        assert nmea.channel == b"A"
-        assert nmea.data == b"85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs"
+        assert nmea.message_fragments == 1
+        assert nmea.fragment_number == 1
+        assert nmea.message_id is None
+        assert nmea.channel == "A"
+        assert nmea.payload == b"85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs"
         assert nmea.checksum == 0x47
 
     def test_validity(self):
@@ -114,3 +118,74 @@ class TestNMEA(unittest.TestCase):
     def test_invalid_msg_with_wrong_type(self):
         with self.assertRaises(InvalidNMEAMessageException):
             NMEAMessage(b"GPSD,1,1,,B,F030p:j2N2P5aJR0r;6f3rj10000,0*11")
+
+    def test_dict(self):
+        msg = b"!AIVDM,1,1,,A,15Mj23P000G?q7fK>g:o7@1:0L3S,0*1B"
+        msg = NMEAMessage(msg)
+
+        def serializable(o: object):
+            if isinstance(o, bytes):
+                return o.decode('utf-8')
+            elif isinstance(o, bitarray):
+                return o.to01()
+            return o
+
+        expected = dict(
+            [
+                (slot, serializable(getattr(msg, slot)))
+                for slot in NMEAMessage.__slots__
+            ]
+        )
+
+        actual = msg.asdict()
+        pprint(actual)
+        self.assertEqual(expected, actual)
+        self.assertEqual(1, actual["ais_id"])
+        self.assertEqual("!AIVDM,1,1,,A,15Mj23P000G?q7fK>g:o7@1:0L3S,0*1B", actual["raw"])
+        self.assertEqual("AI", actual["talker"])
+        self.assertEqual("VDM", actual["type"])
+        self.assertEqual(1, actual["message_fragments"])
+        self.assertEqual(1, actual["fragment_number"])
+        self.assertEqual(None, actual["message_id"])
+        self.assertEqual("A", actual["channel"])
+        self.assertEqual("15Mj23P000G?q7fK>g:o7@1:0L3S", actual["payload"])
+        self.assertEqual(0, actual["fill_bits"])
+        self.assertEqual(0x1b, actual["checksum"])
+
+    def test_get_item(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,A,15Mj23P000G?q7fK>g:o7@1:0L3S,0*1B")
+
+        self.assertEqual(1, msg["ais_id"])
+        self.assertEqual(b"!AIVDM,1,1,,A,15Mj23P000G?q7fK>g:o7@1:0L3S,0*1B", msg["raw"])
+        self.assertEqual("AI", msg["talker"])
+        self.assertEqual("VDM", msg["type"])
+        self.assertEqual(1, msg["message_fragments"])
+        self.assertEqual(1, msg["fragment_number"])
+        self.assertEqual(None, msg["message_id"])
+        self.assertEqual("A", msg["channel"])
+        self.assertEqual(b"15Mj23P000G?q7fK>g:o7@1:0L3S", msg["payload"])
+        self.assertEqual(0, msg["fill_bits"])
+        self.assertEqual(0x1b, msg["checksum"])
+
+    def test_get_item_raises_key_error(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,A,15Mj23P000G?q7fK>g:o7@1:0L3S,0*1B")
+
+        with self.assertRaises(KeyError):
+            _ = msg["foo"]
+
+    def test_get_item_raises_type_error(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,A,15Mj23P000G?q7fK>g:o7@1:0L3S,0*1B")
+
+        with self.assertRaises(TypeError):
+            _ = msg[1]
+
+        with self.assertRaises(TypeError):
+            _ = msg[1:3]
+
+    def test_deprecated(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,A,15Mj23P000G?q7fK>g:o7@1:0L3S,0*1B")
+
+        self.assertEqual(msg.count, msg.fragment_count)
+        self.assertEqual(msg.index, msg.fragment_number)
+        self.assertEqual(msg.seq_id, msg.message_id)
+        self.assertEqual(msg.data, msg.payload)
