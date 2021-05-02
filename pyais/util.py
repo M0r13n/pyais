@@ -1,7 +1,8 @@
+import warnings
 from collections import OrderedDict
 from functools import partial, reduce
 from operator import xor
-from typing import Any, Generator, Hashable, TYPE_CHECKING
+from typing import Any, Generator, Hashable, TYPE_CHECKING, Callable
 
 from bitarray import bitarray  # type: ignore
 
@@ -12,6 +13,20 @@ else:
 
 from_bytes = partial(int.from_bytes, byteorder="big")
 from_bytes_signed = partial(int.from_bytes, byteorder="big", signed=True)
+
+
+def deprecated(f: Callable[[Any], Any]) -> Callable[[Any], Any]:
+    @property  # type: ignore
+    def wrapper(self: Any) -> Any:
+        warnings.simplefilter('always', DeprecationWarning)  # turn off filter
+        warnings.warn(f"{f.__name__} is deprecated and will be removed soon.",
+                      category=DeprecationWarning,
+                      stacklevel=2)
+        warnings.simplefilter('default', DeprecationWarning)  # reset filter
+
+        return f(self)
+
+    return wrapper
 
 
 def decode_into_bit_array(data: bytes) -> bitarray:
