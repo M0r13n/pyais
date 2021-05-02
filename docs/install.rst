@@ -21,38 +21,36 @@ The current development version is available on `github
    $ sudo python setup.py install
 
 
-## Known problems
+Known problems
+------------------
 
-During installation, you may encounter problems due to missing header files. The error looks like this:
+During installation, you may encounter problems due to missing header files. The error looks like this::
 
-````sh
-...
+    ...
 
-    bitarray/_bitarray.c:13:10: fatal error: Python.h: No such file or directory
-       13 | #include "Python.h"
-          |          ^~~~~~~~~~
-    compilation terminated.
-    error: command 'x86_64-linux-gnu-gcc' failed with exit status 1
+        bitarray/_bitarray.c:13:10: fatal error: Python.h: No such file or directory
+           13 | #include "Python.h"
+              |          ^~~~~~~~~~
+        compilation terminated.
+        error: command 'x86_64-linux-gnu-gcc' failed with exit status 1
 
-...
+    ...
 
-````
+In  order to solve this issue, you need to install header files and static libraries for python dev::
 
-In  order to solve this issue, you need to install header files and static libraries for python dev:
 
-````sh
-$ sudo apt install python3-dev
-````
+    $ sudo apt install python3-dev
 
-#### Installation in Visualstudio
 
-You may encounter the error:
+Installation in Visualstudio
+------------------------------
 
-````sh
+You may encounter the error::
+
     ...
     error: Microsoft Visual C++ 14.0 or greater is required. Get it with "Microsoft C++ Build Tools
     ...
-````
+
 
 To solve this issue, you need to:
 
