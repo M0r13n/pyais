@@ -45,11 +45,6 @@ def validate_message(msg: bytes) -> None:
             "Sentence number is empty!"
         )
 
-    if not values[4]:
-        raise InvalidNMEAMessageException(
-            "The AIS channel (A or B) is empty."
-        )
-
     if not values[5]:
         raise InvalidNMEAMessageException(
             "The NMEA message body (payload) is empty."
@@ -95,10 +90,10 @@ def validate_message(msg: bytes) -> None:
                 "Invalid  sequential message ID. No Number."
             )
 
-    # It should not have more than 82 chars (including starting $ or ! and <LF>)
-    if len(msg) > 82:
+    # It should not have more than 82 chars of payload
+    if len(values[5]) > 82:
         raise InvalidNMEAMessageException(
-            f"{msg.decode('utf-8')} has more than 82 characters."
+            f"{msg.decode('utf-8')} has more than 82 characters of payload."
         )
 
     # Only encapsulated messages are currently supported

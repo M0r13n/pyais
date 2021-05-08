@@ -1,5 +1,6 @@
 import unittest
 
+from pyais import decode_msg
 from pyais.ais_types import AISType
 from pyais.constants import ManeuverIndicator, NavigationStatus, ShipType, NavAid, EpfdType
 from pyais.exceptions import UnknownMessageException
@@ -583,3 +584,50 @@ class TestAIS(unittest.TestCase):
     "decoded": {}
 }"""
         self.assertEqual(nmea.decode().to_json(), text)
+
+    def test_empty_channel(self):
+        msg = b"!AIVDO,1,1,,,B>qc:003wk?8mP=18D3Q3wgTiT;T,0*13"
+
+        self.assertEqual(NMEAMessage(msg).channel, "")
+
+        content = decode_msg(msg)
+        self.assertEqual(content["type"], 18)
+        self.assertEqual(content["repeat"], 0)
+        self.assertEqual(content["mmsi"], "1000000000")
+        self.assertEqual(format(content["speed"], ".1f"), "102.3")
+        self.assertEqual(content["accuracy"], 0)
+        self.assertEqual(str(content["lon"]), "181.0")
+        self.assertEqual(str(content["lat"]), "91.0")
+        self.assertEqual(str(content["course"]), "360.0")
+        self.assertEqual(content["heading"], 511)
+        self.assertEqual(content["second"], 31)
+        self.assertEqual(content["regional"], 0)
+        self.assertEqual(content["cs"], 1)
+        self.assertEqual(content["display"], 0)
+        self.assertEqual(content["band"], 1)
+        self.assertEqual(content["radio"], 410340)
+
+    def test_msg_with_more_that_82_chars_payload(self):
+        content = decode_msg(
+            "!AIVDM,1,1,,B,53ktrJ82>ia4=50<0020<5=@Dhv0t8T@u<0000001PV854Si0;mR@CPH13p0hDm1C3h0000,2*35"
+        )
+
+        self.assertEqual(content["type"], 5)
+        self.assertEqual(content["mmsi"], "255801960")
+        self.assertEqual(content["repeat"], 0)
+        self.assertEqual(content["ais_version"], 2)
+        self.assertEqual(content["imo"], 9356945)
+        self.assertEqual(content["callsign"], "CQPC")
+        self.assertEqual(content["shipname"], "CASTELO OBIDOS")
+        self.assertEqual(content["shiptype"], ShipType.NotAvailable)
+        self.assertEqual(content["to_bow"], 12)
+        self.assertEqual(content["to_stern"], 38)
+        self.assertEqual(content["to_port"], 8)
+        self.assertEqual(content["to_starboard"], 5)
+        self.assertEqual(content["epfd"], EpfdType.GPS)
+        self.assertEqual(content["month"], 2)
+        self.assertEqual(content["day"], 7)
+        self.assertEqual(content["hour"], 17)
+        self.assertEqual(content["minute"], 0)
+        self.assertEqual(content["draught"], 4.7)
+        self.assertEqual(content["destination"], "VIANA DO CASTELO")
