@@ -1,7 +1,7 @@
 from enum import IntEnum, Enum
 
 # Keywords
-UNDEFINED = 'ndefined'
+UNDEFINED = 'Undefined'
 RESERVED = 'Reserved'
 NULL = 'N/A'
 ANSI_RED = '\x1b[31m'
