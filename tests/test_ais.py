@@ -461,6 +461,7 @@ class TestAIS(unittest.TestCase):
         assert msg['type'] == 23
         assert msg['mmsi'] == "002268120"
         assert msg['ne_lon'] == 157.8
+        assert msg['shiptype'] == ShipType.NotAvailable
         assert round(msg['ne_lat'], 1) == 3064.2
         assert round(msg['sw_lon'], 1) == 109.6
         assert round(msg['sw_lat'], 1) == 3040.8

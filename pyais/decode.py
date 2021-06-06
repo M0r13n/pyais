@@ -494,7 +494,7 @@ def decode_msg_23(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
         'sw_lat': get_int_from_data(93, 110, signed=True) * 0.1,
 
         'station_type': StationType(get_int_from_data(110, 114)),
-        'ship_type': ShipType(get_int_from_data(114, 122)),
+        'shiptype': ShipType(get_int_from_data(114, 122)),
         'txrx': TransmitMode(get_int_from_data(144, 146)),
         'interval': StationIntervals(get_int_from_data(146, 150)),
         'quiet': get_int_from_data(150, 154),
