@@ -2,6 +2,33 @@
 Message interface
 ##################
 
+`pyais` supports all message types. But it can currently not decode message specific payloads. This should be done by the user.
+
+This applies to messages of type 6, 8, 25, and 26. These messages have in common, that they contain unspecified binary payload.
+
+- Message type 6: data field with up to 920 bits of binary payload
+- Message type 8: data field with up to 952 bits of binary payload
+- Message type 26: data field with up to 128 bits of binary payload
+- Message type 27: data fiield with up to 1004 bits of binary payload
+
+The decoding of the binary payload is message dependent and varies between different systems.
+If you want to decode the binary payload of message type 6, you firstly would have to look at the
+dac (Designated Area Code) and the fid (Functional ID). Dependening of their values, you would know, how to interpret the payload.
+
+There are a lot of different application-specific messages, which are more or less standardized.
+Therefore ``pyais`` does not even try to decode the payload. Instead, you can access the raw payload as a bit-string or a bitarray.::
+
+
+    # Parse of message of type 8
+    msg = NMEAMessage(b"!AIVDM,1,1,,A,85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs,0*47").decode()
+
+    # Access it's payload as a binary string
+    assert msg['data'] == "00111010010100111101101110110111101111100100101001110111001100010011011111111 ..."
+
+    # Transform it into an bitarray
+    data_as_bit_arr =  bitarray.bitarray(msg['data'])
+
+
 NMEA messages
 ----------------
 
