@@ -1,7 +1,7 @@
 from functools import partial
-from typing import Any, Dict, Union
+from typing import Any, Dict, Union, List
 
-import bitarray  # type: ignore
+import bitarray
 
 from pyais import messages
 from pyais.constants import (
@@ -14,7 +14,7 @@ from pyais.constants import (
     StationIntervals,
     NavAid
 )
-from pyais.exceptions import UnknownMessageException
+from pyais.exceptions import UnknownMessageException, MissingMultipartMessageException, TooManyMessagesException
 from pyais.util import get_int, encode_bin_as_ascii6, get_mmsi
 
 
@@ -715,8 +715,24 @@ def decode_msg(*args: Union[str, bytes]) -> Dict[str, Any]:
     # Make everything bytes
     message_as_bytes = tuple(msg.encode('utf-8') if isinstance(msg, str) else msg for msg in args)
 
-    # Create temporary messages
-    temp = [messages.NMEAMessage(m) for m in message_as_bytes]
+    # Convert bytes into NMEAMessage and remember fragment_count and fragment_numbers
+    temp: List[messages.NMEAMessage] = []
+    frags: List[int] = []
+    frag_cnt: int = 1
+    for msg in message_as_bytes:
+        nmea = messages.NMEAMessage(msg)
+        temp.append(nmea)
+        frags.append(nmea.fragment_number)
+        frag_cnt = nmea.fragment_count
+
+    # Make sure provided parts assemble a single (multiline message)
+    if len(message_as_bytes) > frag_cnt:
+        raise TooManyMessagesException(f"Got {len(message_as_bytes)} messages, but fragment count is {frag_cnt}")
+
+    # Make sure all parts of a multipart message are provided
+    diff = [x for x in range(1, frag_cnt + 1) if x not in frags]
+    if len(diff):
+        raise MissingMultipartMessageException(f"Missing fragment numbers: {diff}")
 
     # Assemble temporary messages
     final = messages.NMEAMessage.assemble_from_iterable(temp)
