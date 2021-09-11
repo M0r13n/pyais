@@ -1,7 +1,7 @@
 import json
 from typing import Any, Dict, Optional, Sequence, Tuple, Type, Union
 
-from bitarray import bitarray  # type: ignore
+from bitarray import bitarray
 
 from pyais.ais_types import AISType
 from pyais.constants import TalkerID
@@ -179,7 +179,7 @@ class NMEAMessage(object):
     def __getitem__(self, item: str) -> Union[int, str, bytes, bitarray]:
         if isinstance(item, str):
             try:
-                return getattr(self, item)
+                return getattr(self, item)  # type: ignore
             except AttributeError:
                 raise KeyError(item)
         else:
