@@ -4,7 +4,7 @@ from functools import partial, reduce
 from operator import xor
 from typing import Any, Generator, Hashable, TYPE_CHECKING, Callable
 
-from bitarray import bitarray  # type: ignore
+from bitarray import bitarray
 
 if TYPE_CHECKING:
     BaseDict = OrderedDict[Hashable, Any]
@@ -43,7 +43,7 @@ def decode_into_bit_array(data: bytes) -> bitarray:
         # Convert 8 bit binary to 6 bit binary
         c -= 0x30 if (c < 0x60) else 0x38
         c &= 0x3F
-        bit_arr += f'{c:06b}'
+        bit_arr += bitarray(f'{c:06b}')
 
     return bit_arr
 
