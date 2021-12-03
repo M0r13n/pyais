@@ -15,7 +15,7 @@ from pyais.constants import (
     NavAid
 )
 from pyais.exceptions import UnknownMessageException, MissingMultipartMessageException, TooManyMessagesException
-from pyais.util import get_int, encode_bin_as_ascii6, get_mmsi
+from pyais.util import get_int, encode_bin_as_ascii6, get_mmsi, binary_data
 
 
 def decode_msg_1(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
@@ -128,7 +128,7 @@ def decode_msg_6(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
         'retransmit': bit_arr[70],
         'dac': get_int_from_data(72, 82),
         'fid': get_int_from_data(82, 88),
-        'data': bit_arr[88:].to01()
+        'data': binary_data(bit_arr, 88)
     }
 
 
@@ -165,7 +165,7 @@ def decode_msg_8(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
         'mmsi': get_mmsi(bit_arr, 8, 38),
         'dac': get_int_from_data(40, 50),
         'fid': get_int_from_data(50, 56),
-        'data': bit_arr[56:].to01()
+        'data': binary_data(bit_arr, 56)
     }
 
 
@@ -305,7 +305,7 @@ def decode_msg_17(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
         'mmsi': get_mmsi(bit_arr, 8, 38),
         'lon': get_int_from_data(40, 58, signed=True),
         'lat': get_int_from_data(58, 75, signed=True),
-        'data': get_int_from_data(80, 816)
+        'data': binary_data(bit_arr, 80)
     }
 
 
@@ -570,11 +570,11 @@ def decode_msg_25(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     if data['structured']:
         d = {
             'app_id': get_int_from_data(lo_ix, hi_ix),
-            'data': bit_arr[hi_ix:].to01()
+            'data': binary_data(bit_arr, hi_ix)
         }
     else:
         d = {
-            'data': bit_arr[lo_ix:].to01()
+            'data': binary_data(bit_arr, lo_ix)
         }
     data.update(d)
     return data
@@ -615,11 +615,11 @@ def decode_msg_26(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     if data['structured']:
         d = {
             'app_id': get_int_from_data(lo_ix, hi_ix),
-            'data': bit_arr[hi_ix:radio_status_offset].to01()
+            'data': binary_data(bit_arr, hi_ix, radio_status_offset)
         }
     else:
         d = {
-            'data': bit_arr[lo_ix:radio_status_offset].to01()
+            'data': binary_data(bit_arr, lo_ix, radio_status_offset)
         }
 
     data.update(d)

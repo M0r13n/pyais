@@ -316,7 +316,7 @@ class TestAIS(unittest.TestCase):
         assert msg['offset1'] == 200
         assert msg['increment1'] == 0
 
-        assert msg['offset2'] == 0
+        assert msg['offset2'] is None
         assert msg['increment1'] == 0
 
     def test_msg_type_17(self):
@@ -324,13 +324,16 @@ class TestAIS(unittest.TestCase):
             NMEAMessage(b"!AIVDM,2,1,5,A,A02VqLPA4I6C07h5Ed1h<OrsuBTTwS?r:C?w`?la<gno1RTRwSP9:BcurA8a,0*3A"),
             NMEAMessage(b"!AIVDM,2,2,5,A,:Oko02TSwu8<:Jbb,0*11")
         ]).decode()
-        n = 0x7c0556c07031febbf52924fe33fa2933ffa0fd2932fdb7062922fe3809292afde9122929fcf7002923ffd20c29aaaa
         assert msg['type'] == 17
         assert msg['repeat'] == 0
         assert msg['mmsi'] == "002734450"
         assert msg['lon'] == 17478
         assert msg['lat'] == 35992
-        assert msg['data'] == n
+        assert msg['data'] == "0111110000000101010101101100000001110000001100011111111010111011111101010010100" \
+                              "1001001001111111000110011111110100010100100110011111111111010000011111101001010" \
+                              "0100110010111111011011011100000110001010010010001011111110001110000000100100101" \
+                              "0010010101011111101111010010001001000101001001010011111110011110111000000000010" \
+                              "100100100011111111111101001000001100001010011010101010101010"
 
         msg = NMEAMessage(b"!AIVDM,1,1,,A,A0476BQ>J8`<h2JpH:4P0?j@2mTEw8`=DP1DEnqvj0,0*79").decode()
         assert msg['type'] == 17
@@ -338,7 +341,9 @@ class TestAIS(unittest.TestCase):
         assert msg['mmsi'] == "004310602"
         assert msg['lat'] == 20582
         assert msg['lon'] == 80290
-        assert msg['data'] == 14486955885545814640451754168044205828166539334830080
+        assert msg['data'] == "001001101011100001100000101000010010000000000000111111001001000000001011010110" \
+                              "010001010111111100100010100000110101010010000000000101010001010111011011100111" \
+                              "1110110010000000"
 
     def test_msg_type_18(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,B5NJ;PP005l4ot5Isbl03wsUkP06,0*76").decode()
