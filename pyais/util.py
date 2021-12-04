@@ -79,7 +79,7 @@ def encode_bin_as_ascii6(bit_arr: bitarray) -> str:
     return string.strip()
 
 
-def get_int(data: bitarray, ix_low: int, ix_high: int, signed: bool = False) -> Optional[int]:
+def get_int(data: bitarray, ix_low: int, ix_high: int, signed: bool = False) -> int:
     """
     Cast a subarray of a bitarray into an integer.
     The bitarray module adds tailing zeros when calling tobytes(), if the bitarray is not a multiple of 8.
@@ -90,10 +90,6 @@ def get_int(data: bitarray, ix_low: int, ix_high: int, signed: bool = False) -> 
     :param signed: True if the value should be interpreted as a signed integer
     :return: The integer value of the sub-array data[ix_low:ix_high]
     """
-    length = len(data)
-    if ix_low >= length or ix_high > length:
-        # Indices out of bounds
-        return None
     shift: int = (8 - ((ix_high - ix_low) % 8)) % 8
     data = data[ix_low:ix_high]
     i: int = from_bytes_signed(data) if signed else from_bytes(data)
@@ -119,15 +115,21 @@ def binary_data(data: bitarray, ix_low: int, ix_high: Optional[int] = None) -> O
     return data[ix_low:ix_high].to01()
 
 
-def get_mmsi(data: bitarray, ix_low: int, ix_high: int) -> Optional[str]:
+def get_mmsi(data: bitarray, ix_low: int, ix_high: int) -> str:
     """
     A Maritime Mobile Service Identity (MMSI) is a series of nine digits.
     Every digit is required and therefore we can NOT use a int.
     See: issue #6
     """
-    mmsi_int: Optional[int] = get_int(data, ix_low, ix_high)
-    if mmsi_int is None:
-        return None
+
+    mmsi_int: int = get_int(data, ix_low, ix_high)
+    if len(data) < ix_high:
+        # Remove padding from MMSIs shorter than 30 bits
+        mask = 0x3fffffff
+        d = ix_high - len(data)
+        mask ^= int(d * "1", 2)
+        mmsi_int &= mask
+
     return str(mmsi_int).zfill(9)
 
 

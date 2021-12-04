@@ -204,9 +204,27 @@ class TestAIS(unittest.TestCase):
         assert msg['dac'] == 669
         assert msg['fid'] == 11
 
-    def test_msg_type_7(self):
+    def test_msg_type_7_a(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,702R5`hwCjq8,0*6B").decode()
+        assert msg['mmsi'] == "002655651"
         assert msg['mmsi1'] == "265538450"
+        assert msg['mmsi2'] is None
+        assert msg['mmsi3'] is None
+        assert msg['mmsi4'] is None
+
+    def test_msg_type_7_b(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,B,7`0Pv1L:Ac8rbgPKHA8`P,2*56").decode()
+        assert msg['mmsi'] == "537411077"
+        assert msg['mmsi1'] == "043101326"
+        assert msg['mmsi2'] == "717096664"
+
+    def test_msg_type_7_c(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,A,7IiQ4T`UjA9lC;b:M<MWE@,4*01").decode()
+        assert msg['mmsi'] == "655901842"
+        assert msg['mmsi1'] == "158483613"
+        assert msg['mmsi2'] == "321823389"
+        assert msg['mmsi3'] == "836359488"
+        assert msg['mmsi4'] is None
 
     def test_msg_type_8(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs,0*47").decode()
@@ -307,7 +325,7 @@ class TestAIS(unittest.TestCase):
         assert msg['offset1_2'] == 617
         assert msg['offset1_1'] == 516
 
-    def test_msg_type_16(self):
+    def test_msg_type_16_b(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,A,@01uEO@mMk7P<P00,0*18").decode()
         assert msg['type'] == 16
         assert msg['repeat'] == 0
@@ -318,6 +336,12 @@ class TestAIS(unittest.TestCase):
 
         assert msg['offset2'] is None
         assert msg['increment1'] == 0
+
+    def test_msg_type_16_a(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,A,@TFtghNJ4G5?C7mV,0*3D").decode()
+        assert msg['type'] == 16
+        assert msg['mmsi'] == "292499393"
+        assert msg['increment1'] == 982
 
     def test_msg_type_17(self):
         msg = NMEAMessage.assemble_from_iterable(messages=[
@@ -394,6 +418,27 @@ class TestAIS(unittest.TestCase):
         for k, v in msg.content.items():
             if k not in ('type', 'mmsi', 'offset1', 'number1', 'timeout1', 'increment1'):
                 assert not v
+
+    def test_msg_type_20_a(self):
+        msg = NMEAMessage(b"!AIVDM,1,1,,B,D030p8@2tN?b<`O6DmQO6D0,2*5D").decode()
+        assert msg['type'] == 20
+        assert msg['mmsi'] == "003160097"
+        assert msg['offset1'] == 47
+        assert msg['number1'] == 1
+        assert msg['timeout1'] == 7
+        assert msg['increment1'] == 250
+
+        assert msg['offset2'] == 2250
+        assert msg['number2'] == 1
+        assert msg['timeout2'] == 7
+        assert msg['increment2'] == 1125
+
+        assert msg['offset3'] == 856
+        assert msg['number3'] == 5
+        assert msg['timeout3'] == 7
+        assert msg['increment3'] == 1125
+
+        assert msg['offset4'] is None
 
     def test_msg_type_21(self):
         msg = NMEAMessage.assemble_from_iterable(messages=[

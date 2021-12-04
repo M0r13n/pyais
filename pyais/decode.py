@@ -138,19 +138,39 @@ def decode_msg_7(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_7_binary_acknowledge
     """
     get_int_from_data = partial(get_int, bit_arr)
-    return {
+    length = len(bit_arr)
+    # Total length varies between 72 and 168 bits depending on the number of addressed ships
+    # Each address requires 32 bit
+    data = {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
         'mmsi': get_mmsi(bit_arr, 8, 38),
         'mmsi1': get_mmsi(bit_arr, 40, 70),
         'mmsiseq1': get_int_from_data(70, 72),
-        'mmsi2': get_mmsi(bit_arr, 72, 102),
-        'mmsiseq2': get_int_from_data(102, 104),
-        'mmsi3': get_mmsi(bit_arr, 104, 134),
-        'mmsiseq3': get_int_from_data(134, 136),
-        'mmsi4': get_mmsi(bit_arr, 136, 166),
-        'mmsiseq4': get_int_from_data(166, 168)
+        'mmsi2': None,
+        'mmsiseq2': None,
+        'mmsi3': None,
+        'mmsiseq3': None,
+        'mmsi4': None,
+        'mmsiseq4': None,
     }
+    if 72 < length <= 104:
+        data['mmsi2'] = get_mmsi(bit_arr, 72, 102)
+        data['mmsiseq2'] = get_int_from_data(102, 104)
+    elif 104 < length <= 136:
+        data['mmsi2'] = get_mmsi(bit_arr, 72, 102)
+        data['mmsiseq2'] = get_int_from_data(102, 104)
+        data['mmsi3'] = get_mmsi(bit_arr, 104, 134)
+        data['mmsiseq3'] = get_int_from_data(134, 136)
+    if 136 < length:
+        data['mmsi2'] = get_mmsi(bit_arr, 72, 102)
+        data['mmsiseq2'] = get_int_from_data(102, 104)
+        data['mmsi3'] = get_mmsi(bit_arr, 104, 134)
+        data['mmsiseq3'] = get_int_from_data(134, 136)
+        data['mmsi4'] = get_mmsi(bit_arr, 136, 166)
+        data['mmsiseq4'] = get_int_from_data(166, 168)
+
+    return data
 
 
 def decode_msg_8(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
@@ -259,7 +279,7 @@ def decode_msg_15(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_15_interrogation
     """
     get_int_from_data = partial(get_int, bit_arr)
-    return {
+    data = {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
         'mmsi': get_mmsi(bit_arr, 8, 38),
@@ -268,29 +288,45 @@ def decode_msg_15(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
         'offset1_1': get_int_from_data(76, 88),
         'type1_2': get_int_from_data(90, 96),
         'offset1_2': get_int_from_data(96, 108),
-        'mmsi2': get_mmsi(bit_arr, 110, 140),
-        'type2_1': get_int_from_data(140, 146),
-        'offset2_1': get_int_from_data(146, 157),
+        'mmsi2': None,
+        'type2_1': None,
+        'offset2_1': None,
     }
+
+    if len(bit_arr) > 88:
+        # TODO (richter): there are more edge cases
+        data['mmsi2'] = get_mmsi(bit_arr, 110, 140)
+        data['type2_1'] = get_int_from_data(140, 146)
+        data['offset2_1'] = get_int_from_data(146, 157)
+
+    return data
 
 
 def decode_msg_16(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     """
     Assignment Mode Command
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_16_assignment_mode_command
+        Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_16_assignment_mode_command
     """
     get_int_from_data = partial(get_int, bit_arr)
-    return {
+    data = {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
         'mmsi': get_mmsi(bit_arr, 8, 38),
         'mmsi1': get_mmsi(bit_arr, 40, 70),
         'offset1': get_int_from_data(70, 82),
         'increment1': get_int_from_data(82, 92),
-        'mmsi2': get_mmsi(bit_arr, 92, 122),
-        'offset2': get_int_from_data(122, 134),
-        'increment2': get_int_from_data(134, 144)
+        'mmsi2': None,
+        'offset2': None,
+        'increment2': None
     }
+
+    if len(data) > 96:
+        # If the message is 96 bits long it should be interpreted as a channel assignment for two stations
+        data['mmsi2'] = get_mmsi(bit_arr, 92, 122)
+        data['offset2'] = get_int_from_data(122, 134)
+        data['increment2'] = get_int_from_data(134, 144)
+
+    return data
 
 
 def decode_msg_17(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
@@ -375,7 +411,7 @@ def decode_msg_20(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_20_data_link_management_message
     """
     get_int_from_data = partial(get_int, bit_arr)
-    return {
+    data = {
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(8, 8),
         'mmsi': get_mmsi(bit_arr, 8, 38),
@@ -385,21 +421,40 @@ def decode_msg_20(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
         'timeout1': get_int_from_data(56, 59),
         'increment1': get_int_from_data(59, 70),
 
-        'offset2': get_int_from_data(70, 82),
-        'number2': get_int_from_data(82, 86),
-        'timeout2': get_int_from_data(86, 89),
-        'increment2': get_int_from_data(89, 100),
+        'offset2': None,
+        'number2': None,
+        'timeout2': None,
+        'increment2': None,
 
-        'offset3': get_int_from_data(100, 112),
-        'number3': get_int_from_data(112, 116),
-        'timeout3': get_int_from_data(116, 119),
-        'increment3': get_int_from_data(110, 130),
+        'offset3': None,
+        'number3': None,
+        'timeout3': None,
+        'increment3': None,
 
-        'offset4': get_int_from_data(130, 142),
-        'number4': get_int_from_data(142, 146),
-        'timeout4': get_int_from_data(146, 149),
-        'increment4': get_int_from_data(149, 160),
+        'offset4': None,
+        'number4': None,
+        'timeout4': None,
+        'increment4': None,
     }
+
+    length = len(bit_arr)
+    if 100 <= length:
+        data['offset2'] = get_int_from_data(70, 82)
+        data['number2'] = get_int_from_data(82, 86)
+        data['timeout2'] = get_int_from_data(86, 89)
+        data['increment2'] = get_int_from_data(89, 100)
+    if 130 <= length:
+        data['offset3'] = get_int_from_data(100, 112)
+        data['number3'] = get_int_from_data(112, 116)
+        data['timeout3'] = get_int_from_data(116, 119)
+        data['increment3'] = get_int_from_data(119, 130)
+    if 160 <= length:
+        data['offset4'] = get_int_from_data(130, 142)
+        data['number4'] = get_int_from_data(142, 146)
+        data['timeout4'] = get_int_from_data(146, 149)
+        data['increment4'] = get_int_from_data(149, 160)
+
+    return data
 
 
 def decode_msg_21(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
