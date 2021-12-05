@@ -1,7 +1,10 @@
 import unittest
 
+from bitarray import bitarray
+
 from pyais import decode_msg
 from pyais.exceptions import InvalidNMEAMessageException, MissingMultipartMessageException, TooManyMessagesException
+from pyais.util import binary_data
 
 
 class TestDecode(unittest.TestCase):
@@ -97,3 +100,20 @@ class TestDecode(unittest.TestCase):
             msg_1,
             msg_2
         )
+
+    def test_binary_data_out_of_bounds(self):
+        b = bitarray('010100000000000010001101101001101111000000101110110100101110101110111000')
+
+        self.assertEqual("10000", binary_data(b, 35, 40))
+
+        # Lower index out of bounds
+        self.assertIsNone(binary_data(b, 72, 73))
+
+        # Upper index out of bounds
+        self.assertIsNone(binary_data(b, 0, 73))
+
+        # Lower and upper index out of bounds
+        self.assertIsNone(binary_data(b, 72, 72))
+
+        # Lower and upper index in bound
+        self.assertIsNotNone(binary_data(b, 71, 71))

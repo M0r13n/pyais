@@ -2,6 +2,15 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 1.6.3  5 Dec 2021
+-------------------------------------------------------------------------------
+
+* Correctly handles variable length messages (https://github.com/M0r13n/pyais/issues/40)
+    - prior versions were missing required length checks
+    - therefore some messages were not correctly decoded
+    - this affects Type 7, 15, 16, 20, 22, 24, 25 and 26
+
+-------------------------------------------------------------------------------
  Version 1.6.2  2 May 2021
 -------------------------------------------------------------------------------
 

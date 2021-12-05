@@ -1,3 +1,4 @@
+import pathlib
 import sys
 import unittest
 
@@ -27,7 +28,7 @@ class TestMainApp(unittest.TestCase):
 
     def test_decode_from_file(self):
         class DemoNamespace:
-            in_file = open("tests/ais_test_messages", "rb")
+            in_file = open(pathlib.Path(__file__).parent.joinpath("ais_test_messages"), "rb")
             out_file = None
 
         assert decode_from_file(DemoNamespace()) == 0
@@ -41,9 +42,10 @@ class TestMainApp(unittest.TestCase):
         assert ns.in_file is None
 
         # But this can be overwritten to any file that exists
-        ns = parser.parse_args(["-f", "tests/ais_test_messages"])
+        file = str(pathlib.Path(__file__).parent.joinpath("ais_test_messages"))
+        ns = parser.parse_args(["-f", file])
         assert ns.func == decode_from_file
-        assert ns.in_file.name == "tests/ais_test_messages"
+        assert ns.in_file.name == file
         ns.in_file.close()
 
         # If the file does not exist an error is thrown
