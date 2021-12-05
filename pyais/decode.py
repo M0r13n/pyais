@@ -501,7 +501,6 @@ def decode_msg_22(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(8, 8),
         'mmsi': get_mmsi(bit_arr, 8, 38),
-
         'channel_a': get_int_from_data(40, 52),
         'channel_b': get_int_from_data(52, 64),
         'txrx': get_int_from_data(64, 68),

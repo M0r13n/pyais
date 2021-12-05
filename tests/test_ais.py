@@ -197,6 +197,24 @@ class TestAIS(unittest.TestCase):
         assert msg['destination'] == "NEW YORK"
         assert msg['dte'] == 0
 
+    def test_msg_type_5_a(self):
+        content = decode_msg(
+            "!AIVDM,2,1,9,B,53nFBv01SJ<thHp6220H4heHTf2222222222221?50:454o<`9QSlUDp,0*09",
+            "!AIVDM,2,2,9,B,888888888888880,2*2E"
+        )
+
+        assert content['type'] == 5
+        assert content['mmsi'] == "258315000"
+        assert content['imo'] == 6514895
+        assert content['callsign'] == "LFNA"
+        assert content['shipname'] == "FALKVIK"
+        assert content['shiptype'].value == 79
+        assert content['to_bow'] == 40
+        assert content['to_stern'] == 10
+        assert content['to_port'] == 4
+        assert content['to_starboard'] == 5
+        assert content['destination'] == "FORUS"
+
     def test_msg_type_6(self):
         msg = NMEAMessage(b"!AIVDM,1,1,,B,6B?n;be:cbapalgc;i6?Ow4,2*4A").decode()
         assert msg['seqno'] == 3
@@ -682,3 +700,13 @@ class TestAIS(unittest.TestCase):
         self.assertEqual(content["minute"], 0)
         self.assertEqual(content["draught"], 4.7)
         self.assertEqual(content["destination"], "VIANA DO CASTELO")
+
+    def test_misc_messages(self):
+        content = decode_msg(
+            "!AIVDM,1,1,,A,13aEOK?P00PD2wVMdLDRhgvL289?,0*26"
+        )
+
+        assert content['type'] == 1
+        assert content['mmsi'] == "244670316"
+        assert content['lon'] == 4.379285
+        assert content['lat'] == 51.89475
