@@ -31,7 +31,7 @@ def deprecated(f: Callable[[Any], Any]) -> Callable[[Any], Any]:
 def decode_into_bit_array(data: bytes) -> bitarray:
     """
     Decodes a raw AIS message into a bitarray.
-    :param data: Raw AIS message in bytes, as it is received from a TCP socket.
+    :param data: Raw AIS message in bytes
     :return:
     """
     bit_arr = bitarray()
@@ -49,7 +49,7 @@ def decode_into_bit_array(data: bytes) -> bitarray:
 
 
 def chunks(sequence: bitarray, n: int) -> Generator[bitarray, None, None]:
-    """Yield successive n-sized chunks from l."""
+    """Yield successive n-sized chunks from sequence."""
     return (sequence[i:i + n] for i in range(0, len(sequence), n))
 
 
@@ -108,9 +108,14 @@ def get_mmsi(data: bitarray, ix_low: int, ix_high: int) -> str:
 
 def compute_checksum(msg: bytes) -> int:
     """
-    Compute the checksum of a given message
+    Compute the checksum of a given message.
+    This method takes the **whole** message including the leading `!`.
+
+    >>> compute_checksum(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0")
+    91
+
     :param msg: message
-    :return: hex
+    :return: int value of the checksum. Format as hex with `f'{checksum:02x}'`
     """
     msg = msg[1:].split(b'*', 1)[0]
     return reduce(xor, msg)
