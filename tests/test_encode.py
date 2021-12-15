@@ -1,3 +1,4 @@
+import math
 import struct
 from pprint import pprint
 
@@ -5,7 +6,7 @@ import attr
 import bitarray
 
 from pyais import NMEAMessage
-from pyais.util import encode_bin_as_ascii6, decode_into_bit_array, chunks, from_bytes
+from pyais.util import encode_bin_as_ascii6, decode_into_bit_array, chunks, from_bytes, get_int, compute_checksum
 
 # https://gpsd.gitlab.io/gpsd/AIVDM.html#_aivdmaivdo_payload_armoring
 PAYLOAD_ARMOR = {
@@ -47,34 +48,22 @@ def encode_ascii_6(bits: bitarray.bitarray):
     return out
 
 
-def bit_field(width, d_type):
-    return attr.ib(metadata={'width': width, 'd_type': d_type})
+def bit_field(width, d_type, converter=None):
+    return attr.ib(converter=converter, metadata={'width': width, 'd_type': d_type})
+
+
+def to_bin(val, width):
+    bits = bitarray.bitarray(endian='big')
+    n_bits, mod = divmod(width, 8)
+    if mod > 0:
+        n_bits += 1
+
+    bits.frombytes(val.to_bytes(n_bits, 'big', signed=True))
+    return bits[8 - mod if mod else 0:]
 
 
 @attr.s(slots=True)
-class MessageType1:
-    msg_type = bit_field(6, int)
-    repeat = bit_field(2, int)
-    mmsi = bit_field(30, int)
-    status = bit_field(4, int)
-    turn = bit_field(8, int)
-    speed = bit_field(10, int)
-    accuracy = bit_field(1, int)
-    lon = bit_field(28, int)
-    lat = bit_field(27, int)
-    course = bit_field(12, int)
-    heading = bit_field(9, int)
-    second = bit_field(6, int)
-    maneuver = bit_field(2, int)
-    spare = bit_field(3, int)
-    raim = bit_field(1, int)
-    radio = bit_field(19, int)
-
-    def __attrs_post_init__(self):
-        self.speed = int(self.speed * 10)
-        self.lon = int(self.lon * 600000)
-        self.lat = int(self.lat * 600000)
-
+class BaseMessage:
     @classmethod
     def fields(cls):
         return attr.fields(cls)
@@ -82,28 +71,53 @@ class MessageType1:
     def to_dict(self):
         return attr.asdict(self)
 
+    def to_bitarray(self):
+        out = bitarray.bitarray()
+        for field in self.fields():
+            width = field.metadata['width']
+            d_type = field.metadata['d_type']
+            val = getattr(self, field.name)
+            val = d_type(val)
+            bits = to_bin(val, width)
+            out += bits
+        return out
+
+    def payload(self):
+        bit_arr = self.to_bitarray()
+        return encode_ascii_6(bit_arr)
+
+    def encode(self):
+        payload = self.payload()
+        dummy_message = f"!AIVDM,1,1,,B,{payload},0*FF"
+        checksum = compute_checksum(dummy_message)
+        return f"!AIVDM,1,1,,B,{payload},0*{checksum:02X}"
+
+
+@attr.s(slots=True)
+class MessageType1(BaseMessage):
+    msg_type = bit_field(6, int)
+    repeat = bit_field(2, int)
+    mmsi = bit_field(30, int)
+    status = bit_field(4, int)
+    turn = bit_field(8, int)
+    speed = bit_field(10, int, converter=lambda v: v * 10.0)
+    accuracy = bit_field(1, int)
+    lon = bit_field(28, int, converter=lambda v: v * 600000.0)
+    lat = bit_field(27, int, converter=lambda v: v * 600000.0)
+    course = bit_field(12, int, converter=lambda v: v * 10.0)
+    heading = bit_field(9, int)
+    second = bit_field(6, int)
+    maneuver = bit_field(2, int)
+    spare = bit_field(3, int)
+    raim = bit_field(1, int)
+    radio = bit_field(19, int)
+
 
 def test_encode_type_1():
     expected = b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C"
     nmea = NMEAMessage(expected).decode()
-
     del nmea.content['type']
 
     msg = MessageType1(1, **nmea.content, spare=0)
 
-    out = bitarray.bitarray()
-    for field in msg.fields():
-        width = field.metadata['width']
-        d_type = field.metadata['d_type']
-
-        val = getattr(msg, field.name)
-
-        val = d_type(val)
-
-        val &= 0xffffffff
-
-        bits = bitarray.bitarray(f"{val:0{width}b}")
-
-        out += bits
-
-    print(encode_ascii_6(out))
+    assert msg.encode() == "!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C"

@@ -2,7 +2,7 @@ import warnings
 from collections import OrderedDict
 from functools import partial, reduce
 from operator import xor
-from typing import Any, Generator, Hashable, TYPE_CHECKING, Callable
+from typing import Any, Generator, Hashable, TYPE_CHECKING, Callable, Union
 
 from bitarray import bitarray
 
@@ -106,7 +106,7 @@ def get_mmsi(data: bitarray, ix_low: int, ix_high: int) -> str:
     return str(mmsi_int).zfill(9)
 
 
-def compute_checksum(msg: bytes) -> int:
+def compute_checksum(msg: Union[str, bytes]) -> int:
     """
     Compute the checksum of a given message.
     This method takes the **whole** message including the leading `!`.
@@ -117,6 +117,9 @@ def compute_checksum(msg: bytes) -> int:
     :param msg: message
     :return: int value of the checksum. Format as hex with `f'{checksum:02x}'`
     """
+    if isinstance(msg, str):
+        msg = msg.encode()
+
     msg = msg[1:].split(b'*', 1)[0]
     return reduce(xor, msg)
 
