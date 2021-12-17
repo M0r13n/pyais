@@ -1,3 +1,4 @@
+import typing
 import warnings
 from collections import OrderedDict
 from functools import partial, reduce
@@ -13,6 +14,8 @@ else:
 
 from_bytes = partial(int.from_bytes, byteorder="big")
 from_bytes_signed = partial(int.from_bytes, byteorder="big", signed=True)
+
+T = typing.TypeVar('T')
 
 
 def deprecated(f: Callable[[Any], Any]) -> Callable[[Any], Any]:
@@ -48,14 +51,14 @@ def decode_into_bit_array(data: bytes) -> bitarray:
     return bit_arr
 
 
-def chunks(sequence: bitarray, n: int) -> Generator[bitarray, None, None]:
+def chunks(sequence: typing.Sequence[T], n: int) -> Generator[T, None, None]:
     """Yield successive n-sized chunks from sequence."""
     return (sequence[i:i + n] for i in range(0, len(sequence), n))
 
 
-def encode_bin_as_ascii6(bit_arr: bitarray) -> str:
+def decode_bin_as_ascii6(bit_arr: bitarray) -> str:
     """
-    Encode binary data as 6 bit ASCII.
+    Decode binary data as 6 bit ASCII.
     :param bit_arr: array of bits
     :return: ASCII String
     """

@@ -1,12 +1,11 @@
 import math
-import struct
 from pprint import pprint
 
 import attr
 import bitarray
 
 from pyais import NMEAMessage
-from pyais.util import encode_bin_as_ascii6, decode_into_bit_array, chunks, from_bytes, get_int, compute_checksum
+from pyais.util import chunks, from_bytes, compute_checksum, decode_bin_as_ascii6, decode_into_bit_array
 
 # https://gpsd.gitlab.io/gpsd/AIVDM.html#_aivdmaivdo_payload_armoring
 PAYLOAD_ARMOR = {
@@ -34,22 +33,25 @@ SIX_BIT_ENCODING = {
 def to_six_bit(char: str) -> str:
     char = char.upper()
     try:
-        return SIX_BIT_ENCODING[char]
+        encoding = SIX_BIT_ENCODING[char]
+        return f"{encoding:06b}"
     except KeyError:
         raise ValueError(f"received char '{char}' that cant be encoded")
 
 
 def encode_ascii_6(bits: bitarray.bitarray):
     out = ""
+    x = 0
     for chunk in chunks(bits, 6):
-        num = from_bytes(chunk.tobytes()) >> 2
+        num = from_bytes(chunk.tobytes()) >> (2 + 6 - len(chunk))
+        x += len(chunk)
         armor = PAYLOAD_ARMOR[num]
         out += armor
     return out
 
 
-def bit_field(width, d_type, converter=None):
-    return attr.ib(converter=converter, metadata={'width': width, 'd_type': d_type})
+def bit_field(width, d_type, converter=None, spare=False):
+    return attr.ib(converter=converter, metadata={'width': width, 'd_type': d_type, 'spare': spare})
 
 
 def to_bin(val, width):
@@ -62,39 +64,53 @@ def to_bin(val, width):
     return bits[8 - mod if mod else 0:]
 
 
+def str_to_bin(val, width):
+    out = ""
+
+    for _ in range(int(width / 6) - len(val)):
+        val += "@"
+
+    for char in val:
+        txt = to_six_bit(char)
+        out += txt
+
+    return out
+
+
 @attr.s(slots=True)
-class BaseMessage:
+class Payload:
+
     @classmethod
     def fields(cls):
         return attr.fields(cls)
-
-    def to_dict(self):
-        return attr.asdict(self)
 
     def to_bitarray(self):
         out = bitarray.bitarray()
         for field in self.fields():
             width = field.metadata['width']
             d_type = field.metadata['d_type']
+
             val = getattr(self, field.name)
             val = d_type(val)
-            bits = to_bin(val, width)
+
+            if d_type == int:
+                bits = to_bin(val, width)
+            elif d_type == str:
+                bits = str_to_bin(val, width)
+            else:
+                raise ValueError()
+
             out += bits
+
         return out
 
-    def payload(self):
+    def encode(self):
         bit_arr = self.to_bitarray()
         return encode_ascii_6(bit_arr)
 
-    def encode(self):
-        payload = self.payload()
-        dummy_message = f"!AIVDM,1,1,,B,{payload},0*FF"
-        checksum = compute_checksum(dummy_message)
-        return f"!AIVDM,1,1,,B,{payload},0*{checksum:02X}"
-
 
 @attr.s(slots=True)
-class MessageType1(BaseMessage):
+class MessageType1(Payload):
     msg_type = bit_field(6, int)
     repeat = bit_field(2, int)
     mmsi = bit_field(30, int)
@@ -112,12 +128,96 @@ class MessageType1(BaseMessage):
     raim = bit_field(1, int)
     radio = bit_field(19, int)
 
+    @classmethod
+    def create(cls, **kwargs):
+        kwargs['msg_type'] = 1
+        kwargs['spare'] = 0
+        return cls(**kwargs)
+
+
+@attr.s(slots=True)
+class MessageType5(Payload):
+    msg_type = bit_field(6, int)
+    repeat = bit_field(2, int)
+    mmsi = bit_field(30, int)
+    ais_version = bit_field(2, int)
+    imo = bit_field(30, int)  # 70
+    callsign = bit_field(42, str)
+    shipname = bit_field(120, str)
+    shiptype = bit_field(8, int)
+    to_bow = bit_field(9, int)
+    to_stern = bit_field(9, int)
+    to_port = bit_field(6, int)
+    to_starboard = bit_field(6, int)
+    epfd = bit_field(4, int)
+    month = bit_field(4, int)
+    day = bit_field(5, int)
+    hour = bit_field(5, int)
+    minute = bit_field(6, int)
+    draught = bit_field(8, int, converter=lambda v: v * 10.0)
+    destination = bit_field(120, str)
+    dte = bit_field(1, int)
+    spare = bit_field(1, int)
+
+    @classmethod
+    def create(cls, **kwargs):
+        kwargs['msg_type'] = 5
+        kwargs['spare'] = 0
+        return cls(**kwargs)
+
+
+def encode(payload, prefix="!", talker_id="AI", nmea_type="VDM", channel="A"):
+    ais_type = payload.pop('type')
+
+    if ais_type == 1:
+        payload = MessageType1.create(**payload).encode()
+    elif ais_type == 5:
+        payload = MessageType5.create(**payload).encode()
+    else:
+        raise ValueError(ais_type)
+
+    messages = []
+    max_len = 63
+    frag_cnt = math.ceil(len(payload) / max_len)
+
+    for i, chunk in enumerate(chunks(payload, 63), start=1):
+        tpl = "{}{}{},{},{},,{},{},0*{:02X}"
+        dummy_message = tpl.format(prefix, talker_id, nmea_type, frag_cnt, i, channel, chunk, 0)
+        checksum = compute_checksum(dummy_message)
+        msg = tpl.format(prefix, talker_id, nmea_type, frag_cnt, i, channel, chunk, checksum)
+        messages.append(msg)
+    return messages
+
+
+def test_encode_type_5():
+    msg = NMEAMessage.assemble_from_iterable(messages=[
+        NMEAMessage(b"!AIVDM,2,1,1,A,55?MbV02;H;s<HtKR20EHE:0@T4@Dn2222222216L961O5Gf0NSQEp6ClRp8,0*1C"),
+        NMEAMessage(b"!AIVDM,2,2,1,A,88888888880,2*25")
+    ]).decode()
+
+    encoded = encode(msg.content)
+
+    expected = msg.nmea.bit_array
+    actual = MessageType5.create(**msg.content).to_bitarray()
+
+    decoded = decode_into_bit_array(b"55?MbV02;H;s<HtKP00EHE:0@T4@Dl0000000016L961O5Gf0NSQEp6ClRh000000000000")
+
+    for msg in encoded:
+        print(msg)
+
+    print(decoded)
+
+
+
+    for i, (e, a) in enumerate(zip(expected, actual)):
+        if e != a:
+            print(i)
+
+    assert False
+
 
 def test_encode_type_1():
     expected = b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C"
     nmea = NMEAMessage(expected).decode()
-    del nmea.content['type']
 
-    msg = MessageType1(1, **nmea.content, spare=0)
-
-    assert msg.encode() == "!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C"
+    assert encode(nmea.content, channel="B")[0] == "!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C"
