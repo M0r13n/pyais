@@ -51,7 +51,7 @@ def decode_into_bit_array(data: bytes) -> bitarray:
     return bit_arr
 
 
-def chunks(sequence: typing.Sequence[T], n: int) -> Generator[T, None, None]:
+def chunks(sequence: typing.Sequence[T], n: int) -> Generator[typing.Sequence[T], None, None]:
     """Yield successive n-sized chunks from sequence."""
     return (sequence[i:i + n] for i in range(0, len(sequence), n))
 
@@ -63,7 +63,8 @@ def decode_bin_as_ascii6(bit_arr: bitarray) -> str:
     :return: ASCII String
     """
     string: str = ""
-    for c in chunks(bit_arr, 6):
+    c: bitarray
+    for c in chunks(bit_arr, 6):  # type:ignore
         n: int = from_bytes(c.tobytes()) >> 2
 
         # Last entry may not have 6 bits
