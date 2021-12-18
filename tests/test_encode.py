@@ -4,7 +4,7 @@ from pprint import pprint
 import attr
 import bitarray
 
-from pyais import NMEAMessage
+from pyais import NMEAMessage, decode_msg
 from pyais.util import chunks, from_bytes, compute_checksum, decode_bin_as_ascii6, decode_into_bit_array
 
 # https://gpsd.gitlab.io/gpsd/AIVDM.html#_aivdmaivdo_payload_armoring
@@ -41,13 +41,14 @@ def to_six_bit(char: str) -> str:
 
 def encode_ascii_6(bits: bitarray.bitarray):
     out = ""
-    x = 0
     for chunk in chunks(bits, 6):
-        num = from_bytes(chunk.tobytes()) >> (2 + 6 - len(chunk))
-        x += len(chunk)
+        padding = 6 - len(chunk)
+        num = from_bytes(chunk.tobytes()) >> 2
+        if padding:
+            num >> padding
         armor = PAYLOAD_ARMOR[num]
         out += armor
-    return out
+    return out, padding
 
 
 def bit_field(width, d_type, converter=None, spare=False):
@@ -166,25 +167,28 @@ class MessageType5(Payload):
         return cls(**kwargs)
 
 
-def encode(payload, prefix="!", talker_id="AI", nmea_type="VDM", channel="A"):
+def encode(payload, prefix="!", talker_id="AI", nmea_type="VDM", channel="A", seq_id=1):
     ais_type = payload.pop('type')
 
     if ais_type == 1:
-        payload = MessageType1.create(**payload).encode()
+        payload, padding = MessageType1.create(**payload).encode()
     elif ais_type == 5:
-        payload = MessageType5.create(**payload).encode()
+        payload, padding = MessageType5.create(**payload).encode()
     else:
         raise ValueError(ais_type)
 
     messages = []
-    max_len = 63
+    max_len = 61
     frag_cnt = math.ceil(len(payload) / max_len)
 
-    for i, chunk in enumerate(chunks(payload, 63), start=1):
-        tpl = "{}{}{},{},{},,{},{},0*{:02X}"
-        dummy_message = tpl.format(prefix, talker_id, nmea_type, frag_cnt, i, channel, chunk, 0)
+    if seq_id is None:
+        seq_id = ''
+
+    for i, chunk in enumerate(chunks(payload, max_len), start=1):
+        tpl = "{}{}{},{},{},{},{},{},{}*{:02X}"
+        dummy_message = tpl.format(prefix, talker_id, nmea_type, frag_cnt, i, seq_id, channel, chunk, padding, 0)
         checksum = compute_checksum(dummy_message)
-        msg = tpl.format(prefix, talker_id, nmea_type, frag_cnt, i, channel, chunk, checksum)
+        msg = tpl.format(prefix, talker_id, nmea_type, frag_cnt, i, seq_id, channel, chunk, padding, checksum)
         messages.append(msg)
     return messages
 
@@ -195,29 +199,25 @@ def test_encode_type_5():
         NMEAMessage(b"!AIVDM,2,2,1,A,88888888880,2*25")
     ]).decode()
 
-    encoded = encode(msg.content)
+    assert False
+
+
+def test_encode_type_5_a():
+    parts = [
+        NMEAMessage(b"!AIVDM,2,1,1,B,53Jsir02=tfcTP7?C7@p5HTu>1@5E9E<0000001?H@OF:,0*23"),
+        NMEAMessage(b"!AIVDM,2,2,1,B,6MU0ND1@QhP000000000000000,2*2A")
+    ]
+    msg = NMEAMessage.assemble_from_iterable(parts).decode()
 
     expected = msg.nmea.bit_array
-    actual = MessageType5.create(**msg.content).to_bitarray()
 
-    decoded = decode_into_bit_array(b"55?MbV02;H;s<HtKP00EHE:0@T4@Dl0000000016L961O5Gf0NSQEp6ClRh000000000000")
+    for part in encode(msg.content, channel="B"):
+        print(part)
 
-    for msg in encoded:
-        print(msg)
-
-    print(decoded)
-
-
-
-    for i, (e, a) in enumerate(zip(expected, actual)):
-        if e != a:
-            print(i)
-
-    assert False
 
 
 def test_encode_type_1():
     expected = b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C"
     nmea = NMEAMessage(expected).decode()
 
-    assert encode(nmea.content, channel="B")[0] == "!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C"
+    assert encode(nmea.content, channel="B", seq_id=None)[0] == "!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C"
