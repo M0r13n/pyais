@@ -70,26 +70,31 @@ def encode_ascii_6(bits: bitarray.bitarray) -> typing.Tuple[str, int]:
 
 def int_to_bin(val: typing.Union[int, bool], width: int) -> bitarray.bitarray:
     """
-    Convert an integer or boolean value to binary.
+    Convert an integer or boolean value to binary. If the value is too great to fit into
+    `width` bits, the maximum possible number that still fits is used.
 
     @param val:     Any integer or boolean value.
     @param width:   The bit width. If less than width bits are required, leading zeros are added.
     @return:        The binary representation of value with exactly width bits. Type is bitarray.
     """
-    bits = bitarray.bitarray(endian='big')
-
     # Compute the total number of bytes required to hold up to `width` bits.
-    b_bytes, mod = divmod(width, 8)
+    n_bytes, mod = divmod(width, 8)
     if mod > 0:
-        b_bytes += 1
+        n_bytes += 1
 
-    bits.frombytes(val.to_bytes(b_bytes, 'big', signed=True))
+    # If the value is too big, return a bitarray of all 1's
+    mask = (1 << width) - 1
+    if val >= mask:
+        return bitarray.bitarray('1' * width)
+
+    bits = bitarray.bitarray(endian='big')
+    bits.frombytes(val.to_bytes(n_bytes, 'big', signed=True))
     return bits[8 - mod if mod else 0:]
 
 
 def str_to_bin(val: str, width: int) -> bitarray.bitarray:
     """
-    Convert a string value to binary using six-bit ASCII encoding.
+    Convert a string value to binary using six-bit ASCII encoding up to `width` chars.
 
     @param val:     The string to first convert to six-bit ASCII and then to binary.
     @param width:   The width of the full string. If the string has fewer characters than width, trailing '@' are added.
@@ -97,11 +102,16 @@ def str_to_bin(val: str, width: int) -> bitarray.bitarray:
     """
     out = bitarray.bitarray(endian='big')
 
+    # Each char will be converted to a six-bit binary vector.
+    # Therefore, the total number of chars is floor(WIDTH / 6).
+    num_chars = int(width / 6)
+
     # Add trailing '@' if the string is shorter than `width`
-    for _ in range(int(width / 6) - len(val)):
+    for _ in range(num_chars - len(val)):
         val += "@"
 
-    for char in val:
+    # Encode AT MOST width characters
+    for char in val[:num_chars]:
         # Covert each char to six-bit ASCII vector
         txt = to_six_bit(char)
         out += bitarray.bitarray(txt)
@@ -158,7 +168,7 @@ class Payload(abc.ABC):
                 bits = str_to_bin(val, width)
             else:
                 raise ValueError()
-
+            bits = bits[:width]
             out += bits
 
         return out
@@ -180,11 +190,15 @@ class Payload(abc.ABC):
         @return:
         """
         args = {}
+
+        # Iterate over each field of the payload class and check for a matching keyword argument.
+        # If no matching kwarg was provided use a default value
         for field in cls.fields():
             key = field.name
             try:
                 args[key] = kwargs[key]
             except KeyError:
+                # Check if a default value was provided
                 default = field.metadata['default']
                 if default is not None:
                     args[key] = default
@@ -220,6 +234,26 @@ class MessageType3(MessageType1):
 
 
 @attr.s(slots=True)
+class MessageType4(Payload):
+    msg_type = bit_field(6, int, default=4)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+    year = bit_field(14, int, default=1970)
+    month = bit_field(4, int, default=1)
+    day = bit_field(5, int, default=1)
+    hour = bit_field(5, int, default=0)
+    minute = bit_field(6, int, default=0)
+    second = bit_field(6, int, default=0)
+    accuracy = bit_field(1, int, default=0)
+    lon = bit_field(28, int, converter=lambda v: v * 600000.0, default=0)
+    lat = bit_field(27, int, converter=lambda v: v * 600000.0, default=0)
+    epfd = bit_field(4, int, default=0)
+    spare = bit_field(10, int, default=0)
+    raim = bit_field(1, int, default=0)
+    radio = bit_field(19, int, default=0)
+
+
+@attr.s(slots=True)
 class MessageType5(Payload):
     msg_type = bit_field(6, int, default=5)
     repeat = bit_field(2, int, default=0)
@@ -244,20 +278,75 @@ class MessageType5(Payload):
     spare = bit_field(1, int, default=0)
 
 
+@attr.s(slots=True)
+class MessageType6(Payload):
+    msg_type = bit_field(6, int, default=6)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+    seqno = bit_field(2, int, default=0)
+    dest_mmsi = bit_field(30, int)
+    retransmit = bit_field(1, int, default=0)
+    spare = bit_field(1, int, default=0)
+    dac = bit_field(10, int, default=0)
+    fid = bit_field(6, int, default=0)
+    data = bit_field(920, int, default=0)
+
+
+@attr.s(slots=True)
+class MessageType7(Payload):
+    msg_type = bit_field(6, int, default=7)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+    spare = bit_field(2, int, default=0)
+    mmsi1 = bit_field(30, int, default=0)
+    mmsiseq1 = bit_field(2, int, default=0)
+    mmsi2 = bit_field(30, int, default=0)
+    mmsiseq2 = bit_field(2, int, default=0)
+    mmsi3 = bit_field(30, int, default=0)
+    mmsiseq3 = bit_field(2, int, default=0)
+    mmsi4 = bit_field(30, int, default=0)
+    mmsiseq4 = bit_field(2, int, default=0)
+
+
+@attr.s(slots=True)
+class MessageType8(Payload):
+    msg_type = bit_field(6, int, default=8)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+    spare = bit_field(2, int, default=0)
+    dac = bit_field(10, int, default=0)
+    fid = bit_field(6, int, default=0)
+    data = bit_field(952, int, default=0)
+
+
 ENCODE_MSG = {
+    0: MessageType1,  # there are messages with a zero (0) as an id. these seem to be the same as type 1 messages
     1: MessageType1,
     2: MessageType2,
     3: MessageType3,
-    5: MessageType5
+    4: MessageType4,
+    5: MessageType5,
+    6: MessageType6,
+    7: MessageType7,
+    8: MessageType8,
 }
 
 
 def get_ais_type(data: DATA_DICT) -> int:
-    try:
-        ais_type = data['type']
-        return int(ais_type)
-    except (KeyError, ValueError) as err:
-        raise ValueError("Missing or invalid AIS type. Must be a number.") from err
+    """
+    Get the message type from a set of keyword arguments. The first occurence of either
+    `type` or `msg_type` will be used.
+    """
+    keys = ['type', 'msg_type']
+    length = len(keys) - 1
+    for i, key in enumerate(keys):
+        try:
+            ais_type = data[key]
+            return int(ais_type)
+        except (KeyError, ValueError) as err:
+            if i == length:
+                raise ValueError("Missing or invalid AIS type. Must be a number.") from err
+    raise ValueError("Missing type")
 
 
 def data_to_payload(ais_type: int, data: DATA_DICT) -> Payload:
@@ -325,9 +414,20 @@ def encode_dict(data: DATA_DICT, talker_id: str = "AIVDO", radio_channel: str = 
         raise ValueError("talker_id must be any of ['AIVDM', 'AIVDO']")
 
     if radio_channel not in ('A', 'B'):
-        raise ValueError("talker_id must be any of ['A', 'B']")
+        raise ValueError("radio_channel must be any of ['A', 'B']")
 
     ais_type = get_ais_type(data)
     payload = data_to_payload(ais_type, data)
+    armored_payload, fill_bits = payload.encode()
+    return ais_to_nmea_0183(armored_payload, talker_id, radio_channel, fill_bits)
+
+
+def encode_payload(payload: Payload, talker_id: str = "AIVDO", radio_channel: str = "A") -> AIS_SENTENCES:
+    if talker_id not in ("AIVDM", "AIVDO"):
+        raise ValueError("talker_id must be any of ['AIVDM', 'AIVDO']")
+
+    if radio_channel not in ('A', 'B'):
+        raise ValueError("radio_channel must be any of ['A', 'B']")
+
     armored_payload, fill_bits = payload.encode()
     return ais_to_nmea_0183(armored_payload, talker_id, radio_channel, fill_bits)

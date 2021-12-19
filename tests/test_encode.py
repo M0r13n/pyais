@@ -1,4 +1,193 @@
-from pyais.encode import encode_dict
+import pytest as pytest
+
+from pyais.encode import encode_dict, MessageType4, MessageType1, MessageType5, MessageType6, MessageType7, \
+    MessageType8, data_to_payload, MessageType2, MessageType3, get_ais_type, str_to_bin, int_to_bin, encode_payload
+
+
+def test_widths():
+    tot_width = sum(field.metadata['width'] for field in MessageType1.fields())
+    assert tot_width == 168
+
+    tot_width = sum(field.metadata['width'] for field in MessageType4.fields())
+    assert tot_width == 168
+
+    tot_width = sum(field.metadata['width'] for field in MessageType5.fields())
+    assert tot_width == 424
+
+    tot_width = sum(field.metadata['width'] for field in MessageType6.fields())
+    assert tot_width == 1008
+
+    tot_width = sum(field.metadata['width'] for field in MessageType7.fields())
+    assert tot_width == 168
+
+    tot_width = sum(field.metadata['width'] for field in MessageType8.fields())
+    assert tot_width == 1008
+
+
+def test_invalid_talker_id():
+    with pytest.raises(ValueError) as err:
+        encode_dict({'mmsi': 123456}, talker_id="AIDDD")
+
+    assert str(err.value) == "talker_id must be any of ['AIVDM', 'AIVDO']"
+
+    with pytest.raises(ValueError) as err:
+        encode_dict({'mmsi': 123456}, talker_id=None)
+
+    assert str(err.value) == "talker_id must be any of ['AIVDM', 'AIVDO']"
+
+
+def test_invalid_radio_channel():
+    with pytest.raises(ValueError) as err:
+        encode_dict({'mmsi': 123456}, radio_channel="C")
+
+    assert str(err.value) == "radio_channel must be any of ['A', 'B']"
+
+    with pytest.raises(ValueError) as err:
+        encode_dict({'mmsi': 123456}, radio_channel=None)
+
+    assert str(err.value) == "radio_channel must be any of ['A', 'B']"
+
+
+def test_data_to_payload():
+    assert data_to_payload(0, {'mmsi': 123}).__class__ == MessageType1
+    assert data_to_payload(1, {'mmsi': 123}).__class__ == MessageType1
+    assert data_to_payload(2, {'mmsi': 123}).__class__ == MessageType2
+    assert data_to_payload(3, {'mmsi': 123}).__class__ == MessageType3
+    assert data_to_payload(4, {'mmsi': 123}).__class__ == MessageType4
+    assert data_to_payload(5, {'mmsi': 123}).__class__ == MessageType5
+    assert data_to_payload(6, {'mmsi': 123, 'dest_mmsi': 1234}).__class__ == MessageType6
+    assert data_to_payload(7, {'mmsi': 123}).__class__ == MessageType7
+    assert data_to_payload(8, {'mmsi': 123}).__class__ == MessageType8
+
+    with pytest.raises(ValueError):
+        data_to_payload(27, {'mmsi': 123})
+
+
+def test_get_ais_type():
+    ais_type = get_ais_type({'type': 1})
+    assert ais_type == 1
+
+    ais_type = get_ais_type({'type': '1'})
+    assert ais_type == 1
+
+    ais_type = get_ais_type({'msg_type': 1})
+    assert ais_type == 1
+
+    ais_type = get_ais_type({'msg_type': '1'})
+    assert ais_type == 1
+
+    with pytest.raises(ValueError) as err:
+        get_ais_type({})
+    assert str(err.value) == "Missing or invalid AIS type. Must be a number."
+
+    with pytest.raises(ValueError) as err:
+        get_ais_type({'typee': 1})
+    assert str(err.value) == "Missing or invalid AIS type. Must be a number."
+
+
+def test_str_to_bin():
+    # Test that Hello is correctly converted
+    string = str_to_bin("Hello", 5 * 6).to01()
+    assert string == "001000000101001100001100001111"
+    assert len(string) == 30
+
+    # Test that at most width characters are encoded
+    string = str_to_bin("Hello World", 5 * 6).to01()
+    assert string == "001000000101001100001100001111"
+    assert len(string) == 30
+
+    # Test that trailing @'s are added
+    string = str_to_bin("Hello", 96).to01()
+    assert string == "001000000101001100001100001111000000000000000000000000000000000000000000000000000000000000000000"
+    assert len(string) == 96
+
+
+def test_int_to_bin():
+    num = int_to_bin(0, 10).to01()
+    assert num == "0000000000"
+    assert len(num) == 10
+
+    num = int_to_bin(6, 10).to01()
+    assert num == "0000000110"
+    assert len(num) == 10
+
+    num = int_to_bin(128, 7).to01()
+    assert num == "1111111"
+    assert len(num) == 7
+
+    num = int_to_bin(255, 8).to01()
+    assert num == "11111111"
+    assert len(num) == 8
+
+
+def test_encode_type_8():
+    data = {
+        'dac': 366,
+        'data': 0x3a53dbb7be4a773137f87d7b0445f040dea05d93f593783194ae9b9d9dbe05fb,
+        'fid': 56,
+        'mmsi': '366999712',
+        'repeat': 0,
+        'type': 8
+    }
+    encoded = encode_dict(data, radio_channel="B", talker_id="AIVDM")
+    assert encoded[0] == "!AIVDM,3,1,,B,85Mwp`1Kf0000000000000000000000000000000000000000000000000000,0*1C"
+    assert encoded[1] == "!AIVDM,3,2,,B,0000000000000000000000000000000000000000000000000000000000000,0*14"
+    assert encoded[2] == "!AIVDM,3,3,,B,0003aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs,0*4F"
+
+
+def test_encode_type_7():
+    data = {
+        'mmsi': '002655651',
+        'mmsi1': '265538450',
+        'mmsi2': '000000000',
+        'mmsiseq1': 0,
+        'mmsiseq2': 0,
+        'repeat': 0,
+        'type': 7
+    }
+    encoded_part_1 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[0]
+    assert encoded_part_1 == "!AIVDM,1,1,,B,702R5`hwCjq80000000000000000,0*68"
+
+
+def test_encode_type_6():
+    data = {
+        'dac': 669,
+        'data': 0x3acbc463dffc4,
+        'dest_mmsi': '313240222',
+        'fid': 11,
+        'mmsi': '150834090',
+        'repeat': 1,
+        'retransmit': 0,
+        'seqno': 3,
+        'type': 6
+    }
+    encoded = encode_dict(data, radio_channel="B", talker_id="AIVDM")
+    assert encoded[0] == "!AIVDM,3,1,,B,6B?n;be:cbapald0000000000000000000000000000000000000000000000,0*7D"
+    assert encoded[1] == "!AIVDM,3,2,,B,0000000000000000000000000000000000000000000000000000000000000,0*14"
+    assert encoded[2] == "!AIVDM,3,3,,B,00000000000000000000000000000000000003c;i6?Ow4,0*12"
+
+
+def test_encode_type_4():
+    data = {
+        'accuracy': 1,
+        'day': 14,
+        'epfd': 7,
+        'hour': 19,
+        'lat': 36.88376,
+        'lon': -76.3523,
+        'minute': 57,
+        'mmsi': '003669702',
+        'month': 5,
+        'radio': 67039,
+        'raim': 0,
+        'repeat': 0,
+        'second': 39,
+        'type': 4,
+        'year': 2007
+    }
+    encoded_part_1 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[0]
+
+    assert encoded_part_1 == "!AIVDM,1,1,,B,403OviQuMGCqWrRO:HE6fD700@GO,0*3A"
 
 
 def test_encode_type_5():
@@ -123,3 +312,22 @@ def test_encode_type_1():
 
     encoded = encode_dict(data, radio_channel="B")[0]
     assert encoded == "!AIVDO,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5E"
+
+
+def test_mmsi_too_long():
+    msg = MessageType1.create(mmsi=1 << 35)
+    encoded = encode_payload(msg)
+    assert encoded[0] == "!AIVDO,1,1,,A,1?wwwwh000000000000000000000,0*72"
+
+
+def test_lon_too_large():
+    msg = MessageType1.create(mmsi="123", lon=1 << 30)
+    encoded = encode_payload(msg)
+    assert encoded[0] == "!AIVDO,1,1,,A,10000Nh000Owwwv0000000000000,0*7D"
+
+
+def test_ship_name_too_lon():
+    msg = MessageType5.create(mmsi="123", shipname="Titanic Titanic Titanic")
+    encoded = encode_payload(msg)
+    assert encoded[0] == "!AIVDO,2,1,,A,50000Nh000000000001@U@4pT>1@U@4pT>1@U@40000000000000000000000,2*56"
+    assert encoded[1] == "!AIVDO,2,2,,A,0000000000,2*26"
