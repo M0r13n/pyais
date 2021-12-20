@@ -4,6 +4,9 @@
 # BASE
 bitarray
 
+# ENCODE
+attrs
+
 # TEST
 flake8
 coverage

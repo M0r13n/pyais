@@ -1,8 +1,9 @@
+import typing
 import warnings
 from collections import OrderedDict
 from functools import partial, reduce
 from operator import xor
-from typing import Any, Generator, Hashable, TYPE_CHECKING, Callable
+from typing import Any, Generator, Hashable, TYPE_CHECKING, Callable, Union
 
 from bitarray import bitarray
 
@@ -13,6 +14,8 @@ else:
 
 from_bytes = partial(int.from_bytes, byteorder="big")
 from_bytes_signed = partial(int.from_bytes, byteorder="big", signed=True)
+
+T = typing.TypeVar('T')
 
 
 def deprecated(f: Callable[[Any], Any]) -> Callable[[Any], Any]:
@@ -31,7 +34,7 @@ def deprecated(f: Callable[[Any], Any]) -> Callable[[Any], Any]:
 def decode_into_bit_array(data: bytes) -> bitarray:
     """
     Decodes a raw AIS message into a bitarray.
-    :param data: Raw AIS message in bytes, as it is received from a TCP socket.
+    :param data: Raw AIS message in bytes
     :return:
     """
     bit_arr = bitarray()
@@ -48,19 +51,20 @@ def decode_into_bit_array(data: bytes) -> bitarray:
     return bit_arr
 
 
-def chunks(sequence: bitarray, n: int) -> Generator[bitarray, None, None]:
-    """Yield successive n-sized chunks from l."""
+def chunks(sequence: typing.Sequence[T], n: int) -> Generator[typing.Sequence[T], None, None]:
+    """Yield successive n-sized chunks from sequence."""
     return (sequence[i:i + n] for i in range(0, len(sequence), n))
 
 
-def encode_bin_as_ascii6(bit_arr: bitarray) -> str:
+def decode_bin_as_ascii6(bit_arr: bitarray) -> str:
     """
-    Encode binary data as 6 bit ASCII.
+    Decode binary data as 6 bit ASCII.
     :param bit_arr: array of bits
     :return: ASCII String
     """
     string: str = ""
-    for c in chunks(bit_arr, 6):
+    c: bitarray
+    for c in chunks(bit_arr, 6):  # type:ignore
         n: int = from_bytes(c.tobytes()) >> 2
 
         # Last entry may not have 6 bits
@@ -106,12 +110,20 @@ def get_mmsi(data: bitarray, ix_low: int, ix_high: int) -> str:
     return str(mmsi_int).zfill(9)
 
 
-def compute_checksum(msg: bytes) -> int:
+def compute_checksum(msg: Union[str, bytes]) -> int:
     """
-    Compute the checksum of a given message
+    Compute the checksum of a given message.
+    This method takes the **whole** message including the leading `!`.
+
+    >>> compute_checksum(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0")
+    91
+
     :param msg: message
-    :return: hex
+    :return: int value of the checksum. Format as hex with `f'{checksum:02x}'`
     """
+    if isinstance(msg, str):
+        msg = msg.encode()
+
     msg = msg[1:].split(b'*', 1)[0]
     return reduce(xor, msg)
 

@@ -15,7 +15,7 @@ from pyais.constants import (
     NavAid
 )
 from pyais.exceptions import UnknownMessageException, MissingMultipartMessageException, TooManyMessagesException
-from pyais.util import get_int, encode_bin_as_ascii6, get_mmsi
+from pyais.util import get_int, decode_bin_as_ascii6, get_mmsi
 
 
 def decode_msg_1(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
@@ -95,8 +95,8 @@ def decode_msg_5(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
         'mmsi': get_mmsi(bit_arr, 8, 38),
         'ais_version': get_int_from_data(38, 40),
         'imo': get_int_from_data(40, 70),
-        'callsign': encode_bin_as_ascii6(bit_arr[70:112]),
-        'shipname': encode_bin_as_ascii6(bit_arr[112:232]),
+        'callsign': decode_bin_as_ascii6(bit_arr[70:112]),
+        'shipname': decode_bin_as_ascii6(bit_arr[112:232]),
         'shiptype': ShipType(get_int_from_data(232, 240)),
         'to_bow': get_int_from_data(240, 249),
         'to_stern': get_int_from_data(249, 258),
@@ -108,7 +108,7 @@ def decode_msg_5(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
         'hour': get_int_from_data(283, 288),
         'minute': get_int_from_data(288, 294),
         'draught': get_int_from_data(294, 302) / 10.0,
-        'destination': encode_bin_as_ascii6(bit_arr[302:422]),
+        'destination': decode_bin_as_ascii6(bit_arr[302:422]),
         'dte': bit_arr[-2]
     }
 
@@ -228,7 +228,7 @@ def decode_msg_12(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
         'seqno': get_int_from_data(38, 40),
         'dest_mmsi': get_mmsi(bit_arr, 40, 70),
         'retransmit': bit_arr[70],
-        'text': encode_bin_as_ascii6(bit_arr[72:])
+        'text': decode_bin_as_ascii6(bit_arr[72:])
     }
 
 
@@ -249,7 +249,7 @@ def decode_msg_14(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
         'type': get_int_from_data(0, 6),
         'repeat': get_int_from_data(6, 8),
         'mmsi': get_mmsi(bit_arr, 8, 38),
-        'text': encode_bin_as_ascii6(bit_arr[40:])
+        'text': decode_bin_as_ascii6(bit_arr[40:])
     }
 
 
@@ -356,7 +356,7 @@ def decode_msg_19(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
         'heading': get_int_from_data(124, 133),
         'second': get_int_from_data(133, 139),
         'regional': get_int_from_data(139, 143),
-        'shipname': encode_bin_as_ascii6(bit_arr[143:263]),
+        'shipname': decode_bin_as_ascii6(bit_arr[143:263]),
         'shiptype': ShipType(get_int_from_data(263, 271)),
         'to_bow': get_int_from_data(271, 280),
         'to_stern': get_int_from_data(280, 289),
@@ -414,7 +414,7 @@ def decode_msg_21(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
         'mmsi': get_mmsi(bit_arr, 8, 38),
 
         'aid_type': NavAid(get_int_from_data(38, 43)),
-        'name': encode_bin_as_ascii6(bit_arr[43:163]),
+        'name': decode_bin_as_ascii6(bit_arr[43:163]),
         'accuracy': bit_arr[163],
 
         'lon': get_int_from_data(164, 192, signed=True) / 600000.0,
@@ -432,7 +432,7 @@ def decode_msg_21(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
         'raim': bit_arr[268],
         'virtual_aid': bit_arr[269],
         'assigned': bit_arr[270],
-        'name_extension': encode_bin_as_ascii6(bit_arr[272:]),
+        'name_extension': decode_bin_as_ascii6(bit_arr[272:]),
     }
 
 
@@ -518,16 +518,16 @@ def decode_msg_24(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
     if not data['partno']:
         # Part A
         d = {
-            'shipname': encode_bin_as_ascii6(bit_arr[40: 160])
+            'shipname': decode_bin_as_ascii6(bit_arr[40: 160])
         }
     else:
         # Part B
         d = {
             'shiptype': ShipType(get_int_from_data(40, 48)),
-            'vendorid': encode_bin_as_ascii6(bit_arr[48: 66]),
+            'vendorid': decode_bin_as_ascii6(bit_arr[48: 66]),
             'model': get_int_from_data(66, 70),
             'serial': get_int_from_data(70, 90),
-            'callsign': encode_bin_as_ascii6(bit_arr[90: 132]),
+            'callsign': decode_bin_as_ascii6(bit_arr[90: 132]),
             'to_bow': get_int_from_data(132, 141),
             'to_stern': get_int_from_data(141, 150),
             'to_port': get_int_from_data(150, 156),

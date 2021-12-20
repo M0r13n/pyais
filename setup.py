@@ -37,7 +37,8 @@ setuptools.setup(
     keywords=["AIS", "ship", "decoding", "nmea"],
     python_requires='>=3.6',
     install_requires=[
-        "bitarray"
+        "bitarray",
+        "attrs"
     ],
     entry_points={
         "console_scripts": [
