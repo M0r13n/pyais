@@ -1,7 +1,11 @@
 import unittest
+
+import bitarray
+
 from pyais.encode import encode_dict, MessageType4, MessageType1, MessageType5, MessageType6, MessageType7, \
     MessageType8, data_to_payload, MessageType2, MessageType3, get_ais_type, str_to_bin, int_to_bin, encode_payload, \
-    int_to_bytes
+    int_to_bytes, to_six_bit, encode_ascii_6
+from pyais.util import decode_bin_as_ascii6, decode_into_bit_array
 
 
 def test_widths():
@@ -384,3 +388,30 @@ def test_int_to_bytes():
 
     i = int_to_bytes(b'\x00\x00')
     assert i == 0
+
+
+def test_to_six_bit():
+    c = to_six_bit('a')
+    assert c == '000001'
+
+    c = to_six_bit('A')
+    assert c == '000001'
+
+    c = to_six_bit('9')
+    assert c == '111001'
+
+    with unittest.TestCase().assertRaises(ValueError):
+        to_six_bit('ä')
+
+
+def test_encode_ascii_6_bit():
+    input_val = '001000000101001100001100001111100000010111001111010010001100000100100001'
+    b = bitarray.bitarray(input_val)
+    ascii6, padding = encode_ascii_6(b)
+
+    assert ascii6 == "85<<?PG?B<4Q"
+    assert padding == 0
+
+    bit_arr = decode_into_bit_array(ascii6.encode())
+    assert bit_arr.to01() == input_val
+    assert decode_bin_as_ascii6(bit_arr) == "HELLO WORLD!"

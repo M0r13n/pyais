@@ -24,7 +24,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run tests with coverage and create report as xml file
-        run: coverage run --source=pyais -m unittest discover tests -v && coverage xml
+        run: make test
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1

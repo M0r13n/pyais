@@ -36,9 +36,9 @@ SIX_BIT_ENCODING = {
 
 def to_six_bit(char: str) -> str:
     """
-    Encode a single character as six-bit ASCII.
-    @param char:
-    @return:
+    Encode a single character as six-bit bitstring.
+    @param char: The character to encode
+    @return: The six-bit representation as string
     """
     char = char.upper()
     try:

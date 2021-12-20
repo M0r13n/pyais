@@ -1,5 +1,5 @@
 run_tests:
-	nosetests -v  --with-coverage --cover-package pyais tests/*.py
+	nosetests -v  --cover-xml  --with-coverage --cover-package pyais tests/*.py
 
 flake:
 	flake8
