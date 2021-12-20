@@ -1,7 +1,7 @@
-import pytest as pytest
-
+import unittest
 from pyais.encode import encode_dict, MessageType4, MessageType1, MessageType5, MessageType6, MessageType7, \
-    MessageType8, data_to_payload, MessageType2, MessageType3, get_ais_type, str_to_bin, int_to_bin, encode_payload
+    MessageType8, data_to_payload, MessageType2, MessageType3, get_ais_type, str_to_bin, int_to_bin, encode_payload, \
+    int_to_bytes
 
 
 def test_widths():
@@ -25,27 +25,51 @@ def test_widths():
 
 
 def test_invalid_talker_id():
-    with pytest.raises(ValueError) as err:
+    with unittest.TestCase().assertRaises(ValueError) as err:
         encode_dict({'mmsi': 123456}, talker_id="AIDDD")
 
-    assert str(err.value) == "talker_id must be any of ['AIVDM', 'AIVDO']"
+    assert str(err.exception) == "talker_id must be any of ['AIVDM', 'AIVDO']"
 
-    with pytest.raises(ValueError) as err:
+    with unittest.TestCase().assertRaises(ValueError) as err:
         encode_dict({'mmsi': 123456}, talker_id=None)
 
-    assert str(err.value) == "talker_id must be any of ['AIVDM', 'AIVDO']"
+    assert str(err.exception) == "talker_id must be any of ['AIVDM', 'AIVDO']"
+
+
+def test_encode_payload_invalid_talker_id():
+    with unittest.TestCase().assertRaises(ValueError) as err:
+        encode_payload({'mmsi': 123456}, talker_id="AIDDD")
+
+    assert str(err.exception) == "talker_id must be any of ['AIVDM', 'AIVDO']"
+
+    with unittest.TestCase().assertRaises(ValueError) as err:
+        encode_payload({'mmsi': 123456}, talker_id=None)
+
+    assert str(err.exception) == "talker_id must be any of ['AIVDM', 'AIVDO']"
 
 
 def test_invalid_radio_channel():
-    with pytest.raises(ValueError) as err:
+    with unittest.TestCase().assertRaises(ValueError) as err:
         encode_dict({'mmsi': 123456}, radio_channel="C")
 
-    assert str(err.value) == "radio_channel must be any of ['A', 'B']"
+    assert str(err.exception) == "radio_channel must be any of ['A', 'B']"
 
-    with pytest.raises(ValueError) as err:
+    with unittest.TestCase().assertRaises(ValueError) as err:
         encode_dict({'mmsi': 123456}, radio_channel=None)
 
-    assert str(err.value) == "radio_channel must be any of ['A', 'B']"
+    assert str(err.exception) == "radio_channel must be any of ['A', 'B']"
+
+
+def test_encode_payload_error_radio():
+    with unittest.TestCase().assertRaises(ValueError) as err:
+        encode_payload({'mmsi': 123456}, radio_channel="C")
+
+    assert str(err.exception) == "radio_channel must be any of ['A', 'B']"
+
+    with unittest.TestCase().assertRaises(ValueError) as err:
+        encode_payload({'mmsi': 123456}, radio_channel=None)
+
+    assert str(err.exception) == "radio_channel must be any of ['A', 'B']"
 
 
 def test_data_to_payload():
@@ -59,7 +83,7 @@ def test_data_to_payload():
     assert data_to_payload(7, {'mmsi': 123}).__class__ == MessageType7
     assert data_to_payload(8, {'mmsi': 123}).__class__ == MessageType8
 
-    with pytest.raises(ValueError):
+    with unittest.TestCase().assertRaises(ValueError):
         data_to_payload(27, {'mmsi': 123})
 
 
@@ -76,13 +100,13 @@ def test_get_ais_type():
     ais_type = get_ais_type({'msg_type': '1'})
     assert ais_type == 1
 
-    with pytest.raises(ValueError) as err:
+    with unittest.TestCase().assertRaises(ValueError) as err:
         get_ais_type({})
-    assert str(err.value) == "Missing or invalid AIS type. Must be a number."
+    assert str(err.exception) == "Missing or invalid AIS type. Must be a number."
 
-    with pytest.raises(ValueError) as err:
+    with unittest.TestCase().assertRaises(ValueError) as err:
         get_ais_type({'typee': 1})
-    assert str(err.value) == "Missing or invalid AIS type. Must be a number."
+    assert str(err.exception) == "Missing or invalid AIS type. Must be a number."
 
 
 def test_str_to_bin():
@@ -147,6 +171,24 @@ def test_encode_type_7():
     }
     encoded_part_1 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[0]
     assert encoded_part_1 == "!AIVDM,1,1,,B,702R5`hwCjq80000000000000000,0*68"
+
+
+def test_encode_type_6_bytes():
+    data = {
+        'dac': 669,
+        'data': b'\x03\xac\xbcF=\xff\xc4',
+        'dest_mmsi': '313240222',
+        'fid': 11,
+        'mmsi': '150834090',
+        'repeat': 1,
+        'retransmit': 0,
+        'seqno': 3,
+        'type': 6
+    }
+    encoded = encode_dict(data, radio_channel="B", talker_id="AIVDM")
+    assert encoded[0] == "!AIVDM,3,1,,B,6B?n;be:cbapald0000000000000000000000000000000000000000000000,0*7D"
+    assert encoded[1] == "!AIVDM,3,2,,B,0000000000000000000000000000000000000000000000000000000000000,0*14"
+    assert encoded[2] == "!AIVDM,3,3,,B,00000000000000000000000000000000000003c;i6?Ow4,0*12"
 
 
 def test_encode_type_6():
@@ -331,3 +373,14 @@ def test_ship_name_too_lon():
     encoded = encode_payload(msg)
     assert encoded[0] == "!AIVDO,2,1,,A,50000Nh000000000001@U@4pT>1@U@4pT>1@U@40000000000000000000000,2*56"
     assert encoded[1] == "!AIVDO,2,2,,A,0000000000,2*26"
+
+
+def test_int_to_bytes():
+    i = int_to_bytes(b'\xff\xff')
+    assert i == 65535
+
+    i = int_to_bytes(65535)
+    assert i == 65535
+
+    i = int_to_bytes(b'\x00\x00')
+    assert i == 0

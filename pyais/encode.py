@@ -8,7 +8,7 @@ import bitarray
 from pyais.util import chunks, from_bytes, compute_checksum
 
 # Types
-DATA_DICT = typing.Dict[str, typing.Union[str, int, float]]
+DATA_DICT = typing.Dict[str, typing.Union[str, int, float, bytes, bool]]
 AIS_SENTENCES = typing.List[str]
 
 # https://gpsd.gitlab.io/gpsd/AIVDM.html#_aivdmaivdo_payload_armoring
@@ -66,6 +66,18 @@ def encode_ascii_6(bits: bitarray.bitarray) -> typing.Tuple[str, int]:
         armor = PAYLOAD_ARMOR[num]
         out += armor
     return out, padding
+
+
+def int_to_bytes(val: typing.Union[int, bytes]) -> int:
+    """
+    Convert a bytes object to an integer. Byteorder is big.
+
+    @param val: A bytes object to convert to an int. If the value is already an int, this is a NO-OP.
+    @return: Integer representation of `val`
+    """
+    if isinstance(val, int):
+        return val
+    return int.from_bytes(val, 'big')
 
 
 def int_to_bin(val: typing.Union[int, bool], width: int) -> bitarray.bitarray:
@@ -181,7 +193,7 @@ class Payload(abc.ABC):
         return encode_ascii_6(bit_arr)
 
     @classmethod
-    def create(cls, **kwargs: typing.Union[str, float, int, bool]) -> "Payload":
+    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "Payload":
         """
         Create a new instance of each Payload class.
         @param kwargs: A set of keywords. For each field of `cls` a keyword with the same
@@ -212,11 +224,11 @@ class MessageType1(Payload):
     mmsi = bit_field(30, int)
     status = bit_field(4, int, default=0)
     turn = bit_field(8, int, default=0)
-    speed = bit_field(10, int, converter=lambda v: v * 10.0, default=0)
+    speed = bit_field(10, int, converter=lambda v: float(v) * 10.0, default=0)
     accuracy = bit_field(1, int, default=0)
-    lon = bit_field(28, int, converter=lambda v: v * 600000.0, default=0)
-    lat = bit_field(27, int, converter=lambda v: v * 600000.0, default=0)
-    course = bit_field(12, int, converter=lambda v: v * 10.0, default=0)
+    lon = bit_field(28, int, converter=lambda v: float(v) * 600000.0, default=0)
+    lat = bit_field(27, int, converter=lambda v: float(v) * 600000.0, default=0)
+    course = bit_field(12, int, converter=lambda v: float(v) * 10.0, default=0)
     heading = bit_field(9, int, default=0)
     second = bit_field(6, int, default=0)
     maneuver = bit_field(2, int, default=0)
@@ -245,8 +257,8 @@ class MessageType4(Payload):
     minute = bit_field(6, int, default=0)
     second = bit_field(6, int, default=0)
     accuracy = bit_field(1, int, default=0)
-    lon = bit_field(28, int, converter=lambda v: v * 600000.0, default=0)
-    lat = bit_field(27, int, converter=lambda v: v * 600000.0, default=0)
+    lon = bit_field(28, int, converter=lambda v: float(v) * 600000.0, default=0)
+    lat = bit_field(27, int, converter=lambda v: float(v) * 600000.0, default=0)
     epfd = bit_field(4, int, default=0)
     spare = bit_field(10, int, default=0)
     raim = bit_field(1, int, default=0)
@@ -272,7 +284,7 @@ class MessageType5(Payload):
     day = bit_field(5, int, default=0)
     hour = bit_field(5, int, default=0)
     minute = bit_field(6, int, default=0)
-    draught = bit_field(8, int, converter=lambda v: v * 10.0, default=0)
+    draught = bit_field(8, int, converter=lambda v: float(v) * 10.0, default=0)
     destination = bit_field(120, str, default='')
     dte = bit_field(1, int, default=0)
     spare = bit_field(1, int, default=0)
@@ -289,7 +301,7 @@ class MessageType6(Payload):
     spare = bit_field(1, int, default=0)
     dac = bit_field(10, int, default=0)
     fid = bit_field(6, int, default=0)
-    data = bit_field(920, int, default=0)
+    data = bit_field(920, int, default=0, converter=int_to_bytes)
 
 
 @attr.s(slots=True)
@@ -316,7 +328,7 @@ class MessageType8(Payload):
     spare = bit_field(2, int, default=0)
     dac = bit_field(10, int, default=0)
     fid = bit_field(6, int, default=0)
-    data = bit_field(952, int, default=0)
+    data = bit_field(952, int, default=0, converter=int_to_bytes)
 
 
 ENCODE_MSG = {
