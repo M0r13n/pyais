@@ -148,6 +148,133 @@ def test_int_to_bin():
     assert len(num) == 8
 
 
+def test_encode_type_15_a():
+    data = {
+        'mmsi': '003669720',
+        'mmsi1': '367014320',
+        'mmsi2': '000000000',
+        'offset1_1': 516,
+        'offset1_2': 617,
+        'offset2_1': 0,
+        'repeat': 3,
+        'type': 15,
+        'type1_1': 3,
+        'type1_2': 5,
+        'type2_1': 0
+    }
+    encoded = encode_dict(data)
+    assert encoded[0] == "!AIVDO,1,1,,A,?h3Ovn1GP<K0<P@59a000000000,2*05"
+
+
+def test_encode_type_15():
+    data = {
+        'mmsi': '368578000',
+        'mmsi1': '000005158',
+        'mmsi2': '000000000',
+        'offset1_1': 0,
+        'offset1_2': 0,
+        'offset2_1': 0,
+        'repeat': 0,
+        'type': 15,
+        'type1_1': 5,
+        'type1_2': 0,
+        'type2_1': 0
+    }
+    encoded = encode_dict(data)
+    assert encoded[0] == "!AIVDO,1,1,,A,?5OP=l00052HD00000000000000,2*59"
+
+
+def test_encode_type_14():
+    data = {'mmsi': '351809000', 'repeat': 0, 'text': 'RCVD YR TEST MSG', 'type': 14}
+    encoded = encode_dict(data)
+    assert encoded[0] == "!AIVDO,3,1,,A,>5?Per18=HB1U:1@E=B0m<L00000000000000000000000000000000000000,2*51"
+    assert encoded[1] == "!AIVDO,3,2,,A,0000000000000000000000000000000000000000000000000000000000000,2*17"
+    assert encoded[2] == "!AIVDO,3,3,,A,0000000000000000000000000000000000000000000000,2*26"
+
+
+def test_encode_type_13():
+    data = {
+        'mmsi': '211378120',
+        'mmsi1': '211217560',
+        'mmsi2': '000000000',
+        'mmsi3': '000000000',
+        'mmsi4': '000000000',
+        'mmsiseq1': 2,
+        'mmsiseq2': 0,
+        'mmsiseq3': 0,
+        'mmsiseq4': 0,
+        'repeat': 0,
+        'type': 13
+    }
+    encoded = encode_dict(data)
+    assert encoded[0] == "!AIVDO,1,1,,A,739UOj0jFs9R0000000000000000,0*6D"
+
+
+def test_encode_type_12():
+    data = {
+        'dest_mmsi': '271002111',
+        'mmsi': '271002099',
+        'repeat': 0,
+        'retransmit': 1,
+        'seqno': 0,
+        'text': 'MSG FROM 271002099',
+        'type': 12
+    }
+    encoded = encode_dict(data)
+    assert encoded[0] == "!AIVDO,3,1,,A,<42Lati0W:Ov=C7P6B?=Pjoihhjhqq0000000000000000000000000000000,0*29"
+    assert encoded[1] == "!AIVDO,3,2,,A,0000000000000000000000000000000000000000000000000000000000000,0*15"
+    assert encoded[2] == "!AIVDO,3,3,,A,0000000000000000000000000000000000000000000000,0*24"
+
+
+def test_encode_type_11():
+    data = {
+        'accuracy': 1,
+        'day': 22,
+        'epfd': 1,
+        'hour': 2,
+        'lat': 28.409117,
+        'lon': -94.40768,
+        'minute': 22,
+        'mmsi': '304137000',
+        'month': 5,
+        'radio': 0,
+        'raim': 0,
+        'repeat': 0,
+        'second': 40,
+        'type': 11,
+        'year': 2009
+    }
+    encoded = encode_dict(data)
+    assert encoded[0] == "!AIVDO,1,1,,A,44R33:1uUK2F`q?mP0@@GoQ00000,0*08"
+
+
+def test_encode_type_10():
+    data = {'dest_mmsi': '366972000', 'mmsi': '440882000', 'repeat': 0, 'type': 10}
+    encoded = encode_dict(data)
+    assert encoded[0] == "!AIVDO,1,1,,A,:6TMCD1GOS60,0*5A"
+
+
+def test_encode_type_9():
+    data = {
+        'accuracy': 0,
+        'alt': 303,
+        'assigned': 0,
+        'course': 154.5,
+        'dte': 1,
+        'lat': 58.144,
+        'lon': -6.2788434,
+        'mmsi': '111232511',
+        'radio': 33392,
+        'raim': 0,
+        'repeat': 0,
+        'second': 15,
+        'speed': 42,
+        'type': 9
+    }
+    encoded = encode_dict(data)
+    assert encoded[0] == "!AIVDO,1,1,,A,91b55wi;hbOS@OdQAC062Ch2089h,0*31"
+
+
 def test_encode_type_8():
     data = {
         'dac': 366,

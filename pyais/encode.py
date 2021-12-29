@@ -331,6 +331,86 @@ class MessageType8(Payload):
     data = bit_field(952, int, default=0, converter=int_to_bytes)
 
 
+@attr.s(slots=True)
+class MessageType9(Payload):
+    msg_type = bit_field(6, int, default=9)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+    alt = bit_field(12, int, default=0)
+    speed = bit_field(10, int, default=0)
+    accuracy = bit_field(1, int, default=0)
+    lon = bit_field(28, int, converter=lambda v: float(v) * 600000.0, default=0)
+    lat = bit_field(27, int, converter=lambda v: float(v) * 600000.0, default=0)
+    course = bit_field(12, int, converter=lambda v: float(v) * 10.0, default=0)
+    second = bit_field(6, int, default=0)
+    reserved = bit_field(8, int, default=0)
+    dte = bit_field(1, int, default=0)
+    spare = bit_field(3, int, default=0)
+    assigned = bit_field(1, int, default=0)
+    raim = bit_field(1, int, default=0)
+    radio = bit_field(20, int, default=0)
+
+
+@attr.s(slots=True)
+class MessageType10(Payload):
+    msg_type = bit_field(6, int, default=10)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+    spare_1 = bit_field(2, int, default=0)
+    dest_mmsi = bit_field(30, int)
+    spare_2 = bit_field(2, int, default=0)
+
+
+class MessageType11(MessageType4):
+    """Identical to message 4, with the semantics of a response to inquiry."""
+    msg_type = bit_field(6, int, default=11)
+
+
+@attr.s(slots=True)
+class MessageType12(Payload):
+    msg_type = bit_field(6, int, default=12)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+    seqno = bit_field(2, int, default=0)
+    dest_mmsi = bit_field(30, int)
+    retransmit = bit_field(1, int, default=0)
+    spare = bit_field(1, int, default=0)
+    text = bit_field(936, str, default='')
+
+
+class MessageType13(MessageType7):
+    """The message layout is identical to a type 7 Binary Acknowledge."""
+    msg_type = bit_field(6, int, default=13)
+
+
+@attr.s(slots=True)
+class MessageType14(Payload):
+    msg_type = bit_field(6, int, default=14)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+    spare = bit_field(2, int, default=0)
+    text = bit_field(968, str, default='')
+
+
+@attr.s(slots=True)
+class MessageType15(Payload):
+    msg_type = bit_field(6, int, default=15)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+    spare_1 = bit_field(2, int, default=0)
+    mmsi1 = bit_field(30, int, default=0)
+    type1_1 = bit_field(6, int, default=0)
+    offset1_1 = bit_field(12, int, default=0)
+    spare_2 = bit_field(2, int, default=0)
+    type1_2 = bit_field(6, int, default=0)
+    offset1_2 = bit_field(12, int, default=0)
+    spare_3 = bit_field(2, int, default=0)
+    mmsi2 = bit_field(30, int, default=0)
+    type2_1 = bit_field(6, int, default=0)
+    offset2_1 = bit_field(12, int, default=0)
+    spare_4 = bit_field(2, int, default=0)
+
+
 ENCODE_MSG = {
     0: MessageType1,  # there are messages with a zero (0) as an id. these seem to be the same as type 1 messages
     1: MessageType1,
@@ -341,6 +421,13 @@ ENCODE_MSG = {
     6: MessageType6,
     7: MessageType7,
     8: MessageType8,
+    9: MessageType9,
+    10: MessageType10,
+    11: MessageType11,
+    12: MessageType12,
+    13: MessageType13,
+    14: MessageType14,
+    15: MessageType15,
 }
 
 
