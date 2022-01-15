@@ -174,7 +174,7 @@ class Payload(abc.ABC):
             val = getattr(self, field.name)
             val = d_type(val)
 
-            if d_type == int:
+            if d_type == int or d_type == bool:
                 bits = int_to_bin(val, width)
             elif d_type == str:
                 bits = str_to_bin(val, width)
@@ -411,6 +411,286 @@ class MessageType15(Payload):
     spare_4 = bit_field(2, int, default=0)
 
 
+@attr.s(slots=True)
+class MessageType16(Payload):
+    msg_type = bit_field(6, int, default=16)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+    spare = bit_field(2, int, default=0)
+
+    mmsi1 = bit_field(30, int, default=0)
+    offset1 = bit_field(12, int, default=0)
+    increment1 = bit_field(10, int, default=0)
+
+    mmsi2 = bit_field(30, int, default=0)
+    offset2 = bit_field(12, int, default=0)
+    increment2 = bit_field(10, int, default=0)
+
+
+@attr.s(slots=True)
+class MessageType17(Payload):
+    msg_type = bit_field(6, int, default=17)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+    spare_1 = bit_field(2, int, default=0)
+    lon = bit_field(18, int, converter=lambda v: float(v) * 10.0, default=0)
+    lat = bit_field(17, int, converter=lambda v: float(v) * 10.0, default=0)
+    spare_2 = bit_field(5, int, default=0)
+    data = bit_field(736, int, default=0, converter=int_to_bytes)
+
+
+@attr.s(slots=True)
+class MessageType18(Payload):
+    msg_type = bit_field(6, int, default=18)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+    reserved = bit_field(8, int, default=0)
+    speed = bit_field(10, int, default=0)
+    accuracy = bit_field(1, int, default=0)
+    lon = bit_field(28, int, converter=lambda v: float(v) * 600000.0, default=0)
+    lat = bit_field(27, int, converter=lambda v: float(v) * 600000.0, default=0)
+    course = bit_field(12, int, converter=lambda v: float(v) * 10.0, default=0)
+    heading = bit_field(9, int, default=0)
+    second = bit_field(6, int, default=0)
+    reserved_2 = bit_field(2, int, default=0)
+    cs = bit_field(1, bool, default=0)
+    display = bit_field(1, bool, default=0)
+    dsc = bit_field(1, bool, default=0)
+    band = bit_field(1, bool, default=0)
+    msg22 = bit_field(1, bool, default=0)
+    assigned = bit_field(1, bool, default=0)
+    raim = bit_field(1, bool, default=0)
+    radio = bit_field(20, int, default=0)
+
+
+@attr.s(slots=True)
+class MessageType19(Payload):
+    msg_type = bit_field(6, int, default=19)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+    reserved = bit_field(8, int, default=0)
+    speed = bit_field(10, int, converter=lambda v: float(v) * 10.0, default=0)
+    accuracy = bit_field(1, int, default=0)
+    lon = bit_field(28, int, converter=lambda v: float(v) * 600000.0, default=0)
+    lat = bit_field(27, int, converter=lambda v: float(v) * 600000.0, default=0)
+    course = bit_field(12, int, converter=lambda v: float(v) * 10.0, default=0)
+    heading = bit_field(9, int, default=0)
+    second = bit_field(6, int, default=0)
+    regional = bit_field(4, int, default=0)
+    shipname = bit_field(120, str, default='')
+    shiptype = bit_field(8, int, default=0)
+    to_bow = bit_field(9, int, default=0)
+    to_stern = bit_field(9, int, default=0)
+    to_port = bit_field(6, int, default=0)
+    to_starboard = bit_field(6, int, default=0)
+    epfd = bit_field(4, int, default=0)
+    raim = bit_field(1, bool, default=0)
+    dte = bit_field(1, bool, default=0)
+    assigned = bit_field(1, int, default=0)
+    spare = bit_field(4, int, default=0)
+
+
+@attr.s(slots=True)
+class MessageType20(Payload):
+    msg_type = bit_field(6, int, default=20)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+    spare = bit_field(2, int, default=0)
+
+    offset1 = bit_field(12, int, default=0)
+    number1 = bit_field(4, int, default=0)
+    timeout1 = bit_field(3, int, default=0)
+    increment1 = bit_field(11, int, default=0)
+
+    offset2 = bit_field(12, int, default=0)
+    number2 = bit_field(4, int, default=0)
+    timeout2 = bit_field(3, int, default=0)
+    increment2 = bit_field(11, int, default=0)
+
+    offset3 = bit_field(12, int, default=0)
+    number3 = bit_field(4, int, default=0)
+    timeout3 = bit_field(3, int, default=0)
+    increment3 = bit_field(11, int, default=0)
+
+    offset4 = bit_field(12, int, default=0)
+    number4 = bit_field(4, int, default=0)
+    timeout4 = bit_field(3, int, default=0)
+    increment4 = bit_field(11, int, default=0)
+
+
+@attr.s(slots=True)
+class MessageType21(Payload):
+    msg_type = bit_field(6, int, default=21)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+
+    aid_type = bit_field(5, int, default=0)
+    shipname = bit_field(120, str, default='')
+    accuracy = bit_field(1, bool, default=0)
+    lon = bit_field(28, int, converter=lambda v: float(v) * 600000.0, default=0)
+    lat = bit_field(27, int, converter=lambda v: float(v) * 600000.0, default=0)
+    to_bow = bit_field(9, int, default=0)
+    to_stern = bit_field(9, int, default=0)
+    to_port = bit_field(6, int, default=0)
+    to_starboard = bit_field(6, int, default=0)
+    epfd = bit_field(4, int, default=0)
+    second = bit_field(6, int, default=0)
+    off_position = bit_field(1, bool, default=0)
+    regional = bit_field(8, int, default=0)
+    raim = bit_field(1, bool, default=0)
+    virtual_aid = bit_field(1, bool, default=0)
+    assigned = bit_field(1, bool, default=0)
+    spare = bit_field(1, int, default=0)
+    name_ext = bit_field(88, str, default='')
+
+
+@attr.s(slots=True)
+class MessageType22(Payload):
+    msg_type = bit_field(6, int, default=2)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+    spare_1 = bit_field(2, int, default=0)
+
+    channel_a = bit_field(12, int, default=0)
+    channel_b = bit_field(12, int, default=0)
+    txrx = bit_field(4, int, default=0)
+    power = bit_field(1, bool, default=0)
+
+    ne_lon = bit_field(18, int, converter=lambda v: float(v) * 10.0, default=0)
+    ne_lat = bit_field(17, int, converter=lambda v: float(v) * 10.0, default=0)
+    sw_lon = bit_field(18, int, converter=lambda v: float(v) * 10.0, default=0)
+    sw_lat = bit_field(17, int, converter=lambda v: float(v) * 10.0, default=0)
+
+    dest1 = bit_field(30, int, default=0)
+    dest2 = bit_field(30, int, default=0)
+    addressed = bit_field(1, bool, default=0)
+    band_a = bit_field(1, bool, default=0)
+    band_b = bit_field(1, bool, default=0)
+    zonesize = bit_field(3, int, default=0)
+    spare_2 = bit_field(23, int, default=0)
+
+    def __attrs_post_init__(self):
+        if self.addressed:
+            del self.ne_lon
+            del self.ne_lat
+            del self.sw_lon
+            del self.sw_lat
+        else:
+            del self.dest1
+            del self.dest2
+
+
+@attr.s(slots=True)
+class MessageType23(Payload):
+    msg_type = bit_field(6, int, default=23)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+    spare_1 = bit_field(2, int, default=0)
+
+    ne_lon = bit_field(18, int, converter=lambda v: float(v) * 10.0, default=0)
+    ne_lat = bit_field(17, int, converter=lambda v: float(v) * 10.0, default=0)
+    sw_lon = bit_field(18, int, converter=lambda v: float(v) * 10.0, default=0)
+    sw_lat = bit_field(17, int, converter=lambda v: float(v) * 10.0, default=0)
+
+    station_type = bit_field(4, int, default=0)
+    ship_type = bit_field(8, int, default=0)
+    spare_2 = bit_field(22, int, default=0)
+
+    txrx = bit_field(2, int, default=0)
+    interval = bit_field(4, int, default=0)
+    quiet = bit_field(4, int, default=0)
+    spare_3 = bit_field(6, int, default=0)
+
+
+@attr.s(slots=True)
+class MessageType24(Payload):
+    msg_type = bit_field(6, int, default=24)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+
+    partno = bit_field(2, int, default=0)
+    shipname = bit_field(120, str, default='')
+    spare_1 = bit_field(8, int, default=0)
+    shiptype = bit_field(8, int, default=0)
+    vendorid = bit_field(18, int, default=0)
+    model = bit_field(4, int, default=0)
+    serial = bit_field(20, int, default=0)
+    callsign = bit_field(42, str, default='')
+
+    to_bow = bit_field(9, int, default=0)
+    to_stern = bit_field(9, int, default=0)
+    to_port = bit_field(6, int, default=0)
+    to_starboard = bit_field(6, int, default=0)
+
+    mothership_mmsi = bit_field(30, int, default=0)
+    spare_2 = bit_field(6, int, default=0)
+
+    def __attrs_post_init__(self):
+        if self.partno:
+            del self.shipname
+        else:
+            del self.shiptype
+            del self.vendorid
+            del self.model
+            del self.serial
+            del self.callsign
+            del self.to_bow
+            del self.to_stern
+            del self.to_port
+            del self.to_starboard
+            del self.mothership_mmsi
+
+
+@attr.s(slots=True)
+class MessageType25(Payload):
+    msg_type = bit_field(6, int, default=25)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+
+    addressed = bit_field(1, bool, default=0)
+    structured = bit_field(1, bool, default=0)
+    dest_mmsi = bit_field(30, int, default=0)
+    app_id = bit_field(16, int, default=0)
+    data = bit_field(128, int, default=0, converter=int_to_bytes)
+
+    def __attrs_post_init__(self):
+        if not self.addressed:
+            del self.dest_mmsi
+
+        if not self.structured:
+            del self.app_id
+
+
+@attr.s(slots=True)
+class MessageType26(Payload):
+    msg_type = bit_field(6, int, default=26)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+
+    addressed = bit_field(1, bool, default=0)
+    structured = bit_field(1, bool, default=0)
+    dest_mmsi = bit_field(30, int, default=0)
+    app_id = bit_field(16, int, default=0)
+    data = bit_field(1004, int, default=0, converter=int_to_bytes)
+
+
+@attr.s(slots=True)
+class MessageType27(Payload):
+    msg_type = bit_field(6, int, default=27)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+
+    accuracy = bit_field(1, int, default=0)
+    raim = bit_field(1, int, default=0)
+    status = bit_field(4, int, default=0)
+    lon = bit_field(18, int, converter=lambda v: float(v) * 600.0, default=0)
+    lat = bit_field(17, int, converter=lambda v: float(v) * 600.0, default=0)
+    speed = bit_field(6, int, default=0)
+    course = bit_field(9, int, default=0)
+    gnss = bit_field(1, int, default=0)
+    spare = bit_field(1, int, default=0)
+
+
 ENCODE_MSG = {
     0: MessageType1,  # there are messages with a zero (0) as an id. these seem to be the same as type 1 messages
     1: MessageType1,
@@ -428,6 +708,18 @@ ENCODE_MSG = {
     13: MessageType13,
     14: MessageType14,
     15: MessageType15,
+    16: MessageType16,
+    17: MessageType17,
+    18: MessageType18,
+    19: MessageType19,
+    20: MessageType20,
+    21: MessageType21,
+    22: MessageType22,
+    23: MessageType23,
+    24: MessageType24,
+    25: MessageType25,
+    26: MessageType26,
+    27: MessageType27,
 }
 
 

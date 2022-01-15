@@ -4,7 +4,8 @@ import bitarray
 
 from pyais.encode import encode_dict, MessageType4, MessageType1, MessageType5, MessageType6, MessageType7, \
     MessageType8, data_to_payload, MessageType2, MessageType3, get_ais_type, str_to_bin, int_to_bin, encode_payload, \
-    int_to_bytes, to_six_bit, encode_ascii_6
+    int_to_bytes, to_six_bit, encode_ascii_6, MessageType15, MessageType16, MessageType17, MessageType18, MessageType19, \
+    MessageType20, MessageType21, MessageType23, MessageType27, ENCODE_MSG
 from pyais.util import decode_bin_as_ascii6, decode_into_bit_array
 
 
@@ -26,6 +27,47 @@ def test_widths():
 
     tot_width = sum(field.metadata['width'] for field in MessageType8.fields())
     assert tot_width == 1008
+
+    tot_width = sum(field.metadata['width'] for field in MessageType15.fields())
+    assert tot_width == 160
+
+    tot_width = sum(field.metadata['width'] for field in MessageType15.fields())
+    assert tot_width == 160
+
+    tot_width = sum(field.metadata['width'] for field in MessageType16.fields())
+    assert tot_width == 144
+
+    tot_width = sum(field.metadata['width'] for field in MessageType17.fields())
+    assert tot_width == 816
+
+    tot_width = sum(field.metadata['width'] for field in MessageType18.fields())
+    assert tot_width == 168
+
+    tot_width = sum(field.metadata['width'] for field in MessageType19.fields())
+    assert tot_width == 312
+
+    tot_width = sum(field.metadata['width'] for field in MessageType20.fields())
+    assert tot_width == 160
+
+    tot_width = sum(field.metadata['width'] for field in MessageType21.fields())
+    assert tot_width == 360
+
+    tot_width = sum(field.metadata['width'] for field in MessageType23.fields())
+    assert tot_width == 160
+
+    tot_width = sum(field.metadata['width'] for field in MessageType27.fields())
+    assert tot_width == 96
+
+
+def test_encode_msg_table():
+    """
+    Make sure that each message number as the correct Message class associated
+    """
+    for k, v in list(ENCODE_MSG.items())[1:]:
+        if k < 10:
+            assert str(k) == v.__name__[-1:]
+        else:
+            assert str(k) == v.__name__[-2:]
 
 
 def test_invalid_talker_id():
@@ -88,7 +130,7 @@ def test_data_to_payload():
     assert data_to_payload(8, {'mmsi': 123}).__class__ == MessageType8
 
     with unittest.TestCase().assertRaises(ValueError):
-        data_to_payload(27, {'mmsi': 123})
+        data_to_payload(28, {'mmsi': 123})
 
 
 def test_get_ais_type():
@@ -146,6 +188,308 @@ def test_int_to_bin():
     num = int_to_bin(255, 8).to01()
     assert num == "11111111"
     assert len(num) == 8
+
+
+def test_encode_type_27():
+    data = {
+        'accuracy': 0,
+        'course': 167,
+        'gnss': 0,
+        'lat': 4.84,
+        'lon': 137.02333333333334,
+        'mmsi': '206914217',
+        'raim': 0,
+        'repeat': 0,
+        'speed': 57,
+        'status': 2,
+        'type': 27
+    }
+
+    encoded = encode_dict(data)
+    print('\n'.join(encoded))
+    assert encoded[0] == ""
+
+
+def test_encode_type_26():
+    data = {
+        'addressed': 0,
+        'data': '000111001100000000111000000000000000000000000000000000100000000000000110000010100000101110',
+        'mmsi': '016777280',
+        'radio': 647746,
+        'repeat': 0,
+        'structured': 0,
+        'type': 26
+    }
+
+    encoded = encode_dict(data)
+    print('\n'.join(encoded))
+    assert encoded[0] == ""
+
+
+def test_encode_type_25():
+    data = {
+        'addressed': 1,
+        'data': '00100000000000000000101001000011100000011011111000010101011011010101100110110010000000001111111110011110100000001100000110000101',
+        'dest_mmsi': '134218384',
+        'mmsi': '440006460',
+        'repeat': 0,
+        'structured': 0,
+        'type': 25
+    }
+
+    encoded = encode_dict(data)
+    print('\n'.join(encoded))
+    assert encoded[0] == ""
+
+
+def test_encode_type_24():
+    data = {
+        'callsign': '',
+        'mmsi': '338091445',
+        'model': 12,
+        'mothership_mmsi': '000000000',
+        'partno': 1,
+        'repeat': 0,
+        'serial': 199729,
+        'shiptype': 37,  # PleasureCraft
+        'to_bow': 0,
+        'to_port': 0,
+        'to_starboard': 0,
+        'to_stern': 0,
+        'type': 24,
+        'vendorid': 'FEC'
+    }
+
+    encoded = encode_dict(data)
+    print('\n'.join(encoded))
+    assert encoded[0] == ""
+
+
+def test_encode_type_23():
+    data = {
+        'interval': 9,
+        'mmsi': '002268120',
+        'ne_lat': 3064.2000000000003,
+        'ne_lon': 157.8,
+        'quiet': 0,
+        'repeat': 0,
+        'shiptype': 0,
+        'station_type': 6,
+        'sw_lat': 3040.8,
+        'sw_lon': 109.60000000000001,
+        'txrx': 0,
+        'type': 23
+    }
+
+    encoded = encode_dict(data)
+    print('\n'.join(encoded))
+    assert encoded[0] == ""
+
+
+def test_encode_type_22_b():
+    data = {
+        'addressed': 1,
+        'band_a': 0,
+        'band_b': 0,
+        'channel_a': 3584,
+        'channel_b': 8,
+        'dest1': '028144881',
+        'dest2': '268435519',
+        'mmsi': '017419965',
+        'power': 1,
+        'repeat': 0,
+        'txrx': 1,
+        'type': 22,
+        'zonesize': 4
+    }
+
+    encoded = encode_dict(data)
+    print('\n'.join(encoded))
+    assert encoded[0] == ""
+
+
+def test_encode_type_22_a():
+    data = {
+        'addressed': 0,
+        'band_a': 0,
+        'band_b': 0,
+        'channel_a': 2087,
+        'channel_b': 2088,
+        'mmsi': '003160107',
+        'ne_lat': 3300.0,
+        'ne_lon': -7710.0,
+        'power': 0,
+        'repeat': 0,
+        'sw_lat': 3210.0,
+        'sw_lon': -8020.0,
+        'txrx': 0,
+        'type': 22,
+        'zonesize': 2
+    }
+
+    encoded = encode_dict(data)
+    print('\n'.join(encoded))
+    assert encoded[0] == ""
+
+
+def test_encode_type_21():
+    data = {
+        'accuracy': 1,
+        'aid_type': 1,  # Reference point
+        'assigned': 0,
+        'epfd': 1,  # GPS
+        'lat': 48.65457,
+        'lon': -123.429155,
+        'mmsi': '316021442',
+        'name': 'DFO2',
+        'name_extension': '',
+        'off_position': 1,
+        'raim': 1,
+        'regional': 0,
+        'repeat': 0,
+        'second': 18,
+        'to_bow': 0,
+        'to_port': 0,
+        'to_starboard': 0,
+        'to_stern': 0,
+        'type': 21,
+        'virtual_aid': 0
+    }
+
+    encoded = encode_dict(data)
+    print('\n'.join(encoded))
+    assert encoded[0] == ""
+
+
+def test_encode_type_20():
+    data = {
+        'increment1': 750,
+        'increment2': 0,
+        'increment3': 0,
+        'increment4': 0,
+        'mmsi': '002243302',
+        'number1': 5,
+        'number2': 0,
+        'number3': 0,
+        'number4': 0,
+        'offset1': 200,
+        'offset2': 0,
+        'offset3': 0,
+        'offset4': 0,
+        'repeat': 0,
+        'timeout1': 7,
+        'timeout2': 0,
+        'timeout3': 0,
+        'timeout4': 0,
+        'type': 20
+    }
+
+    encoded = encode_dict(data)
+    assert encoded[0] == "!AIVDO,1,1,,A,C5N3SRP026JGEBT>NhWAwwo862PaLELTBJ:V00000000S0D:R220,0*72"
+
+
+def test_encode_type_19():
+    data = {
+        'accuracy': 0,
+        'assigned': 0,
+        'course': 335.90000000000003,
+        'dte': 0,
+        'epfd': 1,  # GPS
+        'heading': 511,
+        'lat': 29.543695,
+        'lon': -88.81039166666666,
+        'mmsi': '367059850',
+        'raim': 0,
+        'regional': 4,
+        'repeat': 0,
+        'second': 46,
+        'shipname': 'CAPT.J.RIMES',
+        'shiptype': 70,  # CARGO
+        'speed': 5.5,
+        'to_bow': 5,
+        'to_port': 4,
+        'to_starboard': 4,
+        'to_stern': 21,
+        'type': 19
+    }
+
+    encoded = encode_dict(data)
+    assert encoded[0] == "!AIVDO,1,1,,A,C5N3SRP026JGEBT>NhWAwwo862PaLELTBJ:V00000000S0D:R220,0*72"
+
+
+def test_encode_type_18():
+    data = {
+        'accuracy': 0,
+        'assigned': 0,
+        'band': 1,
+        'course': 0.0,
+        'cs': 1,
+        'display': 0,
+        'dsc': 1,
+        'heading': 511,
+        'lat': 37.785035,
+        'lon': -122.26732,
+        'mmsi': '367430530',
+        'msg22': 1,
+        'radio': 917510,
+        'raim': 0,
+        'regional': 0,
+        'repeat': 0,
+        'second': 55,
+        'speed': 0.0,
+        'type': 18
+    }
+
+    encoded = encode_dict(data)
+    assert encoded[0] == "!AIVDO,1,1,,A,B5NJ;PP005l4ot5Isbl03wsUkP06,0*74"
+
+
+def test_encode_type_17_b():
+    data = {
+        'data': 14486955885545814640451754168044205828166539334830080,
+        'lat': 2058.2,
+        'lon': 8029.2,
+        'mmsi': '004310602',
+        'repeat': 0,
+        'type': 17
+    }
+
+    encoded = encode_dict(data)
+    assert encoded[0] == "!AIVDO,3,1,,A,A0476BQ>J@`<h000000000000000000000000000000000000000000000000,0*71"
+    assert encoded[1] == "!AIVDO,3,2,,A,0000000000000000000000000000000000000000000000Vf62Q803tT0eI5O,0*3D"
+    assert encoded[2] == "!AIVDO,3,3,,A,j:3E80E5MfOdP0,0*1A"
+
+
+def test_encode_type_17_a():
+    data = {
+        'data': 74564674320211730832670193178193588797084406868345488138198505092899590740876957371807575026797147834907158489770,
+        'lat': 3599.2,
+        'lon': 1747.8,
+        'mmsi': '002734450',
+        'repeat': 0,
+        'type': 17
+    }
+
+    encoded = encode_dict(data)
+    assert encoded[0] == "!AIVDO,3,1,,A,A02VqLPA4I6C0000000000000000000000000000000000000000000000000,0*27"
+    assert encoded[1] == "!AIVDO,3,2,,A,0000000000007h5Ed1h<OrsuBTTwS?r:C?w`?la<gno1RTRwSP9:BcurA8a:O,0*7B"
+    assert encoded[2] == "!AIVDO,3,3,,A,ko02TSwu8<:Jbb,0*53"
+
+
+def test_encode_type_16():
+    data = {
+        'increment1': 0,
+        'increment2': 0,
+        'mmsi': '002053501',
+        'mmsi1': '224251000',
+        'mmsi2': '000000000',
+        'offset1': 200,
+        'offset2': 0,
+        'repeat': 0,
+        'type': 16
+    }
+    encoded = encode_dict(data)
+    assert encoded[0] == "!AIVDO,1,1,,A,@01uEO@mMk7P<P0000000000,0*1A"
 
 
 def test_encode_type_15_a():
