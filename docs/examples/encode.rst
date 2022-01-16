@@ -113,6 +113,33 @@ You should always use the `MessageType5.create()` interface to create messages. 
     * `MessageType5(mmsi=123, foo_bar=42)` will yield in a `TypeError: __init__() got an unexpected keyword argument`
 3. it is equally fast than using the native `__init__` method
 
+Special messages
+------------------
+
+Some messages are special in that they encode differently depending on some value(s) of some field(s).
+Types 22, 24, 25 and 26 are affected. As long as you use the `encode_dict`` interface,
+this detail is invisible for you as a user: The library will automatically encode the correct
+message based on the given values. Look at a [Type 25 message](https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a):
+
+> If the 'addressed' flag is on, 30 bits of data at offset 40 are interpreted as a destination MMSI. Otherwise that field span becomes part of the message payload, with the first 16 bits used as an Application ID if the 'structured' flag is on.
+
+It is easy to encode a dictionary of values with `encode_dict` ::
+
+    data = {
+        'addressed': 1,
+        'data': b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xc0",
+        'dest_mmsi': '134218384',
+        'mmsi': '440006460',
+        'repeat': 0,
+        'structured': 0,
+        'type': 25
+    }
+
+    encoded = encode_dict(data)
+    assert encoded[0] == "!AIVDO,1,1,,A,I6SWo?8P00a0003wwwwwwwwwwww0,0*35"
+
+
+
 Errors
 ----------------
 

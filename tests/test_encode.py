@@ -2,10 +2,15 @@ import unittest
 
 import bitarray
 
+from pyais import decode_msg
 from pyais.encode import encode_dict, MessageType4, MessageType1, MessageType5, MessageType6, MessageType7, \
     MessageType8, data_to_payload, MessageType2, MessageType3, get_ais_type, str_to_bin, int_to_bin, encode_payload, \
     int_to_bytes, to_six_bit, encode_ascii_6, MessageType15, MessageType16, MessageType17, MessageType18, MessageType19, \
-    MessageType20, MessageType21, MessageType23, MessageType27, ENCODE_MSG
+    MessageType20, MessageType21, MessageType23, MessageType27, ENCODE_MSG, MessageType22Addressed, \
+    MessageType22Broadcast, MessageType24PartA, MessageType24PartB, MessageType25AddressedStructured, \
+    MessageType25BroadcastStructured, MessageType25AddressedUnstructured, MessageType25BroadcastUnstructured, \
+    MessageType26AddressedStructured, MessageType26BroadcastStructured, MessageType26AddressedUnstructured, \
+    MessageType26BroadcastUnstructured
 from pyais.util import decode_bin_as_ascii6, decode_into_bit_array
 
 
@@ -57,6 +62,43 @@ def test_widths():
 
     tot_width = sum(field.metadata['width'] for field in MessageType27.fields())
     assert tot_width == 96
+
+
+def test_variable_message_length_width():
+    # 22
+    tot_width = sum(field.metadata['width'] for field in MessageType22Addressed.fields())
+    assert tot_width == 168
+
+    tot_width = sum(field.metadata['width'] for field in MessageType22Broadcast.fields())
+    assert tot_width == 168
+
+    # 24
+    tot_width = sum(field.metadata['width'] for field in MessageType24PartA.fields())
+    assert tot_width == 168
+
+    tot_width = sum(field.metadata['width'] for field in MessageType24PartB.fields())
+    assert tot_width == 168
+
+    # 25
+    tot_width = sum(field.metadata['width'] for field in MessageType25AddressedStructured.fields())
+    assert tot_width == 168
+
+    tot_width = sum(field.metadata['width'] for field in MessageType25BroadcastStructured.fields())
+    assert tot_width == 168
+
+    tot_width = sum(field.metadata['width'] for field in MessageType25AddressedUnstructured.fields())
+    assert tot_width == 168
+
+    tot_width = sum(field.metadata['width'] for field in MessageType25BroadcastUnstructured.fields())
+    assert tot_width == 168
+
+    # 26
+    classes = [MessageType26AddressedStructured, MessageType26BroadcastStructured,
+               MessageType26AddressedUnstructured, MessageType26BroadcastUnstructured]
+
+    for cls in classes:
+        tot_width = sum(field.metadata['width'] for field in cls.fields())
+        assert tot_width == 1064
 
 
 def test_encode_msg_table():
@@ -190,6 +232,18 @@ def test_int_to_bin():
     assert len(num) == 8
 
 
+def test_decode_encode():
+    """Create each message with default values and test that it can be decoded again"""
+    mmsi = 123
+    for typ in ENCODE_MSG.keys():
+        encoded = encode_dict({'mmsi': mmsi, 'dest_mmsi': 656634123, 'type': typ})
+        decoded = decode_msg(*encoded)
+
+        assert decoded['mmsi'] == '000000123'
+        if 'dest_mmsi' in decoded:
+            assert decoded['dest_mmsi'] == '656634123'
+
+
 def test_encode_type_27():
     data = {
         'accuracy': 0,
@@ -206,14 +260,13 @@ def test_encode_type_27():
     }
 
     encoded = encode_dict(data)
-    print('\n'.join(encoded))
-    assert encoded[0] == ""
+    assert encoded[0] == "!AIVDO,1,1,,A,K35E2b@U19PFdLbL,0*71"
 
 
 def test_encode_type_26():
     data = {
         'addressed': 0,
-        'data': '000111001100000000111000000000000000000000000000000000100000000000000110000010100000101110',
+        'data': b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xc0",
         'mmsi': '016777280',
         'radio': 647746,
         'repeat': 0,
@@ -222,14 +275,30 @@ def test_encode_type_26():
     }
 
     encoded = encode_dict(data)
-    print('\n'.join(encoded))
-    assert encoded[0] == ""
+    assert encoded[0] == "!AIVDO,3,1,,A,J0@00@0000000000000000000000000000000000000000000000000000000,4*68"
+    assert encoded[1] == "!AIVDO,3,2,,A,0000000000000000000000000000000000000000000000000000000000000,4*11"
+    assert encoded[2] == "!AIVDO,3,3,,A,000000000000000000000000000000000000003wwwwwwwwwwww0WR@P,4*36"
 
 
-def test_encode_type_25():
+def test_encode_type_25_b():
     data = {
         'addressed': 1,
-        'data': '00100000000000000000101001000011100000011011111000010101011011010101100110110010000000001111111110011110100000001100000110000101',
+        'data': b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xc0",
+        'dest_mmsi': '134218384',
+        'mmsi': '440006460',
+        'repeat': 0,
+        'structured': 1,
+        'app_id': 45,
+        'type': 25
+    }
+    encoded = encode_dict(data)
+    assert encoded[0] == "!AIVDO,1,1,,A,I6SWo?<P00a00;Cwwwwwwwwwwww0,0*4A"
+
+
+def test_encode_type_25_a():
+    data = {
+        'addressed': 1,
+        'data': b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xc0",
         'dest_mmsi': '134218384',
         'mmsi': '440006460',
         'repeat': 0,
@@ -238,11 +307,33 @@ def test_encode_type_25():
     }
 
     encoded = encode_dict(data)
-    print('\n'.join(encoded))
-    assert encoded[0] == ""
+    assert encoded[0] == "!AIVDO,1,1,,A,I6SWo?8P00a0003wwwwwwwwwwww0,0*35"
 
 
-def test_encode_type_24():
+def test_encode_type_24_partno_invalid():
+    # Should not raise an error
+    encode_dict({'mmsi': 123, 'partno': 1, 'type': 24})
+
+    with unittest.TestCase().assertRaises(ValueError):
+        encode_dict({'mmsi': 123, 'partno': 2, 'type': 24})
+
+    with unittest.TestCase().assertRaises(ValueError):
+        encode_dict({'mmsi': 123, 'partno': 3, 'type': 24})
+
+
+def test_encode_type_24_a():
+    data = {
+        'type': 24,
+        'mmsi': '338091445',
+        'partno': 0,
+        'shipname': "HMS FooBar",
+    }
+
+    encoded = encode_dict(data)
+    assert encoded[0] == "!AIVDO,1,1,,A,H52KMe@Pm>0Htt85800000000000,0*36"
+
+
+def test_encode_type_24_b():
     data = {
         'callsign': '',
         'mmsi': '338091445',
@@ -261,8 +352,7 @@ def test_encode_type_24():
     }
 
     encoded = encode_dict(data)
-    print('\n'.join(encoded))
-    assert encoded[0] == ""
+    assert encoded[0] == "!AIVDO,1,1,,A,H52KMeDU653hhhi0000000000000,0*18"
 
 
 def test_encode_type_23():
@@ -282,8 +372,7 @@ def test_encode_type_23():
     }
 
     encoded = encode_dict(data)
-    print('\n'.join(encoded))
-    assert encoded[0] == ""
+    assert encoded[0] == "!AIVDO,1,1,,A,G02:Kn01R`sn@291nj600000900,2*13"
 
 
 def test_encode_type_22_b():
@@ -304,8 +393,7 @@ def test_encode_type_22_b():
     }
 
     encoded = encode_dict(data)
-    print('\n'.join(encoded))
-    assert encoded[0] == ""
+    assert encoded[0] == "!AIVDO,1,1,,A,F0@W>gCP00PH=JrN84000?hB0000,0*75"
 
 
 def test_encode_type_22_a():
@@ -328,8 +416,7 @@ def test_encode_type_22_a():
     }
 
     encoded = encode_dict(data)
-    print('\n'.join(encoded))
-    assert encoded[0] == ""
+    assert encoded[0] == "!AIVDO,1,1,,A,F030p:j2N2P5aJR0r;6f3rj10000,0*10"
 
 
 def test_encode_type_21():
@@ -357,8 +444,7 @@ def test_encode_type_21():
     }
 
     encoded = encode_dict(data)
-    print('\n'.join(encoded))
-    assert encoded[0] == ""
+    assert encoded[0] == "!AIVDO,1,1,,A,E4eHJhPP0000000000000000000KUOSc=rq4h00000a@2000000000000000,4*7E"
 
 
 def test_encode_type_20():
@@ -385,7 +471,7 @@ def test_encode_type_20():
     }
 
     encoded = encode_dict(data)
-    assert encoded[0] == "!AIVDO,1,1,,A,C5N3SRP026JGEBT>NhWAwwo862PaLELTBJ:V00000000S0D:R220,0*72"
+    assert encoded[0] == "!AIVDO,1,1,,A,D028rqP<QNfp000000000000000,2*0E"
 
 
 def test_encode_type_19():
@@ -414,7 +500,7 @@ def test_encode_type_19():
     }
 
     encoded = encode_dict(data)
-    assert encoded[0] == "!AIVDO,1,1,,A,C5N3SRP026JGEBT>NhWAwwo862PaLELTBJ:V00000000S0D:R220,0*72"
+    assert encoded[0] == "!AIVDO,1,1,,A,C5N3SRP0=nJGEBT>NhWAwwo862PaLELTBJ:V00000000S0D:R220,0*25"
 
 
 def test_encode_type_18():
