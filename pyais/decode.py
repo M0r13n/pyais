@@ -457,15 +457,15 @@ def decode_msg_22(bit_arr: bitarray.bitarray) -> Dict[str, Any]:
         'zonesize': get_int_from_data(142, 145),
     }
 
-    # Broadcast
     d: Dict[str, Any] = {}
     if data['addressed']:
+        # Addressed
         d = {
             'dest1': get_mmsi(bit_arr, 69, 99),
             'dest2': get_mmsi(bit_arr, 104, 134),
         }
-    # Addressed
     else:
+        # Broadcast
         d = {
             'ne_lon': get_int_from_data(69, 87, signed=True) * 0.1,
             'ne_lat': get_int_from_data(87, 104, signed=True) * 0.1,
