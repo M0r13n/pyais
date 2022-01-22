@@ -5,7 +5,8 @@ import typing
 import attr
 import bitarray
 
-from pyais.util import chunks, from_bytes, compute_checksum
+from pyais import NMEAMessage
+from pyais.util import chunks, from_bytes, compute_checksum, get_int
 
 # Types
 DATA_DICT = typing.Dict[str, typing.Union[str, int, float, bytes, bool]]
@@ -239,6 +240,40 @@ class MessageType1(Payload):
     spare = bit_field(3, int, default=0)
     raim = bit_field(1, int, default=0)
     radio = bit_field(19, int, default=0)
+
+    @classmethod
+    def from_bytes(cls, byte_str: bytes) -> "MessageType1":
+        # Split the message & get the payload as a bit sequence
+        msg = NMEAMessage.from_bytes(byte_str)
+        bit_arr = msg.bit_array
+
+        cur = 0
+
+        kwargs = {}
+
+        # Iterate over the bits until the last bit of the bitarray or all fields are fully decoded
+        for field in cls.fields():
+            width = field.metadata['width']
+            d_type = field.metadata['d_type']
+
+            end = min(len(bit_arr), cur + width)
+            bits = bit_arr[cur: cur + width]
+
+            # Get the correct data type and decoding function
+            if d_type == int or d_type == bool:
+                shift = 8 - (width % 8)
+                val = from_bytes(bits) >> shift
+            else:
+                raise ValueError()
+
+            kwargs[field.name] = val
+
+            if end >= len(bit_arr):
+                break
+
+            cur = end
+
+        return cls(**kwargs)
 
 
 class MessageType2(MessageType1):
