@@ -6,7 +6,7 @@ import attr
 import bitarray
 
 from pyais import NMEAMessage
-from pyais.util import chunks, from_bytes, compute_checksum, get_int
+from pyais.util import chunks, from_bytes, compute_checksum
 
 # Types
 DATA_DICT = typing.Dict[str, typing.Union[str, int, float, bytes, bool]]
@@ -133,18 +133,28 @@ def str_to_bin(val: str, width: int) -> bitarray.bitarray:
 
 
 def bit_field(width: int, d_type: typing.Type[typing.Any],
-              converter: typing.Optional[typing.Callable[[typing.Any], typing.Any]] = None,
+              from_converter: typing.Optional[typing.Callable[[typing.Any], typing.Any]] = None,
+              to_converter: typing.Optional[typing.Callable[[typing.Any], typing.Any]] = None,
               default: typing.Optional[typing.Any] = None) -> typing.Any:
     """
     Simple wrapper around the attr.ib interface to be used in conjunction with the Payload class.
 
-    @param width:           The bit-width of the field.
-    @param d_type:          The datatype of the fields value.
-    @param converter:       Optional converter function to convert values before storing them.
-    @param default:         Optional default value to be used when no value is explicitly passed.
-    @return:                An attr.ib field instance.
+    @param width:               The bit-width of the field.
+    @param d_type:              The datatype of the fields value.
+    @param from_converter:      Optional converter function called **before** encoding
+    @param to_converter:        Optional converter function called **after** decoding
+    @param default:             Optional default value to be used when no value is explicitly passed.
+    @return:                    An attr.ib field instance.
     """
-    return attr.ib(converter=converter, metadata={'width': width, 'd_type': d_type, 'default': default})
+    return attr.ib(
+        metadata={
+            'width': width,
+            'd_type': d_type,
+            'from_converter': from_converter,
+            'to_converter': to_converter,
+            'default': default,
+        },
+    )
 
 
 @attr.s(slots=True)
@@ -171,8 +181,10 @@ class Payload(abc.ABC):
         for field in self.fields():
             width = field.metadata['width']
             d_type = field.metadata['d_type']
+            converter = field.metadata['from_converter']
 
             val = getattr(self, field.name)
+            val = converter(val) if converter is not None else val
             val = d_type(val)
 
             if d_type == int or d_type == bool:
@@ -217,30 +229,6 @@ class Payload(abc.ABC):
                     args[key] = default
         return cls(**args)
 
-
-@attr.s(slots=True)
-class MessageType1(Payload):
-    """
-    AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
-    """
-    msg_type = bit_field(6, int, default=1)
-    repeat = bit_field(2, int, default=0)
-    mmsi = bit_field(30, int)
-    status = bit_field(4, int, default=0)
-    turn = bit_field(8, int, default=0)
-    speed = bit_field(10, int, converter=lambda v: float(v) * 10.0, default=0)
-    accuracy = bit_field(1, int, default=0)
-    lon = bit_field(28, int, converter=lambda v: float(v) * 600000.0, default=0)
-    lat = bit_field(27, int, converter=lambda v: float(v) * 600000.0, default=0)
-    course = bit_field(12, int, converter=lambda v: float(v) * 10.0, default=0)
-    heading = bit_field(9, int, default=0)
-    second = bit_field(6, int, default=0)
-    maneuver = bit_field(2, int, default=0)
-    spare = bit_field(3, int, default=0)
-    raim = bit_field(1, int, default=0)
-    radio = bit_field(19, int, default=0)
-
     @classmethod
     def from_bytes(cls, byte_str: bytes) -> "MessageType1":
         # Split the message & get the payload as a bit sequence
@@ -255,6 +243,7 @@ class MessageType1(Payload):
         for field in cls.fields():
             width = field.metadata['width']
             d_type = field.metadata['d_type']
+            converter = field.metadata['to_converter']
 
             end = min(len(bit_arr), cur + width)
             bits = bit_arr[cur: cur + width]
@@ -266,6 +255,7 @@ class MessageType1(Payload):
             else:
                 raise ValueError()
 
+            val = converter(val) if converter is not None else val
             kwargs[field.name] = val
 
             if end >= len(bit_arr):
@@ -274,6 +264,58 @@ class MessageType1(Payload):
             cur = end
 
         return cls(**kwargs)
+
+
+#
+# Conversion functions
+#
+
+def from_speed(v: int) -> float:
+    return float(v) * 10.0
+
+
+def to_speed(v: int) -> float:
+    return v / 10.0
+
+
+def from_lat_lon(v: int) -> float:
+    return float(v) * 600000.0
+
+
+def to_lat_lon(v: int) -> float:
+    return float(v) / 600000.0
+
+
+def from_course(v: int) -> float:
+    return float(v) * 10.0
+
+
+def to_course(v: int) -> float:
+    return v / 10.0
+
+
+@attr.s(slots=True)
+class MessageType1(Payload):
+    """
+    AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
+    """
+    msg_type = bit_field(6, int, default=1)
+    repeat = bit_field(2, int, default=0)
+    mmsi = bit_field(30, int)
+    status = bit_field(4, int, default=0)
+    turn = bit_field(8, int, default=0)
+    speed = bit_field(10, int, from_converter=from_speed, to_converter=to_speed, default=0)
+    accuracy = bit_field(1, int, default=0)
+    lon = bit_field(28, int, from_converter=from_lat_lon, to_converter=to_lat_lon, default=0)
+    lat = bit_field(27, int, from_converter=from_lat_lon, to_converter=to_lat_lon, default=0)
+    course = bit_field(12, int, from_converter=from_course, to_converter=to_course, default=0)
+    heading = bit_field(9, int, default=0)
+    second = bit_field(6, int, default=0)
+    maneuver = bit_field(2, int, default=0)
+    spare = bit_field(3, int, default=0)
+    raim = bit_field(1, int, default=0)
+    radio = bit_field(19, int, default=0)
 
 
 class MessageType2(MessageType1):
@@ -308,8 +350,8 @@ class MessageType4(Payload):
     minute = bit_field(6, int, default=0)
     second = bit_field(6, int, default=0)
     accuracy = bit_field(1, int, default=0)
-    lon = bit_field(28, int, converter=lambda v: float(v) * 600000.0, default=0)
-    lat = bit_field(27, int, converter=lambda v: float(v) * 600000.0, default=0)
+    lon = bit_field(28, int, from_converter=lambda v: float(v) * 600000.0, default=0)
+    lat = bit_field(27, int, from_converter=lambda v: float(v) * 600000.0, default=0)
     epfd = bit_field(4, int, default=0)
     spare = bit_field(10, int, default=0)
     raim = bit_field(1, int, default=0)
@@ -339,7 +381,7 @@ class MessageType5(Payload):
     day = bit_field(5, int, default=0)
     hour = bit_field(5, int, default=0)
     minute = bit_field(6, int, default=0)
-    draught = bit_field(8, int, converter=lambda v: float(v) * 10.0, default=0)
+    draught = bit_field(8, int, from_converter=lambda v: float(v) * 10.0, default=0)
     destination = bit_field(120, str, default='')
     dte = bit_field(1, int, default=0)
     spare = bit_field(1, int, default=0)
@@ -360,7 +402,7 @@ class MessageType6(Payload):
     spare = bit_field(1, int, default=0)
     dac = bit_field(10, int, default=0)
     fid = bit_field(6, int, default=0)
-    data = bit_field(920, int, default=0, converter=int_to_bytes)
+    data = bit_field(920, int, default=0, from_converter=int_to_bytes)
 
 
 @attr.s(slots=True)
@@ -395,7 +437,7 @@ class MessageType8(Payload):
     spare = bit_field(2, int, default=0)
     dac = bit_field(10, int, default=0)
     fid = bit_field(6, int, default=0)
-    data = bit_field(952, int, default=0, converter=int_to_bytes)
+    data = bit_field(952, int, default=0, from_converter=int_to_bytes)
 
 
 @attr.s(slots=True)
@@ -410,9 +452,9 @@ class MessageType9(Payload):
     alt = bit_field(12, int, default=0)
     speed = bit_field(10, int, default=0)
     accuracy = bit_field(1, int, default=0)
-    lon = bit_field(28, int, converter=lambda v: float(v) * 600000.0, default=0)
-    lat = bit_field(27, int, converter=lambda v: float(v) * 600000.0, default=0)
-    course = bit_field(12, int, converter=lambda v: float(v) * 10.0, default=0)
+    lon = bit_field(28, int, from_converter=lambda v: float(v) * 600000.0, default=0)
+    lat = bit_field(27, int, from_converter=lambda v: float(v) * 600000.0, default=0)
+    course = bit_field(12, int, from_converter=lambda v: float(v) * 10.0, default=0)
     second = bit_field(6, int, default=0)
     reserved = bit_field(8, int, default=0)
     dte = bit_field(1, int, default=0)
@@ -533,10 +575,10 @@ class MessageType17(Payload):
     repeat = bit_field(2, int, default=0)
     mmsi = bit_field(30, int)
     spare_1 = bit_field(2, int, default=0)
-    lon = bit_field(18, int, converter=lambda v: float(v) * 10.0, default=0)
-    lat = bit_field(17, int, converter=lambda v: float(v) * 10.0, default=0)
+    lon = bit_field(18, int, from_converter=lambda v: float(v) * 10.0, default=0)
+    lat = bit_field(17, int, from_converter=lambda v: float(v) * 10.0, default=0)
     spare_2 = bit_field(5, int, default=0)
-    data = bit_field(736, int, default=0, converter=int_to_bytes)
+    data = bit_field(736, int, default=0, from_converter=int_to_bytes)
 
 
 @attr.s(slots=True)
@@ -551,9 +593,9 @@ class MessageType18(Payload):
     reserved = bit_field(8, int, default=0)
     speed = bit_field(10, int, default=0)
     accuracy = bit_field(1, int, default=0)
-    lon = bit_field(28, int, converter=lambda v: float(v) * 600000.0, default=0)
-    lat = bit_field(27, int, converter=lambda v: float(v) * 600000.0, default=0)
-    course = bit_field(12, int, converter=lambda v: float(v) * 10.0, default=0)
+    lon = bit_field(28, int, from_converter=lambda v: float(v) * 600000.0, default=0)
+    lat = bit_field(27, int, from_converter=lambda v: float(v) * 600000.0, default=0)
+    course = bit_field(12, int, from_converter=lambda v: float(v) * 10.0, default=0)
     heading = bit_field(9, int, default=0)
     second = bit_field(6, int, default=0)
     reserved_2 = bit_field(2, int, default=0)
@@ -577,11 +619,11 @@ class MessageType19(Payload):
     repeat = bit_field(2, int, default=0)
     mmsi = bit_field(30, int)
     reserved = bit_field(8, int, default=0)
-    speed = bit_field(10, int, converter=lambda v: float(v) * 10.0, default=0)
+    speed = bit_field(10, int, from_converter=lambda v: float(v) * 10.0, default=0)
     accuracy = bit_field(1, int, default=0)
-    lon = bit_field(28, int, converter=lambda v: float(v) * 600000.0, default=0)
-    lat = bit_field(27, int, converter=lambda v: float(v) * 600000.0, default=0)
-    course = bit_field(12, int, converter=lambda v: float(v) * 10.0, default=0)
+    lon = bit_field(28, int, from_converter=lambda v: float(v) * 600000.0, default=0)
+    lat = bit_field(27, int, from_converter=lambda v: float(v) * 600000.0, default=0)
+    course = bit_field(12, int, from_converter=lambda v: float(v) * 10.0, default=0)
     heading = bit_field(9, int, default=0)
     second = bit_field(6, int, default=0)
     regional = bit_field(4, int, default=0)
@@ -643,8 +685,8 @@ class MessageType21(Payload):
     aid_type = bit_field(5, int, default=0)
     shipname = bit_field(120, str, default='')
     accuracy = bit_field(1, bool, default=0)
-    lon = bit_field(28, int, converter=lambda v: float(v) * 600000.0, default=0)
-    lat = bit_field(27, int, converter=lambda v: float(v) * 600000.0, default=0)
+    lon = bit_field(28, int, from_converter=lambda v: float(v) * 600000.0, default=0)
+    lat = bit_field(27, int, from_converter=lambda v: float(v) * 600000.0, default=0)
     to_bow = bit_field(9, int, default=0)
     to_stern = bit_field(9, int, default=0)
     to_port = bit_field(6, int, default=0)
@@ -710,10 +752,10 @@ class MessageType22Broadcast(Payload):
     # If the message is broadcast (addressed field is 0),
     # the ne_lon, ne_lat, sw_lon, and sw_lat fields are the
     # corners of a rectangular jurisdiction area over which control parameter
-    ne_lon = bit_field(18, int, converter=lambda v: float(v) * 10.0, default=0)
-    ne_lat = bit_field(17, int, converter=lambda v: float(v) * 10.0, default=0)
-    sw_lon = bit_field(18, int, converter=lambda v: float(v) * 10.0, default=0)
-    sw_lat = bit_field(17, int, converter=lambda v: float(v) * 10.0, default=0)
+    ne_lon = bit_field(18, int, from_converter=lambda v: float(v) * 10.0, default=0)
+    ne_lat = bit_field(17, int, from_converter=lambda v: float(v) * 10.0, default=0)
+    sw_lon = bit_field(18, int, from_converter=lambda v: float(v) * 10.0, default=0)
+    sw_lat = bit_field(17, int, from_converter=lambda v: float(v) * 10.0, default=0)
 
     addressed = bit_field(1, bool, default=0)
     band_a = bit_field(1, bool, default=0)
@@ -752,10 +794,10 @@ class MessageType23(Payload):
     mmsi = bit_field(30, int)
     spare_1 = bit_field(2, int, default=0)
 
-    ne_lon = bit_field(18, int, converter=lambda v: float(v) * 10.0, default=0)
-    ne_lat = bit_field(17, int, converter=lambda v: float(v) * 10.0, default=0)
-    sw_lon = bit_field(18, int, converter=lambda v: float(v) * 10.0, default=0)
-    sw_lat = bit_field(17, int, converter=lambda v: float(v) * 10.0, default=0)
+    ne_lon = bit_field(18, int, from_converter=lambda v: float(v) * 10.0, default=0)
+    ne_lat = bit_field(17, int, from_converter=lambda v: float(v) * 10.0, default=0)
+    sw_lon = bit_field(18, int, from_converter=lambda v: float(v) * 10.0, default=0)
+    sw_lat = bit_field(17, int, from_converter=lambda v: float(v) * 10.0, default=0)
 
     station_type = bit_field(4, int, default=0)
     ship_type = bit_field(8, int, default=0)
@@ -832,7 +874,7 @@ class MessageType25AddressedStructured(Payload):
 
     dest_mmsi = bit_field(30, int, default=0)
     app_id = bit_field(16, int, default=0)
-    data = bit_field(82, int, default=0, converter=int_to_bytes)
+    data = bit_field(82, int, default=0, from_converter=int_to_bytes)
 
 
 @attr.s(slots=True)
@@ -845,7 +887,7 @@ class MessageType25BroadcastStructured(Payload):
     structured = bit_field(1, bool, default=0)
 
     app_id = bit_field(16, int, default=0)
-    data = bit_field(112, int, default=0, converter=int_to_bytes)
+    data = bit_field(112, int, default=0, from_converter=int_to_bytes)
 
 
 @attr.s(slots=True)
@@ -858,7 +900,7 @@ class MessageType25AddressedUnstructured(Payload):
     structured = bit_field(1, bool, default=0)
 
     dest_mmsi = bit_field(30, int, default=0)
-    data = bit_field(98, int, default=0, converter=int_to_bytes)
+    data = bit_field(98, int, default=0, from_converter=int_to_bytes)
 
 
 @attr.s(slots=True)
@@ -870,7 +912,7 @@ class MessageType25BroadcastUnstructured(Payload):
     addressed = bit_field(1, bool, default=0)
     structured = bit_field(1, bool, default=0)
 
-    data = bit_field(128, int, default=0, converter=int_to_bytes)
+    data = bit_field(128, int, default=0, from_converter=int_to_bytes)
 
 
 class MessageType25(Payload):
@@ -911,7 +953,7 @@ class MessageType26AddressedStructured(Payload):
 
     dest_mmsi = bit_field(30, int, default=0)
     app_id = bit_field(16, int, default=0)
-    data = bit_field(958, int, default=0, converter=int_to_bytes)
+    data = bit_field(958, int, default=0, from_converter=int_to_bytes)
     radio = bit_field(20, int, default=0)
 
 
@@ -925,7 +967,7 @@ class MessageType26BroadcastStructured(Payload):
     structured = bit_field(1, bool, default=0)
 
     app_id = bit_field(16, int, default=0)
-    data = bit_field(988, int, default=0, converter=int_to_bytes)
+    data = bit_field(988, int, default=0, from_converter=int_to_bytes)
     radio = bit_field(20, int, default=0)
 
 
@@ -940,7 +982,7 @@ class MessageType26AddressedUnstructured(Payload):
 
     dest_mmsi = bit_field(30, int, default=0)
     app_id = bit_field(16, int, default=0)
-    data = bit_field(958, int, default=0, converter=int_to_bytes)
+    data = bit_field(958, int, default=0, from_converter=int_to_bytes)
     radio = bit_field(20, int, default=0)
 
 
@@ -953,7 +995,7 @@ class MessageType26BroadcastUnstructured(Payload):
     addressed = bit_field(1, bool, default=0)
     structured = bit_field(1, bool, default=0)
 
-    data = bit_field(1004, int, default=0, converter=int_to_bytes)
+    data = bit_field(1004, int, default=0, from_converter=int_to_bytes)
     radio = bit_field(20, int, default=0)
 
 
@@ -997,8 +1039,8 @@ class MessageType27(Payload):
     accuracy = bit_field(1, int, default=0)
     raim = bit_field(1, int, default=0)
     status = bit_field(4, int, default=0)
-    lon = bit_field(18, int, converter=lambda v: float(v) * 600.0, default=0)
-    lat = bit_field(17, int, converter=lambda v: float(v) * 600.0, default=0)
+    lon = bit_field(18, int, from_converter=lambda v: float(v) * 600.0, default=0)
+    lat = bit_field(17, int, from_converter=lambda v: float(v) * 600.0, default=0)
     speed = bit_field(6, int, default=0)
     course = bit_field(9, int, default=0)
     gnss = bit_field(1, int, default=0)
