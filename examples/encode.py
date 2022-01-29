@@ -1,4 +1,4 @@
-from pyais.encode import MessageType5, encode_payload
+from pyais.encode import MessageType5, encode_msg
 
 from pyais.encode import encode_dict
 
@@ -13,5 +13,5 @@ encoded = encode_dict(data, radio_channel="B", talker_id="AIVDM")[0]
 
 # It is also possible to create messages directly and pass them to `encode_payload`
 payload = MessageType5.create(mmsi="123", shipname="Titanic", callsign="TITANIC", destination="New York")
-encoded = encode_payload(payload)
+encoded = encode_msg(payload)
 print(encoded)

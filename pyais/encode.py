@@ -133,12 +133,12 @@ def encode_dict(data: DATA_DICT, talker_id: str = "AIVDO", radio_channel: str = 
     return ais_to_nmea_0183(armored_payload, talker_id, radio_channel, fill_bits)
 
 
-def encode_payload(payload: Payload, talker_id: str = "AIVDO", radio_channel: str = "A") -> AIS_SENTENCES:
+def encode_msg(msg: Payload, talker_id: str = "AIVDO", radio_channel: str = "A") -> AIS_SENTENCES:
     if talker_id not in ("AIVDM", "AIVDO"):
         raise ValueError("talker_id must be any of ['AIVDM', 'AIVDO']")
 
     if radio_channel not in ('A', 'B'):
         raise ValueError("radio_channel must be any of ['A', 'B']")
 
-    armored_payload, fill_bits = payload.encode()
+    armored_payload, fill_bits = msg.encode()
     return ais_to_nmea_0183(armored_payload, talker_id, radio_channel, fill_bits)

@@ -2,7 +2,7 @@ import unittest
 
 import bitarray
 
-from pyais import encode_dict, encode_payload
+from pyais import encode_dict, encode_msg
 from pyais.decode import decode
 from pyais.encode import data_to_payload, get_ais_type, ENCODE_MSG
 from pyais.messages import MessageType1, MessageType26BroadcastUnstructured, MessageType26AddressedUnstructured, \
@@ -127,12 +127,12 @@ def test_invalid_talker_id():
 
 def test_encode_payload_invalid_talker_id():
     with unittest.TestCase().assertRaises(ValueError) as err:
-        encode_payload({'mmsi': 123456}, talker_id="AIDDD")
+        encode_msg({'mmsi': 123456}, talker_id="AIDDD")
 
     assert str(err.exception) == "talker_id must be any of ['AIVDM', 'AIVDO']"
 
     with unittest.TestCase().assertRaises(ValueError) as err:
-        encode_payload({'mmsi': 123456}, talker_id=None)
+        encode_msg({'mmsi': 123456}, talker_id=None)
 
     assert str(err.exception) == "talker_id must be any of ['AIVDM', 'AIVDO']"
 
@@ -151,12 +151,12 @@ def test_invalid_radio_channel():
 
 def test_encode_payload_error_radio():
     with unittest.TestCase().assertRaises(ValueError) as err:
-        encode_payload({'mmsi': 123456}, radio_channel="C")
+        encode_msg({'mmsi': 123456}, radio_channel="C")
 
     assert str(err.exception) == "radio_channel must be any of ['A', 'B']"
 
     with unittest.TestCase().assertRaises(ValueError) as err:
-        encode_payload({'mmsi': 123456}, radio_channel=None)
+        encode_msg({'mmsi': 123456}, radio_channel=None)
 
     assert str(err.exception) == "radio_channel must be any of ['A', 'B']"
 
@@ -343,7 +343,7 @@ def test_encode_type_24_b():
         'partno': 1,
         'repeat': 0,
         'serial': 199729,
-        'shiptype': 37,  # PleasureCraft
+        'ship_type': 37,  # PleasureCraft
         'to_bow': 0,
         'to_port': 0,
         'to_starboard': 0,
@@ -501,7 +501,7 @@ def test_encode_type_19():
     }
 
     encoded = encode_dict(data)
-    assert encoded[0] == "!AIVDO,1,1,,A,C5N3SRP0=nJGEBT>NhWAwwo862PaLELTBJ:V00000000S0D:R220,0*25"
+    assert encoded[0] == "!AIVDO,1,1,,A,C5N3SRP0=nJGEBT>NhWAwwo862PaLELTBJ:V0000000000D:R220,0*46"
 
 
 def test_encode_type_18():
@@ -822,8 +822,8 @@ def test_encode_type_5():
     }
 
     encoded_part_1 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[0]
-    encoded_part_2 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[1]
-    assert encoded_part_1 == "!AIVDM,2,1,,B,55?MbV02;H;s<HtKP00EHE:0@T4@Dl0000000016L961O5Gf0NSQEp6ClRh00,2*0E"
+    encoded_part_2 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[1]#
+    assert encoded_part_1 == "!AIVDM,2,1,,B,55?MbV02;H;s<HtKP00EHE:0@T4@Dl0000000000L961O5Gf0NSQEp6ClRh00,2*09"
     assert encoded_part_2 == "!AIVDM,2,2,,B,0000000000,2*27"
 
 
@@ -920,19 +920,19 @@ def test_encode_type_1():
 
 def test_mmsi_too_long():
     msg = MessageType1.create(mmsi=1 << 35)
-    encoded = encode_payload(msg)
+    encoded = encode_msg(msg)
     assert encoded[0] == "!AIVDO,1,1,,A,1?wwwwh000000000000000000000,0*72"
 
 
 def test_lon_too_large():
     msg = MessageType1.create(mmsi="123", lon=1 << 30)
-    encoded = encode_payload(msg)
+    encoded = encode_msg(msg)
     assert encoded[0] == "!AIVDO,1,1,,A,10000Nh000Owwwv0000000000000,0*7D"
 
 
 def test_ship_name_too_lon():
     msg = MessageType5.create(mmsi="123", shipname="Titanic Titanic Titanic")
-    encoded = encode_payload(msg)
+    encoded = encode_msg(msg)
     assert encoded[0] == "!AIVDO,2,1,,A,50000Nh000000000001@U@4pT>1@U@4pT>1@U@40000000000000000000000,2*56"
     assert encoded[1] == "!AIVDO,2,2,,A,0000000000,2*26"
 
