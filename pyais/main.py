@@ -99,7 +99,7 @@ def decode_from_socket(args: argparse.Namespace) -> int:
     with stream_cls(args.destination, args.port) as s:
         try:
             for msg in s:
-                decoded_message = msg.decode(silent=True)
+                decoded_message = msg.decode()
                 print(decoded_message, file=args.out_file)
         except KeyboardInterrupt:
             # Catch KeyboardInterrupts in order to close the socket and free associated resources
@@ -131,7 +131,7 @@ def decode_from_file(args: argparse.Namespace) -> int:
     with BinaryIOStream(file) as s:
         try:
             for msg in s:
-                decoded_message = msg.decode(silent=True)
+                decoded_message = msg.decode()
                 print(decoded_message, file=args.out_file)
         except KeyboardInterrupt:
             # Catch KeyboardInterrupts in order to close the file descriptor and free associated resources

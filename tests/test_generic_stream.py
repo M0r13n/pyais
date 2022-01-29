@@ -105,7 +105,7 @@ class TestIterMessages(unittest.TestCase):
             b'!AIVDM,2,2,9,A,F@V@00000000000,2*3D',
         ]
 
-        decoded = [msg.decode() for msg in IterMessages(messages)]
+        decoded = [msg.decode().asdict() for msg in IterMessages(messages)]
 
         self.assertEqual(2, len(decoded))
         self.assertTrue(all(d["mmsi"] == "210035000" for d in decoded))

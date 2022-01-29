@@ -8,7 +8,7 @@ from bitarray import bitarray
 
 from pyais.constants import TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
     TransmitMode, StationIntervals
-from pyais.exceptions import InvalidNMEAMessageException
+from pyais.exceptions import InvalidNMEAMessageException, UnknownMessageException
 from pyais.util import decode_into_bit_array, compute_checksum, deprecated, int_to_bin, str_to_bin, \
     encode_ascii_6, from_bytes, int_to_bytes, from_bytes_signed, decode_bin_as_ascii6, get_int
 
@@ -113,7 +113,7 @@ def bit_field(width: int, d_type: typing.Type[typing.Any],
               to_converter: typing.Optional[typing.Callable[[typing.Any], typing.Any]] = None,
               default: typing.Optional[typing.Any] = None,
               signed: bool = False,
-              **kwargs) -> typing.Any:
+              **kwargs: typing.Any) -> typing.Any:
     """
     Simple wrapper around the attr.ib interface to be used in conjunction with the Payload class.
 
@@ -122,6 +122,7 @@ def bit_field(width: int, d_type: typing.Type[typing.Any],
     @param from_converter:      Optional converter function called **before** encoding
     @param to_converter:        Optional converter function called **after** decoding
     @param default:             Optional default value to be used when no value is explicitly passed.
+    @param signed:              Set to true if the value is a signed integer
     @return:                    An attr.ib field instance.
     """
     return attr.ib(
@@ -321,6 +322,22 @@ class NMEAMessage(object):
         """
         return self.payload
 
+    def decode(self) -> "ANY_MESSAGE":
+        """
+        Decode the NMEA message.
+        @return: The decoded message class as a superclass of `Payload`.
+
+        >>> nmea = NMEAMessage(b"!AIVDO,1,1,,,B>qc:003wk?8mP=18D3Q3wgTiT;T,0*13").decode()
+        MessageType18(msg_type=18, repeat=0, mmsi='1000000000', reserved=0, speed=1023,
+         accuracy=0, lon=181.0, lat=91.0, course=360.0, heading=511, second=31,
+         reserved_2=0, cs=True, display=False, dsc=False, band=True, msg22=True,
+         assigned=False, raim=False, radio=410340)
+        """
+        try:
+            return MSG_CLASS[self.ais_id].from_bitarray(self.bit_array)
+        except KeyError as e:
+            raise UnknownMessageException(f"The message {self} is not supported!") from e
+
 
 @attr.s(slots=True)
 class Payload(abc.ABC):
@@ -371,7 +388,7 @@ class Payload(abc.ABC):
         return encode_ascii_6(bit_arr)
 
     @classmethod
-    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "Payload":
+    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
         """
         Create a new instance of each Payload class.
         @param kwargs: A set of keywords. For each field of `cls` a keyword with the same
@@ -392,13 +409,13 @@ class Payload(abc.ABC):
                 default = field.metadata['default']
                 if default is not None:
                     args[key] = default
-        return cls(**args)
+        return cls(**args)  # type:ignore
 
     @classmethod
-    def from_bitarray(cls, bit_arr: bitarray) -> "Payload":
-        cur = 0
-        end = 0
-        kwargs = {}
+    def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
+        cur: int = 0
+        end: int = 0
+        kwargs: typing.Dict[str, typing.Any] = {}
 
         # Iterate over the bits until the last bit of the bitarray or all fields are fully decoded
         for field in cls.fields():
@@ -413,6 +430,7 @@ class Payload(abc.ABC):
             end = min(len(bit_arr), cur + width)
             bits = bit_arr[cur: end]
 
+            val: typing.Any
             # Get the correct data type and decoding function
             if d_type == int or d_type == bool:
                 shift = (8 - ((end - cur) % 8)) % 8
@@ -432,9 +450,9 @@ class Payload(abc.ABC):
 
             cur = end
 
-        return cls(**kwargs)
+        return cls(**kwargs)  # type:ignore
 
-    def asdict(self):
+    def asdict(self) -> typing.Dict[str, typing.Any]:
         d = {}
         for field in self.fields():
             d[field.name] = getattr(self, field.name)
@@ -452,7 +470,7 @@ class Payload(abc.ABC):
 #
 
 def from_speed(v: int) -> NavigationStatus:
-    return NavigationStatus(float(v) * 10.0)
+    return NavigationStatus(int(v * 10.0))
 
 
 def to_speed(v: int) -> float:
@@ -483,11 +501,11 @@ def to_course(v: int) -> float:
     return v / 10.0
 
 
-def from_mmsi(v: typing.Union[str, int]):
+def from_mmsi(v: typing.Union[str, int]) -> int:
     return int(v)
 
 
-def to_mmsi(v: typing.Union[str, int]):
+def to_mmsi(v: typing.Union[str, int]) -> str:
     return str(v).zfill(9)
 
 
@@ -973,14 +991,14 @@ class MessageType22(Payload):
     """
 
     @classmethod
-    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "Payload":
+    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
         if kwargs.get('addressed', False):
             return MessageType22Addressed.create(**kwargs)
         else:
             return MessageType22Broadcast.create(**kwargs)
 
     @classmethod
-    def from_bitarray(cls, bit_arr: bitarray) -> "Payload":
+    def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
         if bit_arr[139]:
             return MessageType22Addressed.from_bitarray(bit_arr)
         else:
@@ -1057,7 +1075,7 @@ class MessageType24(Payload):
     """
 
     @classmethod
-    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "Payload":
+    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
         partno: int = int(kwargs.get('partno', 0))
         if partno == 0:
             return MessageType24PartA.create(**kwargs)
@@ -1067,7 +1085,7 @@ class MessageType24(Payload):
             raise ValueError(f"Partno {partno} is not allowed!")
 
     @classmethod
-    def from_bitarray(cls, bit_arr: bitarray) -> "Payload":
+    def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
         partno: int = get_int(bit_arr, 38, 40)
         if partno == 0:
             return MessageType24PartA.from_bitarray(bit_arr)
@@ -1140,7 +1158,7 @@ class MessageType25(Payload):
     """
 
     @classmethod
-    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "Payload":
+    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
         addressed = kwargs.get('addressed', False)
         structured = kwargs.get('structured', False)
 
@@ -1156,7 +1174,7 @@ class MessageType25(Payload):
                 return MessageType25BroadcastUnstructured.create(**kwargs)
 
     @classmethod
-    def from_bitarray(cls, bit_arr: bitarray) -> "Payload":
+    def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
         addressed: int = bit_arr[38]
         structured: int = bit_arr[39]
 
@@ -1240,7 +1258,7 @@ class MessageType26(Payload):
     """
 
     @classmethod
-    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "Payload":
+    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
         addressed = kwargs.get('addressed', False)
         structured = kwargs.get('structured', False)
 
@@ -1256,7 +1274,7 @@ class MessageType26(Payload):
                 return MessageType26BroadcastUnstructured.create(**kwargs)
 
     @classmethod
-    def from_bitarray(cls, bit_arr: bitarray) -> "Payload":
+    def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
         addressed: int = bit_arr[38]
         structured: int = bit_arr[39]
 
@@ -1291,3 +1309,66 @@ class MessageType27(Payload):
     course = bit_field(9, int, default=0)
     gnss = bit_field(1, int, default=0)
     spare = bit_field(1, int, default=0)
+
+
+MSG_CLASS = {
+    0: MessageType1,  # there are messages with a zero (0) as an id. these seem to be the same as type 1 messages
+    1: MessageType1,
+    2: MessageType2,
+    3: MessageType3,
+    4: MessageType4,
+    5: MessageType5,
+    6: MessageType6,
+    7: MessageType7,
+    8: MessageType8,
+    9: MessageType9,
+    10: MessageType10,
+    11: MessageType11,
+    12: MessageType12,
+    13: MessageType13,
+    14: MessageType14,
+    15: MessageType15,
+    16: MessageType16,
+    17: MessageType17,
+    18: MessageType18,
+    19: MessageType19,
+    20: MessageType20,
+    21: MessageType21,
+    22: MessageType22,
+    23: MessageType23,
+    24: MessageType24,
+    25: MessageType25,
+    26: MessageType26,
+    27: MessageType27,
+}
+
+# This is type hint for all messages
+ANY_MESSAGE = typing.Union[
+    MessageType1,
+    MessageType2,
+    MessageType3,
+    MessageType4,
+    MessageType5,
+    MessageType6,
+    MessageType7,
+    MessageType8,
+    MessageType9,
+    MessageType10,
+    MessageType11,
+    MessageType12,
+    MessageType13,
+    MessageType14,
+    MessageType15,
+    MessageType16,
+    MessageType17,
+    MessageType18,
+    MessageType19,
+    MessageType20,
+    MessageType21,
+    MessageType22,
+    MessageType23,
+    MessageType24,
+    MessageType25,
+    MessageType26,
+    MessageType27,
+]

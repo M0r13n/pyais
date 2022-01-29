@@ -1,46 +1,12 @@
 import math
 import typing
 
-from pyais.messages import MessageType1, MessageType27, MessageType26, MessageType25, MessageType24, MessageType23, \
-    MessageType22, MessageType21, MessageType20, MessageType19, MessageType18, MessageType17, MessageType16, \
-    MessageType15, MessageType14, MessageType13, MessageType12, MessageType11, MessageType10, MessageType9, \
-    MessageType2, MessageType3, MessageType4, MessageType5, MessageType6, MessageType7, MessageType8, Payload
+from pyais.messages import Payload, MSG_CLASS
 from pyais.util import chunks, compute_checksum
 
 # Types
 DATA_DICT = typing.Dict[str, typing.Union[str, int, float, bytes, bool]]
 AIS_SENTENCES = typing.List[str]
-
-ENCODE_MSG = {
-    0: MessageType1,  # there are messages with a zero (0) as an id. these seem to be the same as type 1 messages
-    1: MessageType1,
-    2: MessageType2,
-    3: MessageType3,
-    4: MessageType4,
-    5: MessageType5,
-    6: MessageType6,
-    7: MessageType7,
-    8: MessageType8,
-    9: MessageType9,
-    10: MessageType10,
-    11: MessageType11,
-    12: MessageType12,
-    13: MessageType13,
-    14: MessageType14,
-    15: MessageType15,
-    16: MessageType16,
-    17: MessageType17,
-    18: MessageType18,
-    19: MessageType19,
-    20: MessageType20,
-    21: MessageType21,
-    22: MessageType22,
-    23: MessageType23,
-    24: MessageType24,
-    25: MessageType25,
-    26: MessageType26,
-    27: MessageType27,
-}
 
 
 def get_ais_type(data: DATA_DICT) -> int:
@@ -62,7 +28,7 @@ def get_ais_type(data: DATA_DICT) -> int:
 
 def data_to_payload(ais_type: int, data: DATA_DICT) -> Payload:
     try:
-        return ENCODE_MSG[ais_type].create(**data)
+        return MSG_CLASS[ais_type].create(**data)
     except KeyError as err:
         raise ValueError(f"AIS message type {ais_type} is not supported") from err
 

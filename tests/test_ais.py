@@ -5,6 +5,8 @@ from pyais import NMEAMessage
 from pyais.ais_types import AISType
 from pyais.constants import ManeuverIndicator, NavigationStatus, ShipType, NavAid, EpfdType, StationType, TransmitMode
 from pyais.decode import decode
+from pyais.exceptions import UnknownMessageException
+from pyais.messages import MessageType18
 from pyais.stream import ByteStream
 
 
@@ -187,7 +189,7 @@ class TestAIS(unittest.TestCase):
         assert msg['mmsi'] == "150834090"
         assert msg['dac'] == 669
         assert msg['fid'] == 11
-        assert msg['retransmit'] == False
+        assert not msg['retransmit']
         assert msg['data'] == 258587390607345
 
     def test_msg_type_7(self):
@@ -576,7 +578,7 @@ class TestAIS(unittest.TestCase):
         ]
         counter = 0
         for msg in ByteStream(messages):
-            decoded = decode(msg)
+            decoded = msg.decode().asdict()
             assert decoded['shipname'] == 'NORDIC HAMBURG'
             assert decoded['mmsi'] == "210035000"
             assert decoded
@@ -629,3 +631,15 @@ class TestAIS(unittest.TestCase):
         self.assertEqual(content["minute"], 0)
         self.assertEqual(content["draught"], 4.7)
         self.assertEqual(content["destination"], "VIANA DO CASTELO")
+
+    def test_nmea_decode(self):
+        nmea = NMEAMessage(b"!AIVDO,1,1,,,B>qc:003wk?8mP=18D3Q3wgTiT;T,0*13")
+        decoded = nmea.decode()
+        assert decoded.msg_type == 18
+        assert isinstance(decoded, MessageType18)
+
+    def test_nmea_decode_unknown_msg(self):
+        with self.assertRaises(UnknownMessageException):
+            nmea = NMEAMessage(b"!AIVDO,1,1,,,B>qc:003wk?8mP=18D3Q3wgTiT;T,0*13")
+            nmea.ais_id = 28
+            nmea.decode()

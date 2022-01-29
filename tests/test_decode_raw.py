@@ -1,13 +1,13 @@
 import unittest
 
-from pyais import decode_msg
+from pyais.decode import decode
 from pyais.exceptions import InvalidNMEAMessageException, MissingMultipartMessageException, TooManyMessagesException
 
 
 class TestDecode(unittest.TestCase):
 
     def test_bytes_valid(self):
-        msg = decode_msg(b"!AIVDM,1,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")
+        msg = decode(b"!AIVDM,1,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28").asdict()
         self.assertIsNotNone(msg)
         self.assertIsInstance(msg, dict)
         self.assertEqual(msg['mmsi'], "003669713")
@@ -15,10 +15,10 @@ class TestDecode(unittest.TestCase):
 
     def test_bytes_invalid(self):
         with self.assertRaises(InvalidNMEAMessageException):
-            decode_msg(b"!AIVDM,1,1,,A")
+            decode(b"!AIVDM,1,1,,A")
 
     def test_str_valid(self):
-        msg = decode_msg("!AIVDM,1,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")
+        msg = decode("!AIVDM,1,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28").asdict()
         self.assertIsNotNone(msg)
         self.assertIsInstance(msg, dict)
         self.assertEqual(msg['mmsi'], "003669713")
@@ -26,12 +26,12 @@ class TestDecode(unittest.TestCase):
 
     def test_str_invalid(self):
         with self.assertRaises(InvalidNMEAMessageException):
-            decode_msg("AIVDM,1,1,,A")
+            decode("AIVDM,1,1,,A")
 
     def test_decode_total_garbage(self):
         def should_raise(msg):
             with self.assertRaises(InvalidNMEAMessageException):
-                decode_msg(msg)
+                decode(msg)
 
         should_raise("")
         should_raise("1234567890")
@@ -53,20 +53,19 @@ class TestDecode(unittest.TestCase):
         should_raise(f"{'A' * 82}")
 
     def test_decode_multiline_message(self):
-        decoded = decode_msg(
+        decoded = decode(
             b'!AIVDM,2,1,1,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*07',
             b'!AIVDM,2,2,1,A,F@V@00000000000,2*35',
         )
 
-        self.assertIsInstance(decoded, dict)
-        self.assertEqual(decoded["mmsi"], "210035000")
-        self.assertEqual(decoded["callsign"], "5BXT2")
-        self.assertEqual(decoded["shipname"], "NORDIC HAMBURG")
-        self.assertEqual(decoded["destination"], "CTT-LAYBY")
+        self.assertEqual(decoded.mmsi, "210035000")
+        self.assertEqual(decoded.callsign, "5BXT2")
+        self.assertEqual(decoded.shipname, "NORDIC HAMBURG")
+        self.assertEqual(decoded.destination, "CTT-LAYBY")
 
     def test_too_many_messages(self):
         with self.assertRaises(TooManyMessagesException) as err:
-            decode_msg(
+            decode(
                 b'!AIVDM,2,1,1,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*07',
                 b'!AIVDM,2,2,1,A,F@V@00000000000,2*35',
                 b'!AIVDM,2,1,9,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*0F',
@@ -80,20 +79,20 @@ class TestDecode(unittest.TestCase):
         msg_2 = "!AIVDM,2,2,0,A,00000000000,2*24"
 
         with self.assertRaises(MissingMultipartMessageException) as err:
-            decode_msg(msg_1)
+            decode(msg_1)
         self.assertEqual(str(err.exception), "Missing fragment numbers: [2]")
 
         with self.assertRaises(MissingMultipartMessageException) as err:
-            decode_msg(msg_2)
+            decode(msg_2)
         self.assertEqual(str(err.exception), "Missing fragment numbers: [1]")
 
         with self.assertRaises(MissingMultipartMessageException) as err:
-            decode_msg(
+            decode(
                 "!AIVDM,3,2,0,A,539p4OT00000@7W3K@08ThiLE8@E:0000000001S0h9135Pl?0R0C@UDQp00,0*68",
             )
         self.assertEqual(str(err.exception), "Missing fragment numbers: [1, 3]")
 
-        decode_msg(
+        decode(
             msg_1,
             msg_2
         )

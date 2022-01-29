@@ -4,13 +4,14 @@ import bitarray
 
 from pyais import encode_dict, encode_msg
 from pyais.decode import decode
-from pyais.encode import data_to_payload, get_ais_type, ENCODE_MSG
+from pyais.encode import data_to_payload, get_ais_type
 from pyais.messages import MessageType1, MessageType26BroadcastUnstructured, MessageType26AddressedUnstructured, \
     MessageType26BroadcastStructured, MessageType26AddressedStructured, MessageType25BroadcastUnstructured, \
     MessageType25AddressedUnstructured, MessageType25BroadcastStructured, MessageType25AddressedStructured, \
     MessageType24PartB, MessageType24PartA, MessageType22Broadcast, MessageType22Addressed, MessageType27, \
     MessageType23, MessageType21, MessageType20, MessageType19, MessageType18, MessageType17, MessageType16, \
-    MessageType15, MessageType4, MessageType5, MessageType6, MessageType7, MessageType8, MessageType2, MessageType3
+    MessageType15, MessageType4, MessageType5, MessageType6, MessageType7, MessageType8, MessageType2, MessageType3, \
+    MSG_CLASS
 from pyais.util import decode_bin_as_ascii6, decode_into_bit_array, str_to_bin, int_to_bin, to_six_bit, encode_ascii_6, \
     int_to_bytes
 
@@ -106,7 +107,7 @@ def test_encode_msg_table():
     """
     Make sure that each message number as the correct Message class associated
     """
-    for k, v in list(ENCODE_MSG.items())[1:]:
+    for k, v in list(MSG_CLASS.items())[1:]:
         if k < 10:
             assert str(k) == v.__name__[-1:]
         else:
@@ -232,11 +233,12 @@ def test_int_to_bin():
     assert num == "11111111"
     assert len(num) == 8
 
+
 @unittest.skip("TODO")
 def test_decode_encode():
     """Create each message with default values and test that it can be decoded again"""
     mmsi = 123
-    for typ in ENCODE_MSG.keys():
+    for typ in MSG_CLASS.keys():
         encoded = encode_dict({'mmsi': mmsi, 'dest_mmsi': 656634123, 'type': typ})
         decoded = decode(*encoded).asdict()
 
@@ -822,7 +824,7 @@ def test_encode_type_5():
     }
 
     encoded_part_1 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[0]
-    encoded_part_2 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[1]#
+    encoded_part_2 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[1]  #
     assert encoded_part_1 == "!AIVDM,2,1,,B,55?MbV02;H;s<HtKP00EHE:0@T4@Dl0000000000L961O5Gf0NSQEp6ClRh00,2*09"
     assert encoded_part_2 == "!AIVDM,2,2,,B,0000000000,2*27"
 
