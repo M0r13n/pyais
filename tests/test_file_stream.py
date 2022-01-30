@@ -12,7 +12,7 @@ class TestFileReaderStream(unittest.TestCase):
         with FileReaderStream(self.FILENAME) as stream:
             messages = [msg for msg in stream]
 
-        assert len(messages) == 7
+        self.assertEqual(len(messages), 7)
         for msg in messages:
             assert type(msg) == NMEAMessage
             assert msg.is_valid
