@@ -56,10 +56,10 @@ for msg in FileReaderStream(filename):
 It is possible to directly convert messages into JSON.
 
 ```python
-from pyais import TCPStream
+from pyais import TCPConnection
 
-for msg in TCPStream('ais.exploratorium.edu'):
-    json_data = msg.decode().to_json()
+for msg in TCPConnection('ais.exploratorium.edu'):
+  json_data = msg.decode().to_json()
 ```
 
 You can also parse a single message encoded as bytes or from a string:
@@ -83,12 +83,12 @@ Another common use case is the reception of messages via UDP. This lib comes wit
 that. This stream class also handles out-of-order delivery of messages, which can occur when using UDP.
 
 ```py
-from pyais.stream import UDPStream
+from pyais.stream import UDPReceiver
 
 host = "127.0.0.1"
 port = 55555
 
-for msg in UDPStream(host, port):
+for msg in UDPReceiver(host, port):
     msg.decode()
     # do something with it
 

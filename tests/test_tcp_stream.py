@@ -3,7 +3,7 @@ from tests.utils.timeout import time_limit
 from tests.utils.skip import is_linux
 import threading
 import unittest
-from pyais.stream import TCPStream
+from pyais.stream import TCPConnection
 
 MESSAGES = [
     b"!AIVDM,1,1,,B,133S0:0P00PCsJ:MECBR0gv:0D8N,0*7F",
@@ -46,11 +46,11 @@ class TestTCPStream(unittest.TestCase):
         self.server_thread.start()
 
     def test_default_buf_size(self):
-        self.assertEqual(TCPStream.BUF_SIZE, 4096)
+        self.assertEqual(TCPConnection.BUF_SIZE, 4096)
 
     def test_invalid_endpoint(self):
         with self.assertRaises(ConnectionRefusedError):
-            TCPStream("0.0.0.0", 55555)
+            TCPConnection("0.0.0.0", 55555)
 
     @unittest.skipIf(not is_linux(), "Skipping because Signal is not available on non unix systems!")
     @unittest.skipIf(True, "Skip for now, because there is a Threading problem")
@@ -59,7 +59,7 @@ class TestTCPStream(unittest.TestCase):
         with time_limit(2):
             self._spawn_test_server()
 
-            with TCPStream("0.0.0.0", 55555) as stream:
+            with TCPConnection("0.0.0.0", 55555) as stream:
                 for i, msg in enumerate(stream):
                     assert msg.decode()
                     # make sure all messages were received

@@ -1,12 +1,121 @@
 import pathlib
 import unittest
 from unittest.case import skip
-from pyais.stream import FileReaderStream, should_parse
+
 from pyais.messages import NMEAMessage
+from pyais.stream import FileReaderStream, should_parse, NMEASorter
 
 
 class TestFileReaderStream(unittest.TestCase):
-    FILENAME = "tests/ais_test_messages"
+    FILENAME = str(pathlib.Path(__file__).parent.joinpath("ais_test_messages").absolute())
+
+    def test_nmea_sorter_sorted(self):
+        msgs = [
+            b"!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23",
+            b"!AIVDM,1,1,,A,133sVfPP00PD>hRMDH@jNOvN20S8,0*7F",
+            b"!AIVDM,1,1,,B,100h00PP0@PHFV`Mg5gTH?vNPUIp,0*3B",
+            b"!AIVDM,2,1,1,A,55?MbV02;H;s<HtKR20EHE:0@T4@Dn2222222216L961O5Gf0NSQEp6ClRp8,0*1C",
+            b"!AIVDM,2,2,1,A,88888888880,2*25",
+            b"!AIVDM,1,1,,B,23?up2001gGRju>Ap:;R2APP08:c,0*0E",
+            b"!BSVDM,1,1,,A,15Mj23`PB`o=Of>KjvnJg8PT0L2R,0*7E",
+            b"!SAVDM,1,1,,B,35Mj2p001qo@5tVKLBWmIDJT01:@,0*33",
+            b"!AIVDM,1,1,,A,B5NWV1P0<vSE=I3QdK4bGwoUoP06,0*4F",
+            b"!SAVDM,1,1,,A,403Owi1utn1W0qMtr2AKStg020S:,0*4B",
+            b"!SAVDM,2,1,4,A,55Mub7P00001L@;SO7TI8DDltqB222222222220O0000067<0620@jhQDTVG,0*43",
+            b"!SAVDM,2,2,4,A,30H88888880,2*49",
+        ]
+        sorter = NMEASorter(msgs)
+        output = list(sorter)
+        self.assertEqual(output, msgs)
+
+    def test_nmea_sorter_unsorted(self):
+        msgs = [
+            b"!AIVDM,2,2,1,A,88888888880,2*25",
+            b"!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23",
+            b"!AIVDM,1,1,,A,133sVfPP00PD>hRMDH@jNOvN20S8,0*7F",
+            b"!AIVDM,1,1,,B,100h00PP0@PHFV`Mg5gTH?vNPUIp,0*3B",
+            b"!SAVDM,2,1,4,A,55Mub7P00001L@;SO7TI8DDltqB222222222220O0000067<0620@jhQDTVG,0*43",
+            b"!AIVDM,2,1,1,A,55?MbV02;H;s<HtKR20EHE:0@T4@Dn2222222216L961O5Gf0NSQEp6ClRp8,0*1C",
+            b"!AIVDM,1,1,,B,23?up2001gGRju>Ap:;R2APP08:c,0*0E",
+            b"!BSVDM,1,1,,A,15Mj23`PB`o=Of>KjvnJg8PT0L2R,0*7E",
+            b"!SAVDM,2,2,4,A,30H88888880,2*49",
+            b"!SAVDM,1,1,,B,35Mj2p001qo@5tVKLBWmIDJT01:@,0*33",
+            b"!AIVDM,1,1,,A,B5NWV1P0<vSE=I3QdK4bGwoUoP06,0*4F",
+            b"!SAVDM,1,1,,A,403Owi1utn1W0qMtr2AKStg020S:,0*4B",
+        ]
+        sorter = NMEASorter(msgs)
+        output = list(sorter)
+        self.assertEqual(output, [
+            b"!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23",
+            b"!AIVDM,1,1,,A,133sVfPP00PD>hRMDH@jNOvN20S8,0*7F",
+            b"!AIVDM,1,1,,B,100h00PP0@PHFV`Mg5gTH?vNPUIp,0*3B",
+            b"!AIVDM,2,1,1,A,55?MbV02;H;s<HtKR20EHE:0@T4@Dn2222222216L961O5Gf0NSQEp6ClRp8,0*1C",
+            b"!AIVDM,2,2,1,A,88888888880,2*25",
+            b"!AIVDM,1,1,,B,23?up2001gGRju>Ap:;R2APP08:c,0*0E",
+            b"!BSVDM,1,1,,A,15Mj23`PB`o=Of>KjvnJg8PT0L2R,0*7E",
+            b'!SAVDM,2,1,4,A,55Mub7P00001L@;SO7TI8DDltqB222222222220O0000067<0620@jhQDTVG,0*43',
+            b'!SAVDM,2,2,4,A,30H88888880,2*49',
+            b'!SAVDM,1,1,,B,35Mj2p001qo@5tVKLBWmIDJT01:@,0*33',
+            b'!AIVDM,1,1,,A,B5NWV1P0<vSE=I3QdK4bGwoUoP06,0*4F',
+            b'!SAVDM,1,1,,A,403Owi1utn1W0qMtr2AKStg020S:,0*4B'
+        ])
+
+    def test_sort_with_different_msg_ids(self):
+        msgs = [
+            b"!AIVDM,2,2,9,B,888888888888880,2*2E",
+            b"!AIVDM,2,1,9,B,53nFBv01SJ<thHp6220H4heHTf2222222222221?50:454o<`9QSlUDp,0*09",
+            b'!SAVDM,2,1,4,A,55Mub7P00001L@;SO7TI8DDltqB222222222220O0000067<0620@jhQDTVG,0*43',
+            b'!SAVDM,1,1,,B,35Mj2p001qo@5tVKLBWmIDJT01:@,0*33',
+            b"!AIVDM,2,2,8,A,88888888880,2*2C",
+            b"!AIVDM,2,1,1,A,55?MbV02;H;s<HtKR20EHE:0@T4@Dn2222222216L961O5Gf0NSQEp6ClRp8,0*1C",
+            b"!AIVDM,2,1,8,A,56;OaD02B8EL990b221`P4v1T4pN0HDpN2222216HHN>B6U30A2hCDhD`888,0*4D",
+            b'!SAVDM,2,2,4,A,30H88888880,2*49',
+            b"!AIVDM,2,2,1,A,88888888880,2*25",
+            b"!AIVDM,4,4,1,A,88888888880,2*25",
+            b"!AIVDM,4,3,1,A,88888888880,2*25",
+            b"!AIVDM,4,2,1,A,88888888880,2*25",
+            b"!AIVDM,4,1,1,A,88888888880,2*25",
+        ]
+
+        expected = [
+            b"!AIVDM,2,1,9,B,53nFBv01SJ<thHp6220H4heHTf2222222222221?50:454o<`9QSlUDp,0*09",
+            b"!AIVDM,2,2,9,B,888888888888880,2*2E",
+            b'!SAVDM,1,1,,B,35Mj2p001qo@5tVKLBWmIDJT01:@,0*33',
+            b"!AIVDM,2,1,8,A,56;OaD02B8EL990b221`P4v1T4pN0HDpN2222216HHN>B6U30A2hCDhD`888,0*4D",
+            b"!AIVDM,2,2,8,A,88888888880,2*2C",
+            b'!SAVDM,2,1,4,A,55Mub7P00001L@;SO7TI8DDltqB222222222220O0000067<0620@jhQDTVG,0*43',
+            b'!SAVDM,2,2,4,A,30H88888880,2*49',
+            b"!AIVDM,2,1,1,A,55?MbV02;H;s<HtKR20EHE:0@T4@Dn2222222216L961O5Gf0NSQEp6ClRp8,0*1C",
+            b"!AIVDM,2,2,1,A,88888888880,2*25",
+            b"!AIVDM,4,1,1,A,88888888880,2*25",
+            b"!AIVDM,4,2,1,A,88888888880,2*25",
+            b"!AIVDM,4,3,1,A,88888888880,2*25",
+            b"!AIVDM,4,4,1,A,88888888880,2*25",
+        ]
+
+        actual = list(NMEASorter(msgs))
+        self.assertEqual(expected, actual)
+
+    def test_nmea_sort_index_error(self):
+        msgs = [
+            b'!AIVDM,2,1,1,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*0F',
+            b'!AIVDM,9,2,2,A,F@V@00000000000,2*3D',
+            b'!AIVDM,2,1,1,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*07',
+            b'!AIVDM,2,2,1,A,F@V@00000000000,2*35',
+        ]
+        expected = [
+            b'!AIVDM,2,1,1,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*07',
+            b'!AIVDM,2,2,1,A,F@V@00000000000,2*35',
+            b'!AIVDM,9,2,2,A,F@V@00000000000,2*3D',
+        ]
+
+        actual = list(NMEASorter(msgs))
+        self.assertEqual(expected, actual)
+
+    def test_nmea_sort_invalid_frag_cnt(self):
+        msgs = [b"!AIVDM,21,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23", ]
+        with self.assertRaises(ValueError):
+            list(NMEASorter(msgs))
 
     def test_reader(self):
         with FileReaderStream(self.FILENAME) as stream:

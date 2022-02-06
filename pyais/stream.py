@@ -2,12 +2,11 @@ import typing
 from abc import ABC, abstractmethod
 from socket import AF_INET, SOCK_DGRAM, SOCK_STREAM, socket
 from typing import (
-    BinaryIO, Generator, Generic, Iterable, List, Optional, TypeVar, cast
+    BinaryIO, Generator, Generic, Iterable, List, TypeVar, cast
 )
 
 from pyais.exceptions import InvalidNMEAMessageException
 from pyais.messages import NMEAMessage
-from pyais.util import FixedSizeDict
 
 F = TypeVar("F", BinaryIO, socket, None)
 DOLLAR_SIGN = ord("$")
@@ -26,70 +25,49 @@ def should_parse(byte_str: bytes) -> bool:
 class NMEASorter:
 
     def __init__(self, messages: typing.Iterable[bytes]):
-        self._queue = FixedSizeDict(10000)
         self.unordered = messages
 
     def __iter__(self) -> Generator[bytes, None, None]:
+        buffer: typing.Dict[typing.Tuple[int, bytes], typing.List[typing.Optional[bytes]]] = {}
+
         for msg in self.unordered:
             # decode nmea header
-            self._split_nmea_header(msg)
-            if not self.seq_id:
+
+            parts = msg.split(b',')
+            if len(parts) < 5:
+                raise ValueError("Too few message parts")
+
+            frag_cnt = int(parts[1])
+            frag_num = int(parts[2]) - 1
+            seq_id = int(parts[3]) if parts[3] else 0
+            channel = parts[4]
+
+            if frag_cnt > 20:
+                raise ValueError("Frag count is too large")
+
+            if frag_num >= frag_cnt:
+                raise ValueError("Fragment number greater than Fragment count")
+
+            if frag_cnt == 1:
+                # A sentence with a fragment count of 1 is complete in itself
                 yield msg
-            try:
-                complete = self._update_queue(msg)
-                if complete is not None:
-                    yield from complete
+                continue
 
-            except KeyError:
-                # place item a correct pos and then store the list
-                self._add_to_queue(msg)
+            # seq_id and channel make a unique stream
+            slot = (seq_id, channel)
 
-    def _split_nmea_header(self, msg: bytes) -> None:
-        """
-        Read the important parts of a NMEA header
-        """
-        parts: List[bytes] = msg.split(b',')
-        self.seq_id: int = int(parts[3]) if parts[3] else 0
-        self.fragment_offset: int = int(parts[2]) - 1
-        self.fragment_count: int = int(parts[1])
+            if slot not in buffer:
+                buffer[slot] = [None, ] * frag_cnt
 
-    def _yield_complete(self) -> Optional[List[bytes]]:
-        """
-        Check if the message is complete and return it
-        """
-        # get all messages for the current sequence number
-        queue: List[bytes] = self._queue[self.seq_id][0:self.fragment_count]
-        if all(queue[0: self.fragment_count]):
-            # if all required messages are received yield them and free their space
-            del self._queue[self.seq_id]
-            return queue[0: self.fragment_count]
-        return None
+            buffer[slot][frag_num] = msg
+            msg_parts = buffer[slot][0:frag_cnt]
+            if all([m is not None for m in msg_parts]):
+                yield from msg_parts  # type: ignore
+                del buffer[slot]
 
-    def _add_to_queue(self, msg: bytes) -> None:
-        """
-        Append a new nmea message to queue
-        """
-        # MAX frag offset for any AIS NMEA is 9
-        msg_queue: List[Optional[bytes]] = ([None, ] * 9)
-        try:
-            # place the message at its correct position
-            msg_queue[self.fragment_offset] = msg
-        except IndexError:
-            # message is invalid clear it
-            del self._queue[self.seq_id]
-        self._queue[self.seq_id] = msg_queue
-
-    def _update_queue(self, msg: bytes) -> Optional[Iterable[bytes]]:
-        """
-        Update an existing message queue that is not complete yet.
-        Return a list of fully assembled messages if all required messages for a given sequence number are received.
-        """
-        msg_queue: List[bytes] = self._queue[self.seq_id]
-        msg_queue[self.fragment_offset] = msg
-        complete: Optional[List[bytes]] = self._yield_complete()
-        if complete:
-            yield from complete
-        return None
+        # yield all remaining messages that were not fully decoded
+        for msg_parts in buffer.values():
+            yield from filter(lambda x: x is not None, msg_parts)  # type: ignore
 
 
 class AssembleMessages(ABC):
@@ -119,25 +97,21 @@ class AssembleMessages(ABC):
 
         messages = self._iter_messages()
         for line in NMEASorter(messages):
-
-            # Be gentle and just skip invalid messages
             try:
                 msg: NMEAMessage = NMEAMessage(line)
             except InvalidNMEAMessageException:
+                # Be gentle and just skip invalid messages
                 continue
 
             if msg.is_single:
                 yield msg
-
-            # Assemble multiline messages
-            elif msg.is_multi:
+            else:
+                # Assemble multiline messages
                 queue.append(msg)
 
                 if msg.fragment_number == msg.message_fragments:
                     yield msg.assemble_from_iterable(queue)
                     queue.clear()
-            else:
-                raise ValueError("Messages are out of order!")
 
     @abstractmethod
     def _iter_messages(self) -> Generator[bytes, None, None]:
@@ -244,10 +218,14 @@ class ByteStream(Stream[None]):
 class SocketStream(Stream[socket]):
     BUF_SIZE = 4096
 
+    def recv(self) -> bytes:
+        return b""
+
     def read(self) -> Generator[bytes, None, None]:
         partial: bytes = b''
         while True:
-            body = self._fobj.recv(self.BUF_SIZE)
+            body = self.recv()
+
             # Server closed connection
             if not body:
                 return None
@@ -263,19 +241,25 @@ class SocketStream(Stream[socket]):
             partial = lines[-1]
 
 
-class UDPStream(SocketStream):
+class UDPReceiver(SocketStream):
 
     def __init__(self, host: str, port: int) -> None:
         sock: socket = socket(AF_INET, SOCK_DGRAM)
         sock.bind((host, port))
         super().__init__(sock)
 
+    def recv(self) -> bytes:
+        return self._fobj.recvfrom(self.BUF_SIZE)[0]
 
-class TCPStream(SocketStream):
+
+class TCPConnection(SocketStream):
     """
-     NMEA0183 stream via socket. Refer to
+     Read AIS data from a remote TCP server
      https://en.wikipedia.org/wiki/NMEA_0183
      """
+
+    def recv(self) -> bytes:
+        return self._fobj.recv(self.BUF_SIZE)
 
     def __init__(self, host: str, port: int = 80) -> None:
         sock: socket = socket(AF_INET, SOCK_STREAM)

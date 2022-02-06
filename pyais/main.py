@@ -2,7 +2,7 @@ import argparse
 import sys
 from typing import List, Tuple, Type, Any, Union
 
-from pyais.stream import ByteStream, TCPStream, UDPStream, BinaryIOStream
+from pyais.stream import ByteStream, TCPConnection, UDPReceiver, BinaryIOStream
 
 SOCKET_OPTIONS: Tuple[str, str] = ('udp', 'tcp')
 
@@ -88,11 +88,11 @@ def print_error(*args: Any, **kwargs: Any) -> None:
 def decode_from_socket(args: argparse.Namespace) -> int:
     """Connect a socket and start decoding."""
     t: str = args.type
-    stream_cls: Type[Union[UDPStream, TCPStream]]
+    stream_cls: Type[Union[UDPReceiver, TCPConnection]]
     if t == "udp":
-        stream_cls = UDPStream
+        stream_cls = UDPReceiver
     elif t == "tcp":
-        stream_cls = TCPStream
+        stream_cls = TCPConnection
     else:
         raise ValueError("args.type must be either TCP or UDP.")
 
