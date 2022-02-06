@@ -4,7 +4,6 @@ import time
 import unittest
 
 from pyais.stream import UDPReceiver
-from pyais.util import FixedSizeDict
 from tests.utils.skip import is_linux
 from tests.utils.timeout import time_limit
 
@@ -38,26 +37,6 @@ class TestOutOfOrder(unittest.TestCase):
         self.server = MockUDPServer('127.0.0.1', 9999)
         self.server_thread = threading.Thread(target=self.server.send)
         self.server_thread.start()
-
-    def test_fixed_sized_dict(self):
-        N = 10000
-        queue = FixedSizeDict(N + 1)
-        for i in range(N):
-            queue[i] = i
-
-        # no keys were delted
-        assert len(queue) == N
-        assert queue.popitem(last=False)[0] == 0
-        assert queue.popitem(last=True)[0] == N - 1
-
-        # add another
-        queue[N + 1] = 35
-        queue[N + 2] = 35
-        queue[N + 3] = 35
-        # now 1/5th of keys is delted
-        assert len(queue) == N - (N // 5) + 1
-        # make sure only the oldest ones were deleted
-        assert queue.popitem(last=False)[0] == (N // 5) + 1
 
     @unittest.skipIf(not is_linux(), "Skipping because Signal is not available on non unix systems!")
     def test_stream(self):

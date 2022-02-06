@@ -14,41 +14,65 @@ References
 Examples
 --------
 
-The newest version of Pyais introduced a more convinenient method to decode messages: `decode_msg`::
+Decode a single part AIS message using `decode()`::
 
-    from pyais import decode_msg
-    decode_msg(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
-    # => {'type': 1, 'repeat': 0, 'mmsi': '366053209', 'status': <NavigationStatus.RestrictedManoeuverability: 3>, 'turn': 0, 'speed': 0.0, 'accuracy': 0, 'lon': -122.34161833333333, 'lat': 37.80211833333333, 'course': 219.3, 'heading': 1, 'second': 59, 'maneuver': <ManeuverIndicator.NotAvailable: 0>, 'raim': 0, 'radio': 2281}
+    from pyais import decode
+    decoded = decode(b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05")
+    print(decoded)
 
-    # or
-    decode_msg("!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
-    # => {'type': 1, 'repeat': 0, 'mmsi': '366053209', 'status': <NavigationStatus.RestrictedManoeuverability: 3>, 'turn': 0, 'speed': 0.0, 'accuracy': 0, 'lon': -122.34161833333333, 'lat': 37.80211833333333, 'course': 219.3, 'heading': 1, 'second': 59, 'maneuver': <ManeuverIndicator.NotAvailable: 0>, 'raim': 0, 'radio': 2281}
+The `decode()` functions accepts a list of arguments: One argument for every part of a multipart message::
 
+    from pyais import decode
 
-    # or decode a multiline message
-    decode_msg(
-            b'!AIVDM,2,1,1,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*07',
-            b'!AIVDM,2,2,1,A,F@V@00000000000,2*35',
-        )
-    # => {'type': 5, 'repeat': 0, 'mmsi': '210035000', 'ais_version': 0, 'imo': 9514755, 'callsign': '5BXT2', 'shipname': 'NORDIC HAMBURG', 'shiptype': <ShipType.Cargo_HazardousCategory_A: 71>, 'to_bow': 142, 'to_stern': 10, 'to_port': 11, 'to_starboard': 11, 'epfd': <EpfdType.GPS: 1>, 'month': 7, 'day': 20, 'hour': 5, 'minute': 0, 'draught': 7.1, 'destination': 'CTT-LAYBY', 'dte': 0}
+    parts = [
+        b"!AIVDM,2,1,4,A,55O0W7`00001L@gCWGA2uItLth@DqtL5@F22220j1h742t0Ht0000000,0*08",
+        b"!AIVDM,2,2,4,A,000000000000000,2*20",
+    ]
 
-
-.. warning::
-
-   **Please note**, that `decode_msg` is only meant to decode a single message.
-   You **can not** use it to decode multiple messages at once.
-   But it supports multiline messages
+    # Decode a multipart message using decode
+    decoded = decode(*parts)
+    print(decoded)
 
 
-Decode a single message (bytes)::
+Also the `decode()` function accepts either strings or bytes::
 
-    message = NMEAMessage(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
-    print(message.decode())
-    # => {'type': 1, 'repeat': 0, 'mmsi': '366053209', 'status': <NavigationStatus.RestrictedManoeuverability: 3>, 'turn': 0, 'speed': 0.0, 'accuracy': 0, 'lon': -122.34161833333333, 'lat': 37.80211833333333, 'course': 219.3, 'heading': 1, 'second': 59, 'maneuver': <ManeuverIndicator.NotAvailable: 0>, 'raim': 0, 'radio': 2281}
+    decoded_b = decode(b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05")
+    decoded_s = decode("!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05")
+    assert decoded_b == decoded_s
 
+Decode the message into a dictionary::
 
-Decode a single message (str)::
+    decoded = decode(b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05")
+    as_dict = decoded.asdict()
+    print(as_dict)
 
-    message = NMEAMessage.from_string("!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
-    print(message.decode())
-    # => {'type': 1, 'repeat': 0, 'mmsi': '366053209', 'status': <NavigationStatus.RestrictedManoeuverability: 3>, 'turn': 0, 'speed': 0.0, 'accuracy': 0, 'lon': -122.34161833333333, 'lat': 37.80211833333333, 'course': 219.3, 'heading': 1, 'second': 59, 'maneuver': <ManeuverIndicator.NotAvailable: 0>, 'raim': 0, 'radio': 2281}
+Decode the message into a serialized JSON string::
+
+    decoded = decode("!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05")
+    json = decoded.to_json()
+    print(json)
+
+Read a file::
+
+    from pyais.stream import FileReaderStream
+
+    filename = "sample.ais"
+
+    for msg in FileReaderStream(filename):
+        decoded = msg.decode()
+        print(decoded)
+
+Decode a stream of messages (e.g. a list or generator)::
+
+    from pyais import IterMessages
+
+    fake_stream = [
+        b"!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23",
+        b"!AIVDM,1,1,,A,133sVfPP00PD>hRMDH@jNOvN20S8,0*7F",
+        b"!AIVDM,1,1,,B,100h00PP0@PHFV`Mg5gTH?vNPUIp,0*3B",
+        b"!AIVDM,1,1,,B,13eaJF0P00Qd388Eew6aagvH85Ip,0*45",
+        b"!AIVDM,1,1,,A,14eGrSPP00ncMJTO5C6aBwvP2D0?,0*7A",
+        b"!AIVDM,1,1,,A,15MrVH0000KH<:V:NtBLoqFP2H9:,0*2F",
+    ]
+    for msg in IterMessages(fake_stream):
+        print(msg.decode())

@@ -125,32 +125,6 @@ def compute_checksum(msg: Union[str, bytes]) -> int:
     return reduce(xor, msg)
 
 
-class FixedSizeDict(BaseDict):
-    """
-    Fixed sized dictionary that only contains up to N keys.
-    """
-
-    def __init__(self, maxlen: int) -> None:
-        super().__init__()
-        self.maxlen: int = maxlen
-
-    def __setitem__(self, k: Hashable, v: Any) -> None:
-        super().__setitem__(k, v)
-        # if the maximum number is reach delete the oldest n keys
-        if len(self) >= self.maxlen:
-            self._pop_oldest()
-
-    def _pop_oldest(self) -> Any:
-        # instead of calling this method often, we delete a whole bunch of keys in one run
-        for _ in range(self._items_to_pop):
-            self.popitem(last=False)
-
-    @property
-    def _items_to_pop(self) -> int:
-        # delete 1/5th of keys
-        return self.maxlen // 5
-
-
 # https://gpsd.gitlab.io/gpsd/AIVDM.html#_aivdmaivdo_payload_armoring
 PAYLOAD_ARMOR = {
     0: '0', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9', 10: ':',

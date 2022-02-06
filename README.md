@@ -12,6 +12,9 @@ TCP/UDP sockets.
 
 You can find the full documentation on [readthedocs](https://pyais.readthedocs.io/en/latest/).
 
+| :exclamation:  The whole project was been partially rewritten. So expect breaking changes when upgrading from v1 to v2. You can install a preview with `pip install pyais==2.0.0-alpha` |
+|---------------------------------------------------------------------------------------------------------------------------------------------------------|
+
 # Acknowledgements
 
 ![Jetbrains Logo](./docs/jetbrains_logo.svg)
@@ -40,58 +43,77 @@ $ pip install pyais
 
 # Usage
 
-Using this module is easy. If you want to parse a file, that contains AIS messages, just copy the following code and
-replace `filename` with your desired filename.
+U Decode a single part AIS message using `decode()`::
 
-```python
-from pyais import FileReaderStream
+```py
+from pyais import decode
+
+decoded = decode(b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05")
+print(decoded)
+```
+
+The `decode()` functions accepts a list of arguments: One argument for every part of a multipart message::
+
+```py
+from pyais import decode
+
+parts = [
+    b"!AIVDM,2,1,4,A,55O0W7`00001L@gCWGA2uItLth@DqtL5@F22220j1h742t0Ht0000000,0*08",
+    b"!AIVDM,2,2,4,A,000000000000000,2*20",
+]
+
+# Decode a multipart message using decode
+decoded = decode(*parts)
+print(decoded)
+```
+
+Also the `decode()` function accepts either strings or bytes::
+
+```py
+from pyais import decode
+
+decoded_b = decode(b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05")
+decoded_s = decode("!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05")
+assert decoded_b == decoded_s
+```
+
+Decode the message into a dictionary::
+
+```py
+from pyais import decode
+
+decoded = decode(b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05")
+as_dict = decoded.asdict()
+print(as_dict)
+```
+
+Read a file::
+
+```py
+from pyais.stream import FileReaderStream
 
 filename = "sample.ais"
 
 for msg in FileReaderStream(filename):
-    decoded_message = msg.decode()
-    ais_content = decoded_message.content
+    decoded = msg.decode()
+    print(decoded)
 ```
 
-It is possible to directly convert messages into JSON.
-
-```python
-from pyais import TCPConnection
-
-for msg in TCPConnection('ais.exploratorium.edu'):
-  json_data = msg.decode().to_json()
-```
-
-You can also parse a single message encoded as bytes or from a string:
-
-```python
-from pyais import NMEAMessage, decode_msg
-
-message = NMEAMessage(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
-message = NMEAMessage.from_string("!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
-
-# or newer 
-
-msg = decode_msg("!AIVDM,1,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")
-msg = decode_msg(b"!AIVDM,1,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")
-
-```
-
-See the example folder for more examples.
-
-Another common use case is the reception of messages via UDP. This lib comes with an `UDPStream` class that enables just
-that. This stream class also handles out-of-order delivery of messages, which can occur when using UDP.
+Decode a stream of messages (e.g. a list or generator)::
 
 ```py
-from pyais.stream import UDPReceiver
+from pyais import IterMessages
 
-host = "127.0.0.1"
-port = 55555
-
-for msg in UDPReceiver(host, port):
-    msg.decode()
-    # do something with it
-
+fake_stream = [
+    b"!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23",
+    b"!AIVDM,1,1,,A,133sVfPP00PD>hRMDH@jNOvN20S8,0*7F",
+    b"!AIVDM,1,1,,B,100h00PP0@PHFV`Mg5gTH?vNPUIp,0*3B",
+    b"!AIVDM,1,1,,B,13eaJF0P00Qd388Eew6aagvH85Ip,0*45",
+    b"!AIVDM,1,1,,A,14eGrSPP00ncMJTO5C6aBwvP2D0?,0*7A",
+    b"!AIVDM,1,1,,A,15MrVH0000KH<:V:NtBLoqFP2H9:,0*2F",
+]
+for msg in IterMessages(fake_stream):
+    print(msg.decode())
 ```
 
 ## Encode

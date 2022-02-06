@@ -1,4 +1,3 @@
-import typing
 from abc import ABC, abstractmethod
 from socket import AF_INET, SOCK_DGRAM, SOCK_STREAM, socket
 from typing import (
@@ -6,7 +5,7 @@ from typing import (
 )
 
 from pyais.exceptions import InvalidNMEAMessageException
-from pyais.messages import NMEAMessage
+from pyais.messages import NMEAMessage, NMEASorter
 
 F = TypeVar("F", BinaryIO, socket, None)
 DOLLAR_SIGN = ord("$")
@@ -20,54 +19,6 @@ def should_parse(byte_str: bytes) -> bool:
     """
     # The byte sequence is not empty and starts with a $ or a ! and has 6 ','
     return len(byte_str) > 0 and byte_str[0] in (DOLLAR_SIGN, EXCLAMATION_POINT) and byte_str.count(b",") == 6
-
-
-class NMEASorter:
-
-    def __init__(self, messages: typing.Iterable[bytes]):
-        self.unordered = messages
-
-    def __iter__(self) -> Generator[bytes, None, None]:
-        buffer: typing.Dict[typing.Tuple[int, bytes], typing.List[typing.Optional[bytes]]] = {}
-
-        for msg in self.unordered:
-            # decode nmea header
-
-            parts = msg.split(b',')
-            if len(parts) < 5:
-                raise ValueError("Too few message parts")
-
-            frag_cnt = int(parts[1])
-            frag_num = int(parts[2]) - 1
-            seq_id = int(parts[3]) if parts[3] else 0
-            channel = parts[4]
-
-            if frag_cnt > 20:
-                raise ValueError("Frag count is too large")
-
-            if frag_num >= frag_cnt:
-                raise ValueError("Fragment number greater than Fragment count")
-
-            if frag_cnt == 1:
-                # A sentence with a fragment count of 1 is complete in itself
-                yield msg
-                continue
-
-            # seq_id and channel make a unique stream
-            slot = (seq_id, channel)
-
-            if slot not in buffer:
-                buffer[slot] = [None, ] * frag_cnt
-
-            buffer[slot][frag_num] = msg
-            msg_parts = buffer[slot][0:frag_cnt]
-            if all([m is not None for m in msg_parts]):
-                yield from msg_parts  # type: ignore
-                del buffer[slot]
-
-        # yield all remaining messages that were not fully decoded
-        for msg_parts in buffer.values():
-            yield from filter(lambda x: x is not None, msg_parts)  # type: ignore
 
 
 class AssembleMessages(ABC):

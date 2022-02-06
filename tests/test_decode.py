@@ -643,3 +643,69 @@ class TestAIS(unittest.TestCase):
             nmea = NMEAMessage(b"!AIVDO,1,1,,,B>qc:003wk?8mP=18D3Q3wgTiT;T,0*13")
             nmea.ais_id = 28
             nmea.decode()
+
+    def test_decode_out_of_order(self):
+        parts = [
+            b"!AIVDM,2,2,4,A,000000000000000,2*20",
+            b"!AIVDM,2,1,4,A,55O0W7`00001L@gCWGA2uItLth@DqtL5@F22220j1h742t0Ht0000000,0*08",
+        ]
+
+        decoded = decode(*parts)
+
+        assert decoded.asdict()['mmsi'] == '368060190'
+        print(decoded)
+
+    def test_issue_46_a(self):
+        msg = b"!ARVDM,2,1,3,B,E>m1c1>9TV`9WW@97QUP0000000F@lEpmdceP00003b,0*5C"
+        decoded = NMEAMessage(msg).decode()
+
+        self.assertEqual(decoded.msg_type, 21)
+        self.assertEqual(decoded.repeat, 0)
+        self.assertEqual(decoded.mmsi, '995126020')
+        self.assertEqual(decoded.aid_type, NavAid.ISOLATED_DANGER)
+        self.assertEqual(decoded.shipname, 'SIMPSON ROCK')
+        self.assertEqual(decoded.accuracy, True)
+        self.assertEqual(decoded.lon, 175.119987)
+        self.assertEqual(decoded.lat, -36.0075)
+        self.assertEqual(decoded.to_bow, 0)
+        self.assertEqual(decoded.to_stern, 0)
+        self.assertEqual(decoded.to_port, 0)
+        self.assertEqual(decoded.to_starboard, 0)
+        self.assertEqual(decoded.epfd, EpfdType.Surveyed)
+        self.assertEqual(decoded.second, 10)
+
+        # The following fields are None
+        self.assertIsNone(decoded.off_position)
+        self.assertIsNone(decoded.regional)
+        self.assertIsNone(decoded.raim)
+        self.assertIsNone(decoded.virtual_aid)
+        self.assertIsNone(decoded.assigned)
+        self.assertIsNone(decoded.name_ext)
+
+    def test_issue_46_b(self):
+        msg = b"!AIVDM,1,1,,B,E>lt;KLab21@1bb@I@@@@@@@@@@D8k2tnmvs000003v0@,2*52"
+        decoded = NMEAMessage(msg).decode()
+
+        print(decoded)
+        self.assertEqual(decoded.msg_type, 21)
+        self.assertEqual(decoded.repeat, 0)
+        self.assertEqual(decoded.mmsi, '995036013')
+        self.assertEqual(decoded.aid_type, NavAid.STARBOARD_HAND_MARK)
+        self.assertEqual(decoded.shipname, 'STDB CUT 2')
+        self.assertEqual(decoded.accuracy, True)
+        self.assertEqual(decoded.lon, 115.691833)
+        self.assertEqual(decoded.lat, -32.004333)
+        self.assertEqual(decoded.to_bow, 0)
+        self.assertEqual(decoded.to_stern, 0)
+        self.assertEqual(decoded.to_port, 0)
+        self.assertEqual(decoded.to_starboard, 0)
+        self.assertEqual(decoded.epfd, EpfdType.Surveyed)
+        self.assertEqual(decoded.second, 60)
+        self.assertEqual(decoded.off_position, False)
+        self.assertEqual(decoded.regional, 4)
+
+        # The following fields are None
+        self.assertIsNone(decoded.raim)
+        self.assertIsNone(decoded.virtual_aid)
+        self.assertIsNone(decoded.assigned)
+        self.assertIsNone(decoded.name_ext)

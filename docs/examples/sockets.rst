@@ -8,27 +8,27 @@ Examples
 
 Connect to a TCP socket::
 
-    from pyais.stream import TCPStream
+    from pyais.stream import TCPConnection
 
-    url = 'ais.exploratorium.edu'
-    port = 80
+    url = '127.0.0.1'
+    port = 12346
 
-    for msg in TCPStream(url, port=80):
+    for msg in TCPConnection(url, port=port):
         decoded_message = msg.decode()
-        ais_content = decoded_message.content
+        ais_content = decoded_message
         print(ais_content)
-        # Do something with the ais message
+        # Do something with the AIS message
 
 
-Connect to a UDP socket::
+Open to a UDP socket::
 
-    from pyais.stream import UDPStream
+    from pyais.stream import UDPReceiver
 
     host = "127.0.0.1"
-    port = 55555
+    port = 12346
 
-    for msg in UDPStream(host, port):
-        msg.decode()
+    for msg in UDPReceiver(host, port):
+        print(msg.decode())
         # do something with it
 
 The UDP stream handles out of order delivery of messages. By default it keeps the last up to 10.000 messages in memory to search for multiline messages.

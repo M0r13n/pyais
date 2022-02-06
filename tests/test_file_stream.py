@@ -2,6 +2,7 @@ import pathlib
 import unittest
 from unittest.case import skip
 
+from pyais.exceptions import InvalidNMEAMessageException
 from pyais.messages import NMEAMessage
 from pyais.stream import FileReaderStream, should_parse, NMEASorter
 
@@ -114,7 +115,7 @@ class TestFileReaderStream(unittest.TestCase):
 
     def test_nmea_sort_invalid_frag_cnt(self):
         msgs = [b"!AIVDM,21,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23", ]
-        with self.assertRaises(ValueError):
+        with self.assertRaises(InvalidNMEAMessageException):
             list(NMEASorter(msgs))
 
     def test_reader(self):

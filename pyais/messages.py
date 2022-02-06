@@ -13,6 +13,57 @@ from pyais.util import decode_into_bit_array, compute_checksum, deprecated, int_
     encode_ascii_6, from_bytes, int_to_bytes, from_bytes_signed, decode_bin_as_ascii6, get_int
 
 
+class NMEASorter:
+
+    def __init__(self, messages: typing.Iterable[bytes]):
+        self.unordered = messages
+
+    def __iter__(self) -> typing.Generator[bytes, None, None]:
+        buffer: typing.Dict[typing.Tuple[int, bytes], typing.List[typing.Optional[bytes]]] = {}
+
+        for msg in self.unordered:
+            # decode nmea header
+
+            parts = msg.split(b',')
+            if len(parts) < 5:
+                raise InvalidNMEAMessageException("Too few message parts")
+
+            try:
+                frag_cnt = int(parts[1])
+                frag_num = int(parts[2]) - 1
+                seq_id = int(parts[3]) if parts[3] else 0
+                channel = parts[4]
+            except ValueError as e:
+                raise InvalidNMEAMessageException() from e
+
+            if frag_cnt > 20:
+                raise InvalidNMEAMessageException("Frag count is too large")
+
+            if frag_num >= frag_cnt:
+                raise InvalidNMEAMessageException("Fragment number greater than Fragment count")
+
+            if frag_cnt == 1:
+                # A sentence with a fragment count of 1 is complete in itself
+                yield msg
+                continue
+
+            # seq_id and channel make a unique stream
+            slot = (seq_id, channel)
+
+            if slot not in buffer:
+                buffer[slot] = [None, ] * frag_cnt
+
+            buffer[slot][frag_num] = msg
+            msg_parts = buffer[slot][0:frag_cnt]
+            if all([m is not None for m in msg_parts]):
+                yield from msg_parts  # type: ignore
+                del buffer[slot]
+
+        # yield all remaining messages that were not fully decoded
+        for msg_parts in buffer.values():
+            yield from filter(lambda x: x is not None, msg_parts)  # type: ignore
+
+
 def validate_message(msg: bytes) -> None:
     """
     Validates a given message.
