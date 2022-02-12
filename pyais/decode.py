@@ -1,7 +1,7 @@
 import typing
 
 from pyais.exceptions import TooManyMessagesException, MissingMultipartMessageException
-from pyais.messages import NMEAMessage, ANY_MESSAGE, NMEASorter
+from pyais.messages import NMEAMessage, ANY_MESSAGE
 
 
 def _assemble_messages(*args: bytes) -> NMEAMessage:
@@ -12,7 +12,7 @@ def _assemble_messages(*args: bytes) -> NMEAMessage:
     for msg in args:
         nmea = NMEAMessage(msg)
         temp.append(nmea)
-        frags.append(nmea.fragment_number)
+        frags.append(nmea.frag_num)
         frag_cnt = nmea.fragment_count
 
     # Make sure provided parts assemble a single (multiline message)
@@ -31,5 +31,5 @@ def _assemble_messages(*args: bytes) -> NMEAMessage:
 
 def decode(*args: typing.Union[str, bytes]) -> ANY_MESSAGE:
     parts = tuple(msg.encode('utf-8') if isinstance(msg, str) else msg for msg in args)
-    nmea = _assemble_messages(*list(NMEASorter(parts)))
+    nmea = _assemble_messages(*parts)
     return nmea.decode()

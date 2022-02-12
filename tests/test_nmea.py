@@ -74,9 +74,9 @@ class TestNMEA(unittest.TestCase):
         nmea = NMEAMessage(msg)
 
         assert nmea.ais_id == 8
-        assert nmea.message_fragments == 1
-        assert nmea.fragment_number == 1
-        assert nmea.message_id is None
+        assert nmea.frag_cnt == 1
+        assert nmea.frag_num == 1
+        assert nmea.seq_id is None
         assert nmea.channel == "A"
         assert nmea.payload == b"85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs"
         assert nmea.checksum == 0x47
@@ -111,10 +111,6 @@ class TestNMEA(unittest.TestCase):
         with self.assertRaises(ValueError):
             NMEAMessage(123)
 
-    def test_invalid_msg_with_wrong_type(self):
-        with self.assertRaises(InvalidNMEAMessageException):
-            NMEAMessage(b"GPSD,1,1,,B,F030p:j2N2P5aJR0r;6f3rj10000,0*11")
-
     def test_dict(self):
         msg = b"!AIVDM,1,1,,A,15Mj23P000G?q7fK>g:o7@1:0L3S,0*1B"
         msg = NMEAMessage(msg)
@@ -140,9 +136,9 @@ class TestNMEA(unittest.TestCase):
         self.assertEqual("!AIVDM,1,1,,A,15Mj23P000G?q7fK>g:o7@1:0L3S,0*1B", actual["raw"])
         self.assertEqual("AI", actual["talker"])
         self.assertEqual("VDM", actual["type"])
-        self.assertEqual(1, actual["message_fragments"])
-        self.assertEqual(1, actual["fragment_number"])
-        self.assertEqual(None, actual["message_id"])
+        self.assertEqual(1, actual["frag_cnt"])
+        self.assertEqual(1, actual["frag_num"])
+        self.assertEqual(None, actual["seq_id"])
         self.assertEqual("A", actual["channel"])
         self.assertEqual("15Mj23P000G?q7fK>g:o7@1:0L3S", actual["payload"])
         self.assertEqual(0, actual["fill_bits"])
@@ -155,9 +151,9 @@ class TestNMEA(unittest.TestCase):
         self.assertEqual(b"!AIVDM,1,1,,A,15Mj23P000G?q7fK>g:o7@1:0L3S,0*1B", msg["raw"])
         self.assertEqual("AI", msg["talker"])
         self.assertEqual("VDM", msg["type"])
-        self.assertEqual(1, msg["message_fragments"])
-        self.assertEqual(1, msg["fragment_number"])
-        self.assertEqual(None, msg["message_id"])
+        self.assertEqual(1, msg["frag_cnt"])
+        self.assertEqual(1, msg["frag_num"])
+        self.assertEqual(None, msg["seq_id"])
         self.assertEqual("A", msg["channel"])
         self.assertEqual(b"15Mj23P000G?q7fK>g:o7@1:0L3S", msg["payload"])
         self.assertEqual(0, msg["fill_bits"])
@@ -177,11 +173,3 @@ class TestNMEA(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             _ = msg[1:3]
-
-    def test_deprecated(self):
-        msg = NMEAMessage(b"!AIVDM,1,1,,A,15Mj23P000G?q7fK>g:o7@1:0L3S,0*1B")
-
-        self.assertEqual(msg.count, msg.fragment_count)
-        self.assertEqual(msg.index, msg.fragment_number)
-        self.assertEqual(msg.seq_id, msg.message_id)
-        self.assertEqual(msg.data, msg.payload)

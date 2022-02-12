@@ -1,3 +1,4 @@
+import typing
 from abc import ABC, abstractmethod
 from socket import AF_INET, SOCK_DGRAM, SOCK_STREAM, socket
 from typing import (
@@ -5,7 +6,7 @@ from typing import (
 )
 
 from pyais.exceptions import InvalidNMEAMessageException
-from pyais.messages import NMEAMessage, NMEASorter
+from pyais.messages import NMEAMessage
 
 F = TypeVar("F", BinaryIO, socket, None)
 DOLLAR_SIGN = ord("$")
@@ -44,10 +45,11 @@ class AssembleMessages(ABC):
         return next(iter(self))
 
     def _assemble_messages(self) -> Generator[NMEAMessage, None, None]:
-        queue: List[NMEAMessage] = []
+        buffer: typing.Dict[typing.Tuple[int, str], typing.List[typing.Optional[NMEAMessage]]] = {}
 
         messages = self._iter_messages()
-        for line in NMEASorter(messages):
+        for line in messages:
+
             try:
                 msg: NMEAMessage = NMEAMessage(line)
             except InvalidNMEAMessageException:
@@ -57,12 +59,26 @@ class AssembleMessages(ABC):
             if msg.is_single:
                 yield msg
             else:
-                # Assemble multiline messages
-                queue.append(msg)
+                # Instead of None use -1 as a seq_id
+                seq_id = msg.seq_id
+                if seq_id is None:
+                    seq_id = -1
 
-                if msg.fragment_number == msg.message_fragments:
-                    yield msg.assemble_from_iterable(queue)
-                    queue.clear()
+                # seq_id and channel make a unique stream
+                slot = (seq_id, msg.channel)
+
+                if slot not in buffer:
+                    # Create a new array in the buffer that has enough space for all fragments
+                    buffer[slot] = [None, ] * max(msg.fragment_count, 0xff)
+
+                buffer[slot][msg.frag_num - 1] = msg
+                msg_parts = buffer[slot][0:msg.fragment_count]
+
+                # Check if all fragments are found
+                not_none_parts = [m for m in msg_parts if m is not None]
+                if len(not_none_parts) == msg.fragment_count:
+                    yield NMEAMessage.assemble_from_iterable(not_none_parts)
+                    del buffer[slot]
 
     @abstractmethod
     def _iter_messages(self) -> Generator[bytes, None, None]:

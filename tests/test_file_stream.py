@@ -2,9 +2,8 @@ import pathlib
 import unittest
 from unittest.case import skip
 
-from pyais.exceptions import InvalidNMEAMessageException
 from pyais.messages import NMEAMessage
-from pyais.stream import FileReaderStream, should_parse, NMEASorter
+from pyais.stream import FileReaderStream, should_parse, IterMessages
 
 
 class TestFileReaderStream(unittest.TestCase):
@@ -25,8 +24,11 @@ class TestFileReaderStream(unittest.TestCase):
             b"!SAVDM,2,1,4,A,55Mub7P00001L@;SO7TI8DDltqB222222222220O0000067<0620@jhQDTVG,0*43",
             b"!SAVDM,2,2,4,A,30H88888880,2*49",
         ]
-        sorter = NMEASorter(msgs)
-        output = list(sorter)
+        sorter = IterMessages(msgs)
+        output = []
+        for msg in sorter:
+            output += msg.raw.splitlines()
+
         self.assertEqual(output, msgs)
 
     def test_nmea_sorter_unsorted(self):
@@ -44,8 +46,10 @@ class TestFileReaderStream(unittest.TestCase):
             b"!AIVDM,1,1,,A,B5NWV1P0<vSE=I3QdK4bGwoUoP06,0*4F",
             b"!SAVDM,1,1,,A,403Owi1utn1W0qMtr2AKStg020S:,0*4B",
         ]
-        sorter = NMEASorter(msgs)
-        output = list(sorter)
+        sorter = IterMessages(msgs)
+        output = []
+        for msg in sorter:
+            output += msg.raw.splitlines()
         self.assertEqual(output, [
             b"!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23",
             b"!AIVDM,1,1,,A,133sVfPP00PD>hRMDH@jNOvN20S8,0*7F",
@@ -94,8 +98,12 @@ class TestFileReaderStream(unittest.TestCase):
             b"!AIVDM,4,4,1,A,88888888880,2*25",
         ]
 
-        actual = list(NMEASorter(msgs))
-        self.assertEqual(expected, actual)
+        sorter = IterMessages(msgs)
+        output = []
+        for msg in sorter:
+            output += msg.raw.splitlines()
+
+        self.assertEqual(expected, output)
 
     def test_nmea_sort_index_error(self):
         msgs = [
@@ -107,16 +115,18 @@ class TestFileReaderStream(unittest.TestCase):
         expected = [
             b'!AIVDM,2,1,1,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*07',
             b'!AIVDM,2,2,1,A,F@V@00000000000,2*35',
-            b'!AIVDM,9,2,2,A,F@V@00000000000,2*3D',
         ]
 
-        actual = list(NMEASorter(msgs))
-        self.assertEqual(expected, actual)
+        sorter = IterMessages(msgs)
+        output = []
+        for msg in sorter:
+            output += msg.raw.splitlines()
+
+        self.assertEqual(expected, output)
 
     def test_nmea_sort_invalid_frag_cnt(self):
-        msgs = [b"!AIVDM,21,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23", ]
-        with self.assertRaises(InvalidNMEAMessageException):
-            list(NMEASorter(msgs))
+        msgs = [b"!AIVDM,256,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23", ]
+        self.assertEqual(len(list(IterMessages(msgs))), 0)
 
     def test_reader(self):
         with FileReaderStream(self.FILENAME) as stream:

@@ -7,10 +7,12 @@ When reading a file, the following things are important to know:
 - invalid messages are skipped
 - invalid lines are skipped
 """
+import pathlib
+
 from pyais.stream import FileReaderStream
 
-filename = "sample.ais"
+filename = pathlib.Path(__file__).parent.joinpath('sample.ais')
 
-for msg in FileReaderStream(filename):
+for msg in FileReaderStream(str(filename)):
     decoded = msg.decode()
     print(decoded)

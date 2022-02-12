@@ -9,59 +9,8 @@ from bitarray import bitarray
 from pyais.constants import TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
     TransmitMode, StationIntervals
 from pyais.exceptions import InvalidNMEAMessageException, UnknownMessageException
-from pyais.util import decode_into_bit_array, compute_checksum, deprecated, int_to_bin, str_to_bin, \
+from pyais.util import decode_into_bit_array, compute_checksum, int_to_bin, str_to_bin, \
     encode_ascii_6, from_bytes, int_to_bytes, from_bytes_signed, decode_bin_as_ascii6, get_int
-
-
-class NMEASorter:
-
-    def __init__(self, messages: typing.Iterable[bytes]):
-        self.unordered = messages
-
-    def __iter__(self) -> typing.Generator[bytes, None, None]:
-        buffer: typing.Dict[typing.Tuple[int, bytes], typing.List[typing.Optional[bytes]]] = {}
-
-        for msg in self.unordered:
-            # decode nmea header
-
-            parts = msg.split(b',')
-            if len(parts) < 5:
-                raise InvalidNMEAMessageException("Too few message parts")
-
-            try:
-                frag_cnt = int(parts[1])
-                frag_num = int(parts[2]) - 1
-                seq_id = int(parts[3]) if parts[3] else 0
-                channel = parts[4]
-            except ValueError as e:
-                raise InvalidNMEAMessageException() from e
-
-            if frag_cnt > 20:
-                raise InvalidNMEAMessageException("Frag count is too large")
-
-            if frag_num >= frag_cnt:
-                raise InvalidNMEAMessageException("Fragment number greater than Fragment count")
-
-            if frag_cnt == 1:
-                # A sentence with a fragment count of 1 is complete in itself
-                yield msg
-                continue
-
-            # seq_id and channel make a unique stream
-            slot = (seq_id, channel)
-
-            if slot not in buffer:
-                buffer[slot] = [None, ] * frag_cnt
-
-            buffer[slot][frag_num] = msg
-            msg_parts = buffer[slot][0:frag_cnt]
-            if all([m is not None for m in msg_parts]):
-                yield from msg_parts  # type: ignore
-                del buffer[slot]
-
-        # yield all remaining messages that were not fully decoded
-        for msg_parts in buffer.values():
-            yield from filter(lambda x: x is not None, msg_parts)  # type: ignore
 
 
 def validate_message(msg: bytes) -> None:
@@ -111,7 +60,7 @@ def validate_message(msg: bytes) -> None:
 
     try:
         sentence_num = int(values[1])
-        if sentence_num > 9:
+        if sentence_num > 0xff:
             raise InvalidNMEAMessageException(
                 "Number of sentences exceeds limit of 9 total sentences."
             )
@@ -123,7 +72,7 @@ def validate_message(msg: bytes) -> None:
     if values[2]:
         try:
             sentence_num = int(values[2])
-            if sentence_num > 9:
+            if sentence_num > 0xff:
                 raise InvalidNMEAMessageException(
                     " Sentence number exceeds limit of 9 total sentences."
                 )
@@ -135,7 +84,7 @@ def validate_message(msg: bytes) -> None:
     if values[3]:
         try:
             sentence_num = int(values[3])
-            if sentence_num > 9:
+            if sentence_num > 0xff:
                 raise InvalidNMEAMessageException(
                     "Number of sequential message ID exceeds limit of 9 total sentences."
                 )
@@ -148,14 +97,6 @@ def validate_message(msg: bytes) -> None:
     if len(values[5]) > 82:
         raise InvalidNMEAMessageException(
             f"{msg.decode('utf-8')} has more than 82 characters of payload."
-        )
-
-    # Only encapsulated messages are currently supported
-    if values[0][0] != 0x21:
-        # https://en.wikipedia.org/wiki/Automatic_identification_system
-        raise InvalidNMEAMessageException(
-            "'NMEAMessage' only supports !AIVDM/!AIVDO encapsulated messages. "
-            f"These start with an '!', but got '{chr(values[0][0])}'"
         )
 
 
@@ -195,9 +136,9 @@ class NMEAMessage(object):
         'raw',
         'talker',
         'type',
-        'message_fragments',
-        'fragment_number',
-        'message_id',
+        'frag_cnt',
+        'frag_num',
+        'seq_id',
         'channel',
         'payload',
         'fill_bits',
@@ -239,11 +180,11 @@ class NMEAMessage(object):
         self.type: str = head[3:].decode('ascii')
 
         # Total number of fragments
-        self.message_fragments: int = int(message_fragments)
+        self.frag_cnt: int = int(message_fragments)
         # Current fragment index
-        self.fragment_number: int = int(fragment_number)
+        self.frag_num: int = int(fragment_number)
         # Optional message index for multiline messages
-        self.message_id: Optional[int] = int(message_id) if message_id else None
+        self.seq_id: Optional[int] = int(message_id) if message_id else None
         # Channel (A or B)
         self.channel: str = channel.decode('ascii')
         # Decoded message payload as byte string
@@ -279,9 +220,9 @@ class NMEAMessage(object):
             'raw': self.raw.decode('ascii'),  # str
             'talker': self.talker.value,  # str
             'type': self.type,  # str
-            'message_fragments': self.message_fragments,  # int
-            'fragment_number': self.fragment_number,  # int
-            'message_id': self.message_id,  # None or int
+            'frag_cnt': self.frag_cnt,  # int
+            'frag_num': self.frag_num,  # int
+            'seq_id': self.seq_id,  # None or int
             'channel': self.channel,  # str
             'payload': self.payload.decode('ascii'),  # str
             'fill_bits': self.fill_bits,  # int
@@ -311,7 +252,9 @@ class NMEAMessage(object):
         data = b''
         bit_array = bitarray()
 
-        for msg in messages:
+        for i, msg in enumerate(sorted(messages, key=lambda m: m.frag_num)):
+            if i > 0:
+                raw += b'\n'
             raw += msg.raw
             data += msg.payload
             bit_array += msg.bit_array
@@ -327,7 +270,7 @@ class NMEAMessage(object):
 
     @property
     def is_single(self) -> bool:
-        return not self.message_id and self.fragment_number == self.message_fragments == 1
+        return not self.seq_id and self.frag_num == self.frag_cnt == 1
 
     @property
     def is_multi(self) -> bool:
@@ -335,43 +278,7 @@ class NMEAMessage(object):
 
     @property
     def fragment_count(self) -> int:
-        return self.message_fragments
-
-    @deprecated
-    def count(self) -> int:
-        """
-        Only there fore legacy compatibility.
-        Was renamed to `message_fragments`
-        @return: message_fragments as int
-        """
-        return self.message_fragments
-
-    @deprecated
-    def index(self) -> int:
-        """
-        Only there fore legacy compatibility.
-        Was renamed to `fragment_number`
-        @return:  fragment_number as int
-        """
-        return self.fragment_number
-
-    @deprecated
-    def seq_id(self) -> Optional[int]:
-        """
-        Only there fore legacy compatibility.
-        Was renamed to `message_id`
-        @return: message_id as int
-        """
-        return self.message_id
-
-    @deprecated
-    def data(self) -> bytes:
-        """
-        Only there fore legacy compatibility.
-        Was renamed to `payload`
-        @return: payload as sequence of bytes
-        """
-        return self.payload
+        return self.frag_cnt
 
     def decode(self) -> "ANY_MESSAGE":
         """
