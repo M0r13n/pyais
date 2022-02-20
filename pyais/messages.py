@@ -130,6 +130,9 @@ def bit_field(width: int, d_type: typing.Type[typing.Any],
     )
 
 
+ENUM_FIELDS = {'status', 'maneuver', 'epfd', 'ship_type', 'aid_type', 'station_type', 'txrx', 'interval'}
+
+
 class NMEAMessage(object):
     __slots__ = (
         'ais_id',
@@ -229,6 +232,19 @@ class NMEAMessage(object):
             'checksum': self.checksum,  # int
             'bit_array': self.bit_array.to01(),  # str
         }
+
+    def decode_and_merge(self, enum_as_int: bool = False) -> Dict[str, Any]:
+        """
+        Decodes the message and returns the result as a dict together with all attributes of
+        the original NMEA message.
+        @param enum_as_int: Set to True to treat IntEnums as pure integers
+        @return: A dictionary that holds all fields, defined in __slots__ + the decoded msg
+        """
+        rlt = self.asdict()
+        del rlt['bit_array']
+        decoded = self.decode()
+        rlt.update(decoded.asdict(enum_as_int))
+        return rlt
 
     def __eq__(self, other: object) -> bool:
         return all([getattr(self, attr) == getattr(other, attr) for attr in self.__slots__])
@@ -377,7 +393,9 @@ class Payload(abc.ABC):
 
         # Iterate over the bits until the last bit of the bitarray or all fields are fully decoded
         for field in cls.fields():
+
             if end >= len(bit_arr):
+                # All fields that did not fit into the bit array are None
                 kwargs[field.name] = None
                 continue
 
@@ -410,10 +428,16 @@ class Payload(abc.ABC):
 
         return cls(**kwargs)  # type:ignore
 
-    def asdict(self) -> typing.Dict[str, typing.Any]:
-        d = {}
-        for field in self.fields():
-            d[field.name] = getattr(self, field.name)
+    def asdict(self, enum_as_int: bool = False) -> typing.Dict[str, typing.Any]:
+        """
+        Convert the message to a dictionary.
+        @param enum_as_int: If set to True all Enum values will be returned as raw ints.
+        @return: The message as a dictionary.
+        """
+        if enum_as_int:
+            d = {slt: int(getattr(self, slt)) if slt in ENUM_FIELDS else getattr(self, slt) for slt in self.__slots__}
+        else:
+            d = {slt: getattr(self, slt) for slt in self.__slots__}
         return d
 
     def to_json(self) -> str:

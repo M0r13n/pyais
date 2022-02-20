@@ -653,7 +653,6 @@ class TestAIS(unittest.TestCase):
         decoded = decode(*parts)
 
         assert decoded.asdict()['mmsi'] == '368060190'
-        print(decoded)
 
     def test_issue_46_a(self):
         msg = b"!ARVDM,2,1,3,B,E>m1c1>9TV`9WW@97QUP0000000F@lEpmdceP00003b,0*5C"
@@ -686,7 +685,6 @@ class TestAIS(unittest.TestCase):
         msg = b"!AIVDM,1,1,,B,E>lt;KLab21@1bb@I@@@@@@@@@@D8k2tnmvs000003v0@,2*52"
         decoded = NMEAMessage(msg).decode()
 
-        print(decoded)
         self.assertEqual(decoded.msg_type, 21)
         self.assertEqual(decoded.repeat, 0)
         self.assertEqual(decoded.mmsi, '995036013')
@@ -709,3 +707,110 @@ class TestAIS(unittest.TestCase):
         self.assertIsNone(decoded.virtual_aid)
         self.assertIsNone(decoded.assigned)
         self.assertIsNone(decoded.name_ext)
+
+    def test_to_dict_non_enum(self):
+        """Enum types do not use None if the fields are missing when partial decoding"""
+        msg = b"!AIVDM,1,1,,B,E>lt;KLab21@1bb@I@@@@@@@@@@D8k2tnmvs000003v0@,2*52"
+        decoded = NMEAMessage(msg).decode()
+
+        d = decoded.asdict(enum_as_int=True)
+        self.assertEqual(
+            d, {'accuracy': True,
+                'aid_type': 25,
+                'assigned': None,
+                'epfd': 7,
+                'lat': -32.004333,
+                'lon': 115.691833,
+                'mmsi': '995036013',
+                'msg_type': 21,
+                'name_ext': None,
+                'off_position': False,
+                'raim': None,
+                'regional': 4,
+                'repeat': 0,
+                'second': 60,
+                'shipname': 'STDB CUT 2',
+                'spare': None,
+                'to_bow': 0,
+                'to_port': 0,
+                'to_starboard': 0,
+                'to_stern': 0,
+                'virtual_aid': None}
+        )
+
+    def test_decode_and_merge(self):
+        msg = b"!AIVDM,1,1,,B,E>lt;KLab21@1bb@I@@@@@@@@@@D8k2tnmvs000003v0@,2*52"
+        decoded = NMEAMessage(msg)
+
+        d = decoded.decode_and_merge(enum_as_int=True)
+
+        self.assertEqual(
+            d, {'accuracy': True,
+                'aid_type': 25,
+                'ais_id': 21,
+                'assigned': None,
+                'channel': 'B',
+                'checksum': 82,
+                'epfd': 7,
+                'fill_bits': 2,
+                'frag_cnt': 1,
+                'frag_num': 1,
+                'lat': -32.004333,
+                'lon': 115.691833,
+                'mmsi': '995036013',
+                'msg_type': 21,
+                'name_ext': None,
+                'off_position': False,
+                'payload': 'E>lt;KLab21@1bb@I@@@@@@@@@@D8k2tnmvs000003v0@',
+                'raim': None,
+                'raw': '!AIVDM,1,1,,B,E>lt;KLab21@1bb@I@@@@@@@@@@D8k2tnmvs000003v0@,2*52',
+                'regional': 4,
+                'repeat': 0,
+                'second': 60,
+                'seq_id': None,
+                'shipname': 'STDB CUT 2',
+                'spare': None,
+                'talker': 'AI',
+                'to_bow': 0,
+                'to_port': 0,
+                'to_starboard': 0,
+                'to_stern': 0,
+                'type': 'VDM',
+                'virtual_aid': None}
+        )
+
+        d = decoded.decode_and_merge(enum_as_int=False)
+        self.assertEqual(
+            d, {'accuracy': True,
+                'aid_type': NavAid.STARBOARD_HAND_MARK,
+                'ais_id': 21,
+                'assigned': None,
+                'channel': 'B',
+                'checksum': 82,
+                'epfd': EpfdType.Surveyed,
+                'fill_bits': 2,
+                'frag_cnt': 1,
+                'frag_num': 1,
+                'lat': -32.004333,
+                'lon': 115.691833,
+                'mmsi': '995036013',
+                'msg_type': 21,
+                'name_ext': None,
+                'off_position': False,
+                'payload': 'E>lt;KLab21@1bb@I@@@@@@@@@@D8k2tnmvs000003v0@',
+                'raim': None,
+                'raw': '!AIVDM,1,1,,B,E>lt;KLab21@1bb@I@@@@@@@@@@D8k2tnmvs000003v0@,2*52',
+                'regional': 4,
+                'repeat': 0,
+                'second': 60,
+                'seq_id': None,
+                'shipname': 'STDB CUT 2',
+                'spare': None,
+                'talker': 'AI',
+                'to_bow': 0,
+                'to_port': 0,
+                'to_starboard': 0,
+                'to_stern': 0,
+                'type': 'VDM',
+                'virtual_aid': None}
+        )
