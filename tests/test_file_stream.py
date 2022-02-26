@@ -1,7 +1,9 @@
 import pathlib
+import time
 import unittest
 from unittest.case import skip
 
+from pyais.exceptions import UnknownMessageException
 from pyais.messages import NMEAMessage
 from pyais.stream import FileReaderStream, should_parse, IterMessages
 
@@ -151,11 +153,20 @@ class TestFileReaderStream(unittest.TestCase):
 
     @skip("This takes too long for now")
     def test_large_file(self):
+        start = time.time()
         # The ais sample data is downloaded from https://www.aishub.net/ais-dispatcher
         par_dir = pathlib.Path(__file__).parent.absolute()
         large_file = par_dir.joinpath("nmea-sample")
-        for msg in FileReaderStream(large_file):
-            msg.decode()
+        errors = 0
+        for i, msg in enumerate(FileReaderStream(large_file)):
+            try:
+                msg.decode()
+            except UnknownMessageException:
+                errors += 1
+                continue
+
+        print(f"Decoding {i + 1} messages took:", time.time() - start)
+        print("ERRORS", errors)
 
     def test_marine_traffic_sample(self):
         """Test some messages from https://help.marinetraffic.com/hc/en-us

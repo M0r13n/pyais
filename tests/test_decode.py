@@ -708,6 +708,25 @@ class TestAIS(unittest.TestCase):
         self.assertIsNone(decoded.assigned)
         self.assertIsNone(decoded.name_ext)
 
+    def test_msg_too_short_enum_is_none(self):
+        msg = b"!AIVDM,1,1,,B,E>lt;,2*52"
+        decoded = NMEAMessage(msg).decode()
+
+        self.assertEqual(decoded.msg_type, 21)
+        self.assertEqual(decoded.repeat, 0)
+        self.assertEqual(decoded.mmsi, '000971714')
+        self.assertIsNone(decoded.aid_type)
+        self.assertIsNone(decoded.epfd)
+
+        msg = b"!AIVDM,1,1,,B,15M6,0*5C"
+        decoded = NMEAMessage(msg).decode()
+        self.assertIsNone(decoded.maneuver)
+
+        msg = b"!AIVDM,2,1,1,A,55?MbV02;H,0*00"
+        decoded = NMEAMessage(msg).decode()
+        self.assertIsNone(decoded.ship_type)
+        self.assertIsNone(decoded.epfd)
+
     def test_to_dict_non_enum(self):
         """Enum types do not use None if the fields are missing when partial decoding"""
         msg = b"!AIVDM,1,1,,B,E>lt;KLab21@1bb@I@@@@@@@@@@D8k2tnmvs000003v0@,2*52"

@@ -1,3 +1,4 @@
+import typing
 from enum import IntEnum, Enum
 
 # Keywords
@@ -24,8 +25,12 @@ class TalkerID(str, Enum):
     UNDEFINED = "UNDEFINED"
 
     @classmethod
-    def _missing_(cls, value: object) -> str:
+    def _missing_(cls, value: typing.Any) -> str:
         return TalkerID.UNDEFINED
+
+    @classmethod
+    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["TalkerID"]:
+        return cls(v) if v is not None else None
 
 
 class NavigationStatus(IntEnum):
@@ -45,6 +50,10 @@ class NavigationStatus(IntEnum):
     def _missing_(cls, value: object) -> int:
         return NavigationStatus.Undefined
 
+    @classmethod
+    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["NavigationStatus"]:
+        return cls(v) if v is not None else None
+
 
 class ManeuverIndicator(IntEnum):
     NotAvailable = 0
@@ -55,6 +64,10 @@ class ManeuverIndicator(IntEnum):
     @classmethod
     def _missing_(cls, value: object) -> int:
         return ManeuverIndicator.UNDEFINED
+
+    @classmethod
+    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["ManeuverIndicator"]:
+        return cls(v) if v is not None else None
 
 
 class EpfdType(IntEnum):
@@ -71,6 +84,10 @@ class EpfdType(IntEnum):
     @classmethod
     def _missing_(cls, value: object) -> int:
         return EpfdType.Undefined
+
+    @classmethod
+    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["EpfdType"]:
+        return cls(v) if v is not None else None
 
 
 class ShipType(IntEnum):
@@ -168,6 +185,10 @@ class ShipType(IntEnum):
 
         return ShipType.NotAvailable
 
+    @classmethod
+    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["ShipType"]:
+        return cls(v) if v is not None else None
+
 
 class DacFid(IntEnum):
     DangerousCargoIndication = 13
@@ -182,6 +203,10 @@ class DacFid(IntEnum):
     RTA = 222
     AtoN_MonitoringData_UK = 245
     AtoN_MonitoringData_ROI = 260
+
+    @classmethod
+    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["DacFid"]:
+        return cls(v) if v is not None else None
 
 
 class NavAid(IntEnum):
@@ -222,6 +247,10 @@ class NavAid(IntEnum):
     def _missing_(cls, value: object) -> int:
         return NavAid.DEFAULT
 
+    @classmethod
+    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["NavAid"]:
+        return cls(v) if v is not None else None
+
 
 class TransmitMode(IntEnum):
     TXA_TXB_RXA_RXB = 0  # default
@@ -232,6 +261,10 @@ class TransmitMode(IntEnum):
     @classmethod
     def _missing_(cls, value: object) -> int:
         return TransmitMode.TXA_TXB_RXA_RXB
+
+    @classmethod
+    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["TransmitMode"]:
+        return cls(v) if v is not None else None
 
 
 class StationType(IntEnum):
@@ -252,6 +285,10 @@ class StationType(IntEnum):
                 return StationType.RESERVED
         return StationType.ALL
 
+    @classmethod
+    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["StationType"]:
+        return cls(v) if v is not None else None
+
 
 class StationIntervals(IntEnum):
     AUTONOMOUS_MODE = 0
@@ -270,3 +307,7 @@ class StationIntervals(IntEnum):
     @classmethod
     def _missing_(cls, value: object) -> int:
         return StationIntervals.RESERVED
+
+    @classmethod
+    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["StationIntervals"]:
+        return cls(v) if v is not None else None
