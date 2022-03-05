@@ -8,7 +8,8 @@ from bitarray import bitarray
 
 from pyais.constants import TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
     TransmitMode, StationIntervals
-from pyais.exceptions import InvalidNMEAMessageException, UnknownMessageException
+from pyais.exceptions import InvalidNMEAMessageException, UnknownMessageException, UnknownPartNoException, \
+    InvalidDataTypeException
 from pyais.util import decode_into_bit_array, compute_checksum, int_to_bin, str_to_bin, \
     encode_ascii_6, from_bytes, int_to_bytes, from_bytes_signed, decode_bin_as_ascii6, get_int
 
@@ -342,6 +343,9 @@ class Payload(abc.ABC):
             converter = field.metadata['from_converter']
 
             val = getattr(self, field.name)
+            if val is None:
+                continue
+
             val = converter(val) if converter is not None else val
             val = d_type(val)
 
@@ -350,7 +354,7 @@ class Payload(abc.ABC):
             elif d_type == str:
                 bits = str_to_bin(val, width)
             else:
-                raise ValueError()
+                raise InvalidDataTypeException(d_type)
             bits = bits[:width]
             out += bits
 
@@ -420,7 +424,7 @@ class Payload(abc.ABC):
             elif d_type == str:
                 val = decode_bin_as_ascii6(bits)
             else:
-                raise ValueError()
+                raise InvalidDataTypeException(d_type)
 
             val = converter(val) if converter is not None else val
 
@@ -516,7 +520,8 @@ class MessageType1(Payload):
     course = bit_field(12, int, from_converter=from_course, to_converter=to_course, default=0)
     heading = bit_field(9, int, default=0)
     second = bit_field(6, int, default=0)
-    maneuver = bit_field(2, int, default=0, converter=ManeuverIndicator.from_value)
+    maneuver = bit_field(2, int, default=0, from_converter=ManeuverIndicator.from_value,
+                         to_converter=ManeuverIndicator.from_value)
     spare = bit_field(3, int, default=0)
     raim = bit_field(1, bool, default=0)
     radio = bit_field(19, int, default=0)
@@ -556,7 +561,7 @@ class MessageType4(Payload):
     accuracy = bit_field(1, int, default=0)
     lon = bit_field(28, int, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
     lat = bit_field(27, int, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
-    epfd = bit_field(4, int, default=0, converter=EpfdType.from_value)
+    epfd = bit_field(4, int, default=0, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value)
     spare = bit_field(10, int, default=0)
     raim = bit_field(1, int, default=0)
     radio = bit_field(19, int, default=0)
@@ -575,12 +580,12 @@ class MessageType5(Payload):
     imo = bit_field(30, int, default=0)
     callsign = bit_field(42, str, default='')
     shipname = bit_field(120, str, default='')
-    ship_type = bit_field(8, int, default=0, converter=ShipType.from_value)
+    ship_type = bit_field(8, int, default=0, from_converter=ShipType.from_value, to_converter=ShipType.from_value)
     to_bow = bit_field(9, int, default=0)
     to_stern = bit_field(9, int, default=0)
     to_port = bit_field(6, int, default=0)
     to_starboard = bit_field(6, int, default=0)
-    epfd = bit_field(4, int, default=0, converter=EpfdType.from_value)
+    epfd = bit_field(4, int, default=0, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value)
     month = bit_field(4, int, default=0)
     day = bit_field(5, int, default=0)
     hour = bit_field(5, int, default=0)
@@ -606,7 +611,7 @@ class MessageType6(Payload):
     spare = bit_field(1, int, default=0)
     dac = bit_field(10, int, default=0)
     fid = bit_field(6, int, default=0)
-    data = bit_field(920, int, default=0, converter=int_to_bytes)
+    data = bit_field(920, int, default=0, from_converter=int_to_bytes, to_converter=int_to_bytes)
 
 
 @attr.s(slots=True)
@@ -832,12 +837,12 @@ class MessageType19(Payload):
     second = bit_field(6, int, default=0)
     regional = bit_field(4, int, default=0)
     shipname = bit_field(120, str, default='')
-    ship_type = bit_field(8, int, default=0, converter=ShipType.from_value)
+    ship_type = bit_field(8, int, default=0, from_converter=ShipType.from_value, to_converter=ShipType.from_value)
     to_bow = bit_field(9, int, default=0)
     to_stern = bit_field(9, int, default=0)
     to_port = bit_field(6, int, default=0)
     to_starboard = bit_field(6, int, default=0)
-    epfd = bit_field(4, int, default=0, converter=EpfdType.from_value)
+    epfd = bit_field(4, int, default=0, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value)
     raim = bit_field(1, bool, default=0)
     dte = bit_field(1, bool, default=0)
     assigned = bit_field(1, int, default=0)
@@ -886,7 +891,7 @@ class MessageType21(Payload):
     repeat = bit_field(2, int, default=0)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
 
-    aid_type = bit_field(5, int, default=0, converter=NavAid.from_value)
+    aid_type = bit_field(5, int, default=0, from_converter=NavAid.from_value, to_converter=NavAid.from_value)
     shipname = bit_field(120, str, default='')
     accuracy = bit_field(1, bool, default=0)
     lon = bit_field(28, int, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
@@ -895,7 +900,7 @@ class MessageType21(Payload):
     to_stern = bit_field(9, int, default=0)
     to_port = bit_field(6, int, default=0)
     to_starboard = bit_field(6, int, default=0)
-    epfd = bit_field(4, int, default=0, converter=EpfdType.from_value)
+    epfd = bit_field(4, int, default=0, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value)
     second = bit_field(6, int, default=0)
     off_position = bit_field(1, bool, default=0)
     regional = bit_field(8, int, default=0)
@@ -1010,12 +1015,14 @@ class MessageType23(Payload):
     sw_lon = bit_field(18, int, from_converter=from_course, to_converter=to_course, default=0, signed=True)
     sw_lat = bit_field(17, int, from_converter=from_course, to_converter=to_course, default=0, signed=True)
 
-    station_type = bit_field(4, int, default=0, converter=StationType.from_value)
-    ship_type = bit_field(8, int, default=0, converter=ShipType.from_value)
+    station_type = bit_field(4, int, default=0, from_converter=StationType.from_value,
+                             to_converter=StationType.from_value)
+    ship_type = bit_field(8, int, default=0, from_converter=ShipType.from_value, to_converter=ShipType.from_value)
     spare_2 = bit_field(22, int, default=0)
 
-    txrx = bit_field(2, int, default=0, converter=TransmitMode.from_value)
-    interval = bit_field(4, int, default=0, converter=StationIntervals.from_value)
+    txrx = bit_field(2, int, default=0, from_converter=TransmitMode.from_value, to_converter=TransmitMode.from_value)
+    interval = bit_field(4, int, default=0, from_converter=StationIntervals.from_value,
+                         to_converter=StationIntervals.from_value)
     quiet = bit_field(4, int, default=0)
     spare_3 = bit_field(6, int, default=0)
 
@@ -1071,7 +1078,7 @@ class MessageType24(Payload):
         elif partno == 1:
             return MessageType24PartB.create(**kwargs)
         else:
-            raise ValueError(f"Partno {partno} is not allowed!")
+            raise UnknownPartNoException(f"Partno {partno} is not allowed!")
 
     @classmethod
     def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
@@ -1081,7 +1088,7 @@ class MessageType24(Payload):
         elif partno == 1:
             return MessageType24PartB.from_bitarray(bit_arr)
         else:
-            raise ValueError(f"Partno {partno} is not allowed!")
+            raise UnknownPartNoException(f"Partno {partno} is not allowed!")
 
 
 @attr.s(slots=True)
@@ -1291,7 +1298,7 @@ class MessageType27(Payload):
 
     accuracy = bit_field(1, int, default=0)
     raim = bit_field(1, int, default=0)
-    status = bit_field(4, int, default=0, converter=NavigationStatus)
+    status = bit_field(4, int, default=0, from_converter=NavigationStatus, to_converter=NavigationStatus)
     lon = bit_field(18, int, from_converter=from_lat_lon_600, to_converter=to_lat_lon_600, default=0)
     lat = bit_field(17, int, from_converter=from_lat_lon_600, to_converter=to_lat_lon_600, default=0)
     speed = bit_field(6, int, default=0)

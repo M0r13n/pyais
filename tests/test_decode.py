@@ -1,12 +1,12 @@
 import textwrap
 import unittest
 
-from pyais import NMEAMessage
+from pyais import NMEAMessage, encode_dict
 from pyais.ais_types import AISType
 from pyais.constants import ManeuverIndicator, NavigationStatus, ShipType, NavAid, EpfdType, StationType, TransmitMode
 from pyais.decode import decode
 from pyais.exceptions import UnknownMessageException
-from pyais.messages import MessageType18, MessageType5
+from pyais.messages import MessageType18, MessageType5, MessageType6, MSG_CLASS
 from pyais.stream import ByteStream
 
 
@@ -842,3 +842,43 @@ class TestAIS(unittest.TestCase):
 
         self.assertIsNone(dictionary['epfd'])
         self.assertIsNone(dictionary['ship_type'])
+
+    def test_none_value_converter_for_creation(self):
+        """Make sure that None values can be encoded -> left out"""
+        msg = MessageType6.create(mmsi="123456", dest_mmsi=None, data=None)
+        self.assertIsNone(msg.data)
+
+    def test_none_value_converter_for_decoding(self):
+        """Make sure that None values do not cause any problems when decoding"""
+        encoded = encode_dict({"mmsi": "123456", "dest_mmsi": None, "data": None, 'msg_type': 6})
+        encoded = encoded[0]
+        decoded = decode(encoded)
+        self.assertIsNone(decoded.data)
+
+    def test_none_values_converter_for_all_messages(self):
+        """
+        Create the shortest possible message that could potentially occur and try to decode it again.
+        This is done to ensure, that there are no hiccups when trying to decode very short messages.
+        """
+        for mtype in range(28):
+            cls = MSG_CLASS[mtype]
+            fields = set(f.name for f in cls.fields())
+            payload = {f: None for f in fields}
+            payload['mmsi'] = 1337
+            payload['msg_type'] = mtype
+            encoded = encode_dict(payload)
+
+            self.assertIsNotNone(encoded)
+
+            decoded = decode(*encoded)
+
+            for field in fields:
+                val = getattr(decoded, field)
+                if field == 'mmsi':
+                    self.assertEqual(val, '000001337')
+                elif field == 'msg_type':
+                    self.assertEqual(val, mtype)
+                elif field == 'repeat':
+                    self.assertEqual(val, 0)
+                else:
+                    self.assertIsNone(val)

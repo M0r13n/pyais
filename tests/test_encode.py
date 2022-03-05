@@ -5,6 +5,7 @@ import bitarray
 from pyais import encode_dict, encode_msg
 from pyais.decode import decode
 from pyais.encode import data_to_payload, get_ais_type
+from pyais.exceptions import UnknownPartNoException
 from pyais.messages import MessageType1, MessageType26BroadcastUnstructured, MessageType26AddressedUnstructured, \
     MessageType26BroadcastStructured, MessageType26AddressedStructured, MessageType25BroadcastUnstructured, \
     MessageType25AddressedUnstructured, MessageType25BroadcastStructured, MessageType25AddressedStructured, \
@@ -317,10 +318,10 @@ def test_encode_type_24_partno_invalid():
     # Should not raise an error
     encode_dict({'mmsi': 123, 'partno': 1, 'type': 24})
 
-    with unittest.TestCase().assertRaises(ValueError):
+    with unittest.TestCase().assertRaises(UnknownPartNoException):
         encode_dict({'mmsi': 123, 'partno': 2, 'type': 24})
 
-    with unittest.TestCase().assertRaises(ValueError):
+    with unittest.TestCase().assertRaises(UnknownPartNoException):
         encode_dict({'mmsi': 123, 'partno': 3, 'type': 24})
 
 
