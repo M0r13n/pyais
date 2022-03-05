@@ -12,9 +12,6 @@ TCP/UDP sockets.
 
 You can find the full documentation on [readthedocs](https://pyais.readthedocs.io/en/latest/).
 
-| :exclamation:  The whole project was been partially rewritten. So expect breaking changes when upgrading from v1 to v2. You can install a preview with `pip install pyais==2.0.0-alpha` |
-|---------------------------------------------------------------------------------------------------------------------------------------------------------|
-
 # Acknowledgements
 
 ![Jetbrains Logo](./docs/jetbrains_logo.svg)
@@ -32,6 +29,30 @@ the [AIS standard](https://en.wikipedia.org/wiki/Automatic_identification_system
 
 I open to any form of idea to further improve this library. If you have an idea or a feature request - just open an
 issue. :-)
+
+# Migrating from v1 to v2
+
+Version 2.0.0 of pyais had some breaking changes that were needed to improve the lib. While I tried to keep those
+breaking changes to a minimum, there are a few places that got changed.
+
+* `msg.decode()` does not return a `pyais.messages.AISMessage` instance anymore
+  * instead an instance of `pyais.messages.MessageTypeX` is returned, where `X` is the type of the message (1-27)
+* in v1 you called `decoded.content` to get the decoded message as a dictionary - this is now `decoded.asdict()`
+
+### Typical example in v1
+
+```py
+message = NMEAMessage(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
+decoded = message.decode()
+data = decoded.content
+```
+
+### Typical example in v2
+```py
+message = NMEAMessage(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
+decoded = message.decode()
+data = decoded.asdict()
+```
 
 # Installation
 
