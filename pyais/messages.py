@@ -435,10 +435,9 @@ class Payload(abc.ABC):
         @return: The message as a dictionary.
         """
         if enum_as_int:
-            d = {slt: int(getattr(self, slt)) if slt in ENUM_FIELDS else getattr(self, slt) for slt in self.__slots__}
+            return { slt: None if getattr(self, slt) is None else int(getattr(self, slt)) if slt in ENUM_FIELDS else getattr(self, slt) for slt in self.__slots__ }
         else:
-            d = {slt: getattr(self, slt) for slt in self.__slots__}
-        return d
+            return { slt: getattr(self, slt) for slt in self.__slots__ }
 
     def to_json(self) -> str:
         return json.dumps(
