@@ -12,6 +12,8 @@ from pyais.exceptions import InvalidNMEAMessageException, UnknownMessageExceptio
 from pyais.util import decode_into_bit_array, compute_checksum, int_to_bin, str_to_bin, \
     encode_ascii_6, from_bytes, int_to_bytes, from_bytes_signed, decode_bin_as_ascii6, get_int
 
+NMEA_VALUE = typing.Union[str, float, int, bool, bytes]
+
 
 def validate_message(msg: bytes) -> None:
     """
@@ -362,7 +364,7 @@ class Payload(abc.ABC):
         return encode_ascii_6(bit_arr)
 
     @classmethod
-    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
+    def create(cls, **kwargs: NMEA_VALUE) -> "ANY_MESSAGE":
         """
         Create a new instance of each Payload class.
         @param kwargs: A set of keywords. For each field of `cls` a keyword with the same
@@ -428,16 +430,22 @@ class Payload(abc.ABC):
 
         return cls(**kwargs)  # type:ignore
 
-    def asdict(self, enum_as_int: bool = False) -> typing.Dict[str, typing.Any]:
+    def asdict(self, enum_as_int: bool = False) -> typing.Dict[str, typing.Optional[NMEA_VALUE]]:
         """
         Convert the message to a dictionary.
         @param enum_as_int: If set to True all Enum values will be returned as raw ints.
         @return: The message as a dictionary.
         """
         if enum_as_int:
-            return { slt: None if getattr(self, slt) is None else int(getattr(self, slt)) if slt in ENUM_FIELDS else getattr(self, slt) for slt in self.__slots__ }
+            d: typing.Dict[str, typing.Optional[NMEA_VALUE]] = {}
+            for slt in self.__slots__:
+                val = getattr(self, slt)
+                if val is not None and slt in ENUM_FIELDS:
+                    val = int(getattr(self, slt))
+                d[slt] = val
+            return d
         else:
-            return { slt: getattr(self, slt) for slt in self.__slots__ }
+            return {slt: getattr(self, slt) for slt in self.__slots__}
 
     def to_json(self) -> str:
         return json.dumps(

@@ -6,7 +6,7 @@ from pyais.ais_types import AISType
 from pyais.constants import ManeuverIndicator, NavigationStatus, ShipType, NavAid, EpfdType, StationType, TransmitMode
 from pyais.decode import decode
 from pyais.exceptions import UnknownMessageException
-from pyais.messages import MessageType18
+from pyais.messages import MessageType18, MessageType5
 from pyais.stream import ByteStream
 
 
@@ -833,3 +833,12 @@ class TestAIS(unittest.TestCase):
                 'type': 'VDM',
                 'virtual_aid': None}
         )
+
+    def test_issue_50(self):
+        """Refer to PR: https://github.com/M0r13n/pyais/pull/50/files"""
+        msg = MessageType5.create(mmsi="123456", ship_type=None, epfd=None)
+
+        dictionary = msg.asdict(enum_as_int=True)
+
+        self.assertIsNone(dictionary['epfd'])
+        self.assertIsNone(dictionary['ship_type'])
