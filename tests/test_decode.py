@@ -405,7 +405,7 @@ class TestAIS(unittest.TestCase):
         assert msg['msg_type'] == 21
         assert msg['mmsi'] == "316021442"
         assert msg['aid_type'] == NavAid.REFERENCE_POINT
-        assert msg['shipname'] == "DFO2"
+        assert msg['name'] == "DFO2"
         assert msg['accuracy'] == 1
         assert msg['lat'] == 48.65457
         assert msg['lon'] == -123.429155
@@ -662,7 +662,7 @@ class TestAIS(unittest.TestCase):
         self.assertEqual(decoded.repeat, 0)
         self.assertEqual(decoded.mmsi, '995126020')
         self.assertEqual(decoded.aid_type, NavAid.ISOLATED_DANGER)
-        self.assertEqual(decoded.shipname, 'SIMPSON ROCK')
+        self.assertEqual(decoded.name, 'SIMPSON ROCK')
         self.assertEqual(decoded.accuracy, True)
         self.assertEqual(decoded.lon, 175.119987)
         self.assertEqual(decoded.lat, -36.0075)
@@ -689,7 +689,7 @@ class TestAIS(unittest.TestCase):
         self.assertEqual(decoded.repeat, 0)
         self.assertEqual(decoded.mmsi, '995036013')
         self.assertEqual(decoded.aid_type, NavAid.STARBOARD_HAND_MARK)
-        self.assertEqual(decoded.shipname, 'STDB CUT 2')
+        self.assertEqual(decoded.name, 'STDB CUT 2')
         self.assertEqual(decoded.accuracy, True)
         self.assertEqual(decoded.lon, 115.691833)
         self.assertEqual(decoded.lat, -32.004333)
@@ -748,7 +748,7 @@ class TestAIS(unittest.TestCase):
                 'regional': 4,
                 'repeat': 0,
                 'second': 60,
-                'shipname': 'STDB CUT 2',
+                'name': 'STDB CUT 2',
                 'spare': None,
                 'to_bow': 0,
                 'to_port': 0,
@@ -787,7 +787,7 @@ class TestAIS(unittest.TestCase):
                 'repeat': 0,
                 'second': 60,
                 'seq_id': None,
-                'shipname': 'STDB CUT 2',
+                'name': 'STDB CUT 2',
                 'spare': None,
                 'talker': 'AI',
                 'to_bow': 0,
@@ -823,7 +823,7 @@ class TestAIS(unittest.TestCase):
                 'repeat': 0,
                 'second': 60,
                 'seq_id': None,
-                'shipname': 'STDB CUT 2',
+                'name': 'STDB CUT 2',
                 'spare': None,
                 'talker': 'AI',
                 'to_bow': 0,

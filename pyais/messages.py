@@ -892,7 +892,7 @@ class MessageType21(Payload):
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
 
     aid_type = bit_field(5, int, default=0, from_converter=NavAid.from_value, to_converter=NavAid.from_value)
-    shipname = bit_field(120, str, default='')
+    name = bit_field(120, str, default='')
     accuracy = bit_field(1, bool, default=0)
     lon = bit_field(28, int, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
     lat = bit_field(27, int, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)

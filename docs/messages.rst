@@ -1397,7 +1397,7 @@ MessageType21
             * type: <class 'int'>
             * bit-width: 5
             * default: 0
-        * `shipname`
+        * `name`
             * type: <class 'str'>
             * bit-width: 120
             * default:
