@@ -30,6 +30,30 @@ the [AIS standard](https://en.wikipedia.org/wiki/Automatic_identification_system
 I open to any form of idea to further improve this library. If you have an idea or a feature request - just open an
 issue. :-)
 
+# Migrating from v1 to v2
+
+Version 2.0.0 of pyais had some breaking changes that were needed to improve the lib. While I tried to keep those
+breaking changes to a minimum, there are a few places that got changed.
+
+* `msg.decode()` does not return a `pyais.messages.AISMessage` instance anymore
+  * instead an instance of `pyais.messages.MessageTypeX` is returned, where `X` is the type of the message (1-27)
+* in v1 you called `decoded.content` to get the decoded message as a dictionary - this is now `decoded.asdict()`
+
+### Typical example in v1
+
+```py
+message = NMEAMessage(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
+decoded = message.decode()
+data = decoded.content
+```
+
+### Typical example in v2
+```py
+message = NMEAMessage(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
+decoded = message.decode()
+data = decoded.asdict()
+```
+
 # Installation
 
 The project is available at Pypi:
@@ -40,58 +64,77 @@ $ pip install pyais
 
 # Usage
 
-Using this module is easy. If you want to parse a file, that contains AIS messages, just copy the following code and
-replace `filename` with your desired filename.
+U Decode a single part AIS message using `decode()`::
 
-```python
-from pyais import FileReaderStream
+```py
+from pyais import decode
+
+decoded = decode(b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05")
+print(decoded)
+```
+
+The `decode()` functions accepts a list of arguments: One argument for every part of a multipart message::
+
+```py
+from pyais import decode
+
+parts = [
+    b"!AIVDM,2,1,4,A,55O0W7`00001L@gCWGA2uItLth@DqtL5@F22220j1h742t0Ht0000000,0*08",
+    b"!AIVDM,2,2,4,A,000000000000000,2*20",
+]
+
+# Decode a multipart message using decode
+decoded = decode(*parts)
+print(decoded)
+```
+
+Also the `decode()` function accepts either strings or bytes::
+
+```py
+from pyais import decode
+
+decoded_b = decode(b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05")
+decoded_s = decode("!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05")
+assert decoded_b == decoded_s
+```
+
+Decode the message into a dictionary::
+
+```py
+from pyais import decode
+
+decoded = decode(b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05")
+as_dict = decoded.asdict()
+print(as_dict)
+```
+
+Read a file::
+
+```py
+from pyais.stream import FileReaderStream
 
 filename = "sample.ais"
 
 for msg in FileReaderStream(filename):
-    decoded_message = msg.decode()
-    ais_content = decoded_message.content
+    decoded = msg.decode()
+    print(decoded)
 ```
 
-It is possible to directly convert messages into JSON.
-
-```python
-from pyais import TCPStream
-
-for msg in TCPStream('ais.exploratorium.edu'):
-    json_data = msg.decode().to_json()
-```
-
-You can also parse a single message encoded as bytes or from a string:
-
-```python
-from pyais import NMEAMessage, decode_msg
-
-message = NMEAMessage(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
-message = NMEAMessage.from_string("!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
-
-# or newer 
-
-msg = decode_msg("!AIVDM,1,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")
-msg = decode_msg(b"!AIVDM,1,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")
-
-```
-
-See the example folder for more examples.
-
-Another common use case is the reception of messages via UDP. This lib comes with an `UDPStream` class that enables just
-that. This stream class also handles out-of-order delivery of messages, which can occur when using UDP.
+Decode a stream of messages (e.g. a list or generator)::
 
 ```py
-from pyais.stream import UDPStream
+from pyais import IterMessages
 
-host = "127.0.0.1"
-port = 55555
-
-for msg in UDPStream(host, port):
-    msg.decode()
-    # do something with it
-
+fake_stream = [
+    b"!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23",
+    b"!AIVDM,1,1,,A,133sVfPP00PD>hRMDH@jNOvN20S8,0*7F",
+    b"!AIVDM,1,1,,B,100h00PP0@PHFV`Mg5gTH?vNPUIp,0*3B",
+    b"!AIVDM,1,1,,B,13eaJF0P00Qd388Eew6aagvH85Ip,0*45",
+    b"!AIVDM,1,1,,A,14eGrSPP00ncMJTO5C6aBwvP2D0?,0*7A",
+    b"!AIVDM,1,1,,A,15MrVH0000KH<:V:NtBLoqFP2H9:,0*2F",
+]
+for msg in IterMessages(fake_stream):
+    print(msg.decode())
 ```
 
 ## Encode
@@ -139,10 +182,10 @@ encoded = encode_dict(data, radio_channel="B", talker_id="AIVDM")[0]
 It is also possible to create messages directly and pass them to `encode_payload`.
 
 ```py
-from pyais.encode import MessageType5, encode_payload
+from pyais.encode import MessageType5, encode_msg
 
 payload = MessageType5.create(mmsi="123", shipname="Titanic", callsign="TITANIC", destination="New York")
-encoded = encode_payload(payload)
+encoded = encode_msg(payload)
 print(encoded)
 ```
 

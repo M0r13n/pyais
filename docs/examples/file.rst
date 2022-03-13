@@ -6,17 +6,15 @@ Reading and parsing files
 Examples
 --------
 
-Parse a file::
+The following example shows how to read and parse AIS messages from a file::
 
     from pyais.stream import FileReaderStream
 
     filename = "sample.ais"
 
     for msg in FileReaderStream(filename):
-        decoded_message = msg.decode()
-        ais_content = decoded_message.content
-        # Do something with the ais message
-
+        decoded = msg.decode()
+        print(decoded)
 
 Please note, that by default the following lines are ignored:
 

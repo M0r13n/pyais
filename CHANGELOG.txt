@@ -2,6 +2,24 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 2.0.0-alpha  6 Feb 2022
+-------------------------------------------------------------------------------
+
+* WARNING: The v2 release will introduce breaking changes
+* Introduces the possibility to encode messages
+* decoding has been rewritten and implements an iterative decoding approach
+* The following fields were renamed:
+    * message_fragments -> frag_cnt
+    * fragment_number -> frag_num
+    * message_id -> seq_id
+    * type -> msg_type
+    * shiptype -> ship_type
+* `msg.decode()` does not return a `pyais.messages.AISMessage` instance anymore
+  * instead an instance of `pyais.messages.MessageTypeX` is returned, where `X` is the type of the message (1-27)
+* in v1 you called `decoded.content` to get the decoded message as a dictionary - this is now `decoded.asdict()`
+
+
+-------------------------------------------------------------------------------
  Version 1.6.2  2 May 2021
 -------------------------------------------------------------------------------
 

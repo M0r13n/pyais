@@ -14,4 +14,11 @@ check-build:
 type-check:
 	mypy ./pyais
 
+clean:
+	rm -rf .mypy_cache
+	rm -rf build
+	rm -rf dist
+	rm coverage.xml
+	rm .coverage
+
 test: run_tests flake type-check
