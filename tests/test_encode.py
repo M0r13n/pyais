@@ -448,7 +448,8 @@ def test_encode_type_21():
     }
 
     encoded = encode_dict(data)
-    assert encoded[0] == "!AIVDO,1,1,,A,E4eHJhPP0000000000000000000KUOSc=rq4h00000a@2000000000000000,4*7E"
+    # Validated using: http://ais.tbsalling.dk/
+    assert encoded[0] == "!AIVDO,1,1,,A,E4eHJhPR37q0000000000000000KUOSc=rq4h00000a@2000000000000000,4*39"
 
 
 def test_encode_type_20():
