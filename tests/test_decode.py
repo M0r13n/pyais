@@ -882,3 +882,24 @@ class TestAIS(unittest.TestCase):
                     self.assertEqual(val, 0)
                 else:
                     self.assertIsNone(val)
+
+    def test_type_25_very_short(self):
+        """If the message is very short, an IndexError might o occur"""
+        short_msg = b'!AIVDO,1,1,,A,Ig,0*65'
+        decoded = decode(short_msg)
+
+        self.assertEqual(decoded.mmsi, '000000015')
+
+    def test_type_26_very_short(self):
+        """If the message is very short, an IndexError might occur"""
+        short_msg = b'!AIVDO,1,1,,A,Jgg,4*4E'
+        decoded = decode(short_msg)
+
+        self.assertEqual(decoded.mmsi, '000000062')
+
+    def test_type_22_very_short(self):
+        """If the mssage is very short an IndexError might occur"""
+        short_msg = b'!AIVDO,1,1,,A,F0001,0*74'
+        decoded = decode(short_msg)
+
+        self.assertEqual(decoded.mmsi, '000000001')

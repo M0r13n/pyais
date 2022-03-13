@@ -993,7 +993,7 @@ class MessageType22(Payload):
 
     @classmethod
     def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
-        if bit_arr[139]:
+        if get_int(bit_arr, 139, 140):
             return MessageType22Addressed.from_bitarray(bit_arr)
         else:
             return MessageType22Broadcast.from_bitarray(bit_arr)
@@ -1171,8 +1171,8 @@ class MessageType25(Payload):
 
     @classmethod
     def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
-        addressed: int = bit_arr[38]
-        structured: int = bit_arr[39]
+        addressed: int = get_int(bit_arr, 38, 39)
+        structured: int = get_int(bit_arr, 39, 40)
 
         if addressed:
             if structured:
@@ -1271,8 +1271,8 @@ class MessageType26(Payload):
 
     @classmethod
     def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
-        addressed: int = bit_arr[38]
-        structured: int = bit_arr[39]
+        addressed: int = get_int(bit_arr, 38, 39)
+        structured: int = get_int(bit_arr, 39, 40)
 
         if addressed:
             if structured:
