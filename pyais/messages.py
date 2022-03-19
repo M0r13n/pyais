@@ -563,7 +563,7 @@ class MessageType4(Payload):
     lat = bit_field(27, int, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
     epfd = bit_field(4, int, default=0, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value)
     spare = bit_field(10, int, default=0)
-    raim = bit_field(1, int, default=0)
+    raim = bit_field(1, bool, default=0)
     radio = bit_field(19, int, default=0)
 
 
@@ -669,7 +669,7 @@ class MessageType9(Payload):
     dte = bit_field(1, int, default=0)
     spare = bit_field(3, int, default=0)
     assigned = bit_field(1, int, default=0)
-    raim = bit_field(1, int, default=0)
+    raim = bit_field(1, bool, default=0)
     radio = bit_field(20, int, default=0)
 
 
@@ -1297,7 +1297,7 @@ class MessageType27(Payload):
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
 
     accuracy = bit_field(1, int, default=0)
-    raim = bit_field(1, int, default=0)
+    raim = bit_field(1, bool, default=0)
     status = bit_field(4, int, default=0, from_converter=NavigationStatus, to_converter=NavigationStatus)
     lon = bit_field(18, int, from_converter=from_lat_lon_600, to_converter=to_lat_lon_600, default=0)
     lat = bit_field(17, int, from_converter=from_lat_lon_600, to_converter=to_lat_lon_600, default=0)

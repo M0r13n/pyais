@@ -101,6 +101,7 @@ class TestAIS(unittest.TestCase):
         assert msg['second'] == 34
         assert msg['maneuver'] == ManeuverIndicator.NotAvailable
         assert msg['raim']
+        assert isinstance(msg['raim'], bool)
 
     def test_msg_type_1_c(self):
         msg = decode(b"!AIVDM,1,1,,B,181:Kjh01ewHFRPDK1s3IRcn06sd,0*08").asdict()
@@ -226,6 +227,7 @@ class TestAIS(unittest.TestCase):
         assert msg['dte'] == 1
         assert msg['radio'] == 33392
         assert not msg['raim']
+        assert isinstance(msg['raim'], bool)
 
     def test_msg_type_10_a(self):
         msg = decode(b"!AIVDM,1,1,,B,:5MlU41GMK6@,0*6C").asdict()
@@ -360,6 +362,7 @@ class TestAIS(unittest.TestCase):
         assert msg['msg22'] == 1
         assert not msg['assigned']
         assert not msg['raim']
+        assert isinstance(msg['raim'], bool)
 
     def test_msg_type_19(self):
         msg = decode(b"!AIVDM,1,1,,B,C5N3SRgPEnJGEBT>NhWAwwo862PaLELTBJ:V00000000S0D:R220,0*0B").asdict()
