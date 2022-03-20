@@ -123,6 +123,12 @@ class TestAIS(unittest.TestCase):
 
         assert decode(b"!AIVDM,1,1,,B,0S9edj0P03PecbBN`ja@0?w42cFC,0*7C").to_json()
 
+    def test_decode_1_speed(self):
+        content = decode(b"!AIVDM,1,1,,A,13@nePh01>PjcO4PGReoJEmL0HJg,0*67").asdict()
+
+        assert content['speed'] == 7.8
+        assert content['msg_type'] == 1
+
     def test_msg_type_3(self):
         msg = decode(b"!AIVDM,1,1,,A,35NSH95001G?wopE`beasVk@0E5:,0*6F").asdict()
         assert msg['msg_type'] == 3
@@ -344,10 +350,9 @@ class TestAIS(unittest.TestCase):
 
     def test_msg_type_18(self):
         msg = decode(b"!AIVDM,1,1,,A,B5NJ;PP005l4ot5Isbl03wsUkP06,0*76").asdict()
-        print(msg)
         assert msg['msg_type'] == 18
         assert msg['mmsi'] == "367430530"
-        assert msg['speed'] == 0
+        assert msg['speed'] == 0.0
         assert msg['accuracy'] == 0
         assert round(msg['lat'], 2) == 37.79
         assert round(msg['lon'], 2) == -122.27
@@ -363,6 +368,17 @@ class TestAIS(unittest.TestCase):
         assert not msg['assigned']
         assert not msg['raim']
         assert isinstance(msg['raim'], bool)
+
+        assert isinstance(msg['lat'], float)
+        assert isinstance(msg['lon'], float)
+        assert isinstance(msg['speed'], float)
+        assert isinstance(msg['course'], float)
+
+    def test_msg_type_18_speed(self):
+        msg = decode(b"!AIVDO,1,1,,A,B5NJ;PP2aUl4ot5Isbl6GwsUkP06,0*35").asdict()
+
+        assert msg['speed'] == 67.8
+        assert msg['course'] == 10.1
 
     def test_msg_type_19(self):
         msg = decode(b"!AIVDM,1,1,,B,C5N3SRgPEnJGEBT>NhWAwwo862PaLELTBJ:V00000000S0D:R220,0*0B").asdict()
@@ -437,7 +453,7 @@ class TestAIS(unittest.TestCase):
         assert msg['ne_lon'] == -7710.0
         assert msg['ne_lat'] == 3300.0
         assert msg['sw_lon'] == -8020.0
-        assert msg['sw_lat'] == 3210
+        assert msg['sw_lat'] == 3210.0
 
         assert msg['band_a'] == 0
         assert msg['band_b'] == 0
@@ -445,6 +461,11 @@ class TestAIS(unittest.TestCase):
 
         assert 'dest1' not in msg.keys()
         assert 'dest2' not in msg.keys()
+
+        assert isinstance(msg['ne_lon'], float)
+        assert isinstance(msg['ne_lat'], float)
+        assert isinstance(msg['sw_lon'], float)
+        assert isinstance(msg['sw_lat'], float)
 
     def test_msg_type_22_addressed(self):
         # Addressed
@@ -597,7 +618,7 @@ class TestAIS(unittest.TestCase):
         self.assertEqual(content["msg_type"], 18)
         self.assertEqual(content["repeat"], 0)
         self.assertEqual(content["mmsi"], "1000000000")
-        self.assertEqual(content["speed"], 1023)
+        self.assertEqual(content["speed"], 102.3)
         self.assertEqual(content["accuracy"], 0)
         self.assertEqual(str(content["lon"]), "181.0")
         self.assertEqual(str(content["lat"]), "91.0")

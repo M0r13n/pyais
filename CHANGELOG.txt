@@ -2,6 +2,15 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 2.0.2  20 Mar 2022
+-------------------------------------------------------------------------------
+* Closes https://github.com/M0r13n/pyais/issues/55
+  * Makes the attribute `raim` always an boolean
+
+* Closes https://github.com/M0r13n/pyais/issues/54
+  * Ensure that the attributes speed, lat, lon and course are always `float`
+
+-------------------------------------------------------------------------------
  Version 2.0.1  6 Feb 2022
 -------------------------------------------------------------------------------
 * Closes https://github.com/M0r13n/pyais/issues/52
