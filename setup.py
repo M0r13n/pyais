@@ -40,6 +40,9 @@ setuptools.setup(
         "bitarray",
         "attrs"
     ],
+    extras_require={
+        'dev': ['nose', 'mypy', 'flake8', 'coverage', 'twine', 'sphinx']
+    },
     entry_points={
         "console_scripts": [
             'ais-decode=pyais.main:main'

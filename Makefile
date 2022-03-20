@@ -22,3 +22,7 @@ clean:
 	rm .coverage
 
 test: run_tests flake type-check
+
+install:
+	pip install wheel
+	pip install -U .[dev]
