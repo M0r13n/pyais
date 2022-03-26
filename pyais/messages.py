@@ -11,7 +11,7 @@ from pyais.constants import TalkerID, NavigationStatus, ManeuverIndicator, EpfdT
 from pyais.exceptions import InvalidNMEAMessageException, UnknownMessageException, UnknownPartNoException, \
     InvalidDataTypeException
 from pyais.util import decode_into_bit_array, compute_checksum, int_to_bin, str_to_bin, \
-    encode_ascii_6, from_bytes, int_to_bytes, from_bytes_signed, decode_bin_as_ascii6, get_int
+    encode_ascii_6, from_bytes, int_to_bytes, from_bytes_signed, decode_bin_as_ascii6, get_int, chk_to_int
 
 NMEA_VALUE = typing.Union[str, float, int, bool, bytes]
 
@@ -195,10 +195,12 @@ class NMEAMessage(object):
         self.channel: str = channel.decode('ascii')
         # Decoded message payload as byte string
         self.payload: bytes = payload
+
+        fill, check = chk_to_int(checksum)
         # Fill bits (0 to 5)
-        self.fill_bits: int = int(chr(checksum[0]))
+        self.fill_bits: int = fill
         # Message Checksum (hex value)
-        self.checksum = int(checksum[2:], 16)
+        self.checksum = check
 
         # Finally decode bytes into bits
         self.bit_array: bitarray = decode_into_bit_array(self.payload, self.fill_bits)
@@ -341,6 +343,7 @@ class Payload(abc.ABC):
             width = field.metadata['width']
             d_type = field.metadata['d_type']
             converter = field.metadata['from_converter']
+            signed = field.metadata['signed']
 
             val = getattr(self, field.name)
             if val is None:
@@ -350,10 +353,10 @@ class Payload(abc.ABC):
             val = d_type(val)
 
             if d_type == int or d_type == bool:
-                bits = int_to_bin(val, width)
+                bits = int_to_bin(val, width, signed=signed)
             elif d_type == float:
                 val = int(val)
-                bits = int_to_bin(val, width)
+                bits = int_to_bin(val, width, signed=signed)
             elif d_type == str:
                 bits = str_to_bin(val, width)
             else:
@@ -511,23 +514,23 @@ class MessageType1(Payload):
     AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
     """
-    msg_type = bit_field(6, int, default=1)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=1, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
-    status = bit_field(4, int, default=0, converter=NavigationStatus.from_value)
+    status = bit_field(4, int, default=0, converter=NavigationStatus.from_value, signed=False)
     turn = bit_field(8, int, default=0, signed=True)
-    speed = bit_field(10, float, from_converter=from_speed, to_converter=to_speed, default=0)
-    accuracy = bit_field(1, int, default=0)
+    speed = bit_field(10, float, from_converter=from_speed, to_converter=to_speed, default=0, signed=False)
+    accuracy = bit_field(1, int, default=0, signed=False)
     lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, default=0, signed=True)
     lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, default=0, signed=True)
-    course = bit_field(12, float, from_converter=from_10th, to_converter=to_10th, default=0)
-    heading = bit_field(9, int, default=0)
-    second = bit_field(6, int, default=0)
+    course = bit_field(12, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    heading = bit_field(9, int, default=0, signed=False)
+    second = bit_field(6, int, default=0, signed=False)
     maneuver = bit_field(2, int, default=0, from_converter=ManeuverIndicator.from_value,
-                         to_converter=ManeuverIndicator.from_value)
+                         to_converter=ManeuverIndicator.from_value, signed=False)
     spare = bit_field(3, int, default=0)
     raim = bit_field(1, bool, default=0)
-    radio = bit_field(19, int, default=0)
+    radio = bit_field(19, int, default=0, signed=False)
 
 
 class MessageType2(MessageType1):
@@ -552,22 +555,23 @@ class MessageType4(Payload):
     AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_4_base_station_report
     """
-    msg_type = bit_field(6, int, default=4)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=4, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
-    year = bit_field(14, int, default=1970)
-    month = bit_field(4, int, default=1)
-    day = bit_field(5, int, default=1)
-    hour = bit_field(5, int, default=0)
-    minute = bit_field(6, int, default=0)
-    second = bit_field(6, int, default=0)
-    accuracy = bit_field(1, int, default=0)
+    year = bit_field(14, int, default=1970, signed=False)
+    month = bit_field(4, int, default=1, signed=False)
+    day = bit_field(5, int, default=1, signed=False)
+    hour = bit_field(5, int, default=0, signed=False)
+    minute = bit_field(6, int, default=0, signed=False)
+    second = bit_field(6, int, default=0, signed=False)
+    accuracy = bit_field(1, int, default=0, signed=False)
     lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
     lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
-    epfd = bit_field(4, int, default=0, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value)
+    epfd = bit_field(4, int, default=0, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value,
+                     signed=False)
     spare = bit_field(10, int, default=0)
     raim = bit_field(1, bool, default=0)
-    radio = bit_field(19, int, default=0)
+    radio = bit_field(19, int, default=0, signed=False)
 
 
 @attr.s(slots=True)
@@ -576,26 +580,26 @@ class MessageType5(Payload):
     Static and Voyage Related Data
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_5_static_and_voyage_related_data
     """
-    msg_type = bit_field(6, int, default=5)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=5, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
-    ais_version = bit_field(2, int, default=0)
-    imo = bit_field(30, int, default=0)
+    ais_version = bit_field(2, int, default=0, signed=False)
+    imo = bit_field(30, int, default=0, signed=False)
     callsign = bit_field(42, str, default='')
     shipname = bit_field(120, str, default='')
     ship_type = bit_field(8, int, default=0, from_converter=ShipType.from_value, to_converter=ShipType.from_value)
-    to_bow = bit_field(9, int, default=0)
-    to_stern = bit_field(9, int, default=0)
-    to_port = bit_field(6, int, default=0)
-    to_starboard = bit_field(6, int, default=0)
+    to_bow = bit_field(9, int, default=0, signed=False)
+    to_stern = bit_field(9, int, default=0, signed=False)
+    to_port = bit_field(6, int, default=0, signed=False)
+    to_starboard = bit_field(6, int, default=0, signed=False)
     epfd = bit_field(4, int, default=0, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value)
-    month = bit_field(4, int, default=0)
-    day = bit_field(5, int, default=0)
-    hour = bit_field(5, int, default=0)
-    minute = bit_field(6, int, default=0)
-    draught = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0)
+    month = bit_field(4, int, default=0, signed=False)
+    day = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=0, signed=False)
+    minute = bit_field(6, int, default=0, signed=False)
+    draught = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
     destination = bit_field(120, str, default='')
-    dte = bit_field(1, bool, default=0)
+    dte = bit_field(1, bool, default=0, signed=False)
     spare = bit_field(1, bool, default=0)
 
 
@@ -606,14 +610,14 @@ class MessageType6(Payload):
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_4_base_station_report
     """
     msg_type = bit_field(6, int, default=6)
-    repeat = bit_field(2, int, default=0)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
-    seqno = bit_field(2, int, default=0)
+    seqno = bit_field(2, int, default=0, signed=False)
     dest_mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
-    retransmit = bit_field(1, bool, default=False)
+    retransmit = bit_field(1, bool, default=False, signed=False)
     spare = bit_field(1, int, default=0)
-    dac = bit_field(10, int, default=0)
-    fid = bit_field(6, int, default=0)
+    dac = bit_field(10, int, default=0, signed=False)
+    fid = bit_field(6, int, default=0, signed=False)
     data = bit_field(920, int, default=0, from_converter=int_to_bytes, to_converter=int_to_bytes)
 
 
@@ -623,18 +627,18 @@ class MessageType7(Payload):
     Binary Acknowledge
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_7_binary_acknowledge
     """
-    msg_type = bit_field(6, int, default=7)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=7, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
     spare = bit_field(2, int, default=0)
     mmsi1 = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
-    mmsiseq1 = bit_field(2, int, default=0)
+    mmsiseq1 = bit_field(2, int, default=0, signed=False)
     mmsi2 = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
-    mmsiseq2 = bit_field(2, int, default=0)
+    mmsiseq2 = bit_field(2, int, default=0, signed=False)
     mmsi3 = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
-    mmsiseq3 = bit_field(2, int, default=0)
+    mmsiseq3 = bit_field(2, int, default=0, signed=False)
     mmsi4 = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
-    mmsiseq4 = bit_field(2, int, default=0)
+    mmsiseq4 = bit_field(2, int, default=0, signed=False)
 
 
 @attr.s(slots=True)
@@ -643,12 +647,12 @@ class MessageType8(Payload):
     Binary Acknowledge
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_8_binary_broadcast_message
     """
-    msg_type = bit_field(6, int, default=8)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
     spare = bit_field(2, int, default=0)
-    dac = bit_field(10, int, default=0)
-    fid = bit_field(6, int, default=0)
+    dac = bit_field(10, int, default=0, signed=False)
+    fid = bit_field(6, int, default=0, signed=False)
     data = bit_field(952, int, default=0, from_converter=int_to_bytes)
 
 
@@ -658,23 +662,25 @@ class MessageType9(Payload):
     Standard SAR Aircraft Position Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_9_standard_sar_aircraft_position_report
     """
-    msg_type = bit_field(6, int, default=9)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=9, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
-    alt = bit_field(12, int, default=0)
+
+    alt = bit_field(12, int, default=0, signed=False)
     # speed over ground is in knots, not deciknots
-    speed = bit_field(10, int, default=0)
-    accuracy = bit_field(1, int, default=0)
+    speed = bit_field(10, int, default=0, signed=False)
+    accuracy = bit_field(1, int, default=0, signed=False)
     lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
     lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
-    course = bit_field(12, float, from_converter=from_10th, to_converter=to_10th, default=0)
-    second = bit_field(6, int, default=0)
+    course = bit_field(12, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    second = bit_field(6, int, default=0, signed=False)
+
     reserved = bit_field(8, int, default=0)
     dte = bit_field(1, bool, default=0)
     spare = bit_field(3, int, default=0)
     assigned = bit_field(1, bool, default=0)
     raim = bit_field(1, bool, default=0)
-    radio = bit_field(20, int, default=0)
+    radio = bit_field(20, int, default=0, signed=False)
 
 
 @attr.s(slots=True)
@@ -683,8 +689,8 @@ class MessageType10(Payload):
     UTC/Date Inquiry
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_10_utc_date_inquiry
     """
-    msg_type = bit_field(6, int, default=10)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=10, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
     spare_1 = bit_field(2, int, default=0)
     dest_mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
@@ -696,7 +702,7 @@ class MessageType11(MessageType4):
     UTC/Date Response
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_11_utc_date_response
     """
-    msg_type = bit_field(6, int, default=11)
+    msg_type = bit_field(6, int, default=11, signed=False)
 
 
 @attr.s(slots=True)
@@ -705,13 +711,13 @@ class MessageType12(Payload):
     Addressed Safety-Related Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_12_addressed_safety_related_message
     """
-    msg_type = bit_field(6, int, default=12)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=12, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
-    seqno = bit_field(2, int, default=0)
+    seqno = bit_field(2, int, default=0, signed=False)
     dest_mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
-    retransmit = bit_field(1, bool, default=False)
-    spare = bit_field(1, int, default=0)
+    retransmit = bit_field(1, bool, default=False, signed=False)
+    spare = bit_field(1, int, default=0, signed=False)
     text = bit_field(936, str, default='')
 
 
@@ -719,7 +725,7 @@ class MessageType13(MessageType7):
     """
     Identical to type 7
     """
-    msg_type = bit_field(6, int, default=13)
+    msg_type = bit_field(6, int, default=13, signed=False)
 
 
 @attr.s(slots=True)
@@ -728,8 +734,8 @@ class MessageType14(Payload):
     Safety-Related Broadcast Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_14_safety_related_broadcast_message
     """
-    msg_type = bit_field(6, int, default=14)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=14, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
     spare = bit_field(2, int, default=0)
     text = bit_field(968, str, default='')
@@ -741,20 +747,20 @@ class MessageType15(Payload):
     Interrogation
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_15_interrogation
     """
-    msg_type = bit_field(6, int, default=15)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=15, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
-    spare_1 = bit_field(2, int, default=0)
+    spare_1 = bit_field(2, int, default=0, signed=False)
     mmsi1 = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
-    type1_1 = bit_field(6, int, default=0)
-    offset1_1 = bit_field(12, int, default=0)
+    type1_1 = bit_field(6, int, default=0, signed=False)
+    offset1_1 = bit_field(12, int, default=0, signed=False)
     spare_2 = bit_field(2, int, default=0)
-    type1_2 = bit_field(6, int, default=0)
-    offset1_2 = bit_field(12, int, default=0)
+    type1_2 = bit_field(6, int, default=0, signed=False)
+    offset1_2 = bit_field(12, int, default=0, signed=False)
     spare_3 = bit_field(2, int, default=0)
     mmsi2 = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
-    type2_1 = bit_field(6, int, default=0)
-    offset2_1 = bit_field(12, int, default=0)
+    type2_1 = bit_field(6, int, default=0, signed=False)
+    offset2_1 = bit_field(12, int, default=0, signed=False)
     spare_4 = bit_field(2, int, default=0)
 
 
@@ -764,18 +770,18 @@ class MessageType16(Payload):
     Assignment Mode Command
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_16_assignment_mode_command
     """
-    msg_type = bit_field(6, int, default=16)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=16, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
     spare = bit_field(2, int, default=0)
 
     mmsi1 = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
-    offset1 = bit_field(12, int, default=0)
-    increment1 = bit_field(10, int, default=0)
+    offset1 = bit_field(12, int, default=0, signed=False)
+    increment1 = bit_field(10, int, default=0, signed=False)
 
     mmsi2 = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
-    offset2 = bit_field(12, int, default=0)
-    increment2 = bit_field(10, int, default=0)
+    offset2 = bit_field(12, int, default=0, signed=False)
+    increment2 = bit_field(10, int, default=0, signed=False)
 
 
 @attr.s(slots=True)
@@ -784,8 +790,8 @@ class MessageType17(Payload):
     DGNSS Broadcast Binary Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_17_dgnss_broadcast_binary_message
     """
-    msg_type = bit_field(6, int, default=17)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=17, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
     spare_1 = bit_field(2, int, default=0)
     # Note that latitude and longitude are in units of a tenth of a minute
@@ -801,19 +807,20 @@ class MessageType18(Payload):
     Standard Class B CS Position Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_18_standard_class_b_cs_position_report
     """
-    msg_type = bit_field(6, int, default=18)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=18, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
-    reserved = bit_field(8, int, default=0)
-    speed = bit_field(10, float, from_converter=from_speed, to_converter=to_speed, default=0)
-    accuracy = bit_field(1, int, default=0)
+
+    reserved = bit_field(8, int, default=0, signed=False)
+    speed = bit_field(10, float, from_converter=from_speed, to_converter=to_speed, default=0, signed=False)
+    accuracy = bit_field(1, int, default=0, signed=False)
     lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
     lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
-    course = bit_field(12, float, from_converter=from_10th, to_converter=to_10th, default=0)
-    heading = bit_field(9, int, default=0)
-    second = bit_field(6, int, default=0)
-    reserved_2 = bit_field(2, int, default=0)
-    cs = bit_field(1, bool, default=0)
+    course = bit_field(12, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    heading = bit_field(9, int, default=0, signed=False)
+    second = bit_field(6, int, default=0, signed=False)
+    reserved_2 = bit_field(2, int, default=0, signed=False)
+    cs = bit_field(1, bool, default=0, signed=False)
     display = bit_field(1, bool, default=0)
     dsc = bit_field(1, bool, default=0)
     band = bit_field(1, bool, default=0)
@@ -829,28 +836,30 @@ class MessageType19(Payload):
     Extended Class B CS Position Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_19_extended_class_b_cs_position_report
     """
-    msg_type = bit_field(6, int, default=19)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=19, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
     reserved = bit_field(8, int, default=0)
-    speed = bit_field(10, float, from_converter=from_speed, to_converter=to_speed, default=0)
-    accuracy = bit_field(1, int, default=0)
+
+    speed = bit_field(10, float, from_converter=from_speed, to_converter=to_speed, default=0, signed=False)
+    accuracy = bit_field(1, int, default=0, signed=False)
     lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
     lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
-    course = bit_field(12, float, from_converter=from_10th, to_converter=to_10th, default=0)
-    heading = bit_field(9, int, default=0)
-    second = bit_field(6, int, default=0)
-    regional = bit_field(4, int, default=0)
+    course = bit_field(12, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    heading = bit_field(9, int, default=0, signed=False)
+    second = bit_field(6, int, default=0, signed=False)
+    regional = bit_field(4, int, default=0, signed=False)
     shipname = bit_field(120, str, default='')
-    ship_type = bit_field(8, int, default=0, from_converter=ShipType.from_value, to_converter=ShipType.from_value)
-    to_bow = bit_field(9, int, default=0)
-    to_stern = bit_field(9, int, default=0)
-    to_port = bit_field(6, int, default=0)
-    to_starboard = bit_field(6, int, default=0)
+    ship_type = bit_field(8, int, default=0, from_converter=ShipType.from_value, to_converter=ShipType.from_value,
+                          signed=False)
+    to_bow = bit_field(9, int, default=0, signed=False)
+    to_stern = bit_field(9, int, default=0, signed=False)
+    to_port = bit_field(6, int, default=0, signed=False)
+    to_starboard = bit_field(6, int, default=0, signed=False)
     epfd = bit_field(4, int, default=0, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value)
     raim = bit_field(1, bool, default=0)
     dte = bit_field(1, bool, default=0)
-    assigned = bit_field(1, bool, default=0)
+    assigned = bit_field(1, bool, default=0, signed=False)
     spare = bit_field(4, int, default=0)
 
 
@@ -860,30 +869,30 @@ class MessageType20(Payload):
     Data Link Management Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_20_data_link_management_message
     """
-    msg_type = bit_field(6, int, default=20)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=20, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
     spare = bit_field(2, int, default=0)
 
-    offset1 = bit_field(12, int, default=0)
-    number1 = bit_field(4, int, default=0)
-    timeout1 = bit_field(3, int, default=0)
-    increment1 = bit_field(11, int, default=0)
+    offset1 = bit_field(12, int, default=0, signed=False)
+    number1 = bit_field(4, int, default=0, signed=False)
+    timeout1 = bit_field(3, int, default=0, signed=False)
+    increment1 = bit_field(11, int, default=0, signed=False)
 
-    offset2 = bit_field(12, int, default=0)
-    number2 = bit_field(4, int, default=0)
-    timeout2 = bit_field(3, int, default=0)
-    increment2 = bit_field(11, int, default=0)
+    offset2 = bit_field(12, int, default=0, signed=False)
+    number2 = bit_field(4, int, default=0, signed=False)
+    timeout2 = bit_field(3, int, default=0, signed=False)
+    increment2 = bit_field(11, int, default=0, signed=False)
 
-    offset3 = bit_field(12, int, default=0)
-    number3 = bit_field(4, int, default=0)
-    timeout3 = bit_field(3, int, default=0)
-    increment3 = bit_field(11, int, default=0)
+    offset3 = bit_field(12, int, default=0, signed=False)
+    number3 = bit_field(4, int, default=0, signed=False)
+    timeout3 = bit_field(3, int, default=0, signed=False)
+    increment3 = bit_field(11, int, default=0, signed=False)
 
-    offset4 = bit_field(12, int, default=0)
-    number4 = bit_field(4, int, default=0)
-    timeout4 = bit_field(3, int, default=0)
-    increment4 = bit_field(11, int, default=0)
+    offset4 = bit_field(12, int, default=0, signed=False)
+    number4 = bit_field(4, int, default=0, signed=False)
+    timeout4 = bit_field(3, int, default=0, signed=False)
+    increment4 = bit_field(11, int, default=0, signed=False)
 
 
 @attr.s(slots=True)
@@ -892,23 +901,26 @@ class MessageType21(Payload):
     Aid-to-Navigation Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_21_aid_to_navigation_report
     """
-    msg_type = bit_field(6, int, default=21)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=21, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
 
-    aid_type = bit_field(5, int, default=0, from_converter=NavAid.from_value, to_converter=NavAid.from_value)
+    aid_type = bit_field(5, int, default=0, from_converter=NavAid.from_value, to_converter=NavAid.from_value,
+                         signed=False)
     name = bit_field(120, str, default='')
-    accuracy = bit_field(1, int, default=0)
+
+    accuracy = bit_field(1, int, default=0, signed=False)
     lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
     lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
-    to_bow = bit_field(9, int, default=0)
-    to_stern = bit_field(9, int, default=0)
-    to_port = bit_field(6, int, default=0)
-    to_starboard = bit_field(6, int, default=0)
+    to_bow = bit_field(9, int, default=0, signed=False)
+    to_stern = bit_field(9, int, default=0, signed=False)
+    to_port = bit_field(6, int, default=0, signed=False)
+    to_starboard = bit_field(6, int, default=0, signed=False)
+
     epfd = bit_field(4, int, default=0, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value)
-    second = bit_field(6, int, default=0)
+    second = bit_field(6, int, default=0, signed=False)
     off_position = bit_field(1, bool, default=0)
-    regional = bit_field(8, int, default=0)
+    regional = bit_field(8, int, default=0, signed=False)
     raim = bit_field(1, bool, default=0)
     virtual_aid = bit_field(1, bool, default=0)
     assigned = bit_field(1, bool, default=0)
@@ -922,14 +934,14 @@ class MessageType22Addressed(Payload):
     Channel Management
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_22_channel_management
     """
-    msg_type = bit_field(6, int, default=22)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=22, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
     spare_1 = bit_field(2, int, default=0)  # 40 bits
 
-    channel_a = bit_field(12, int, default=0)
-    channel_b = bit_field(12, int, default=0)
-    txrx = bit_field(4, int, default=0)
+    channel_a = bit_field(12, int, default=0, signed=False)
+    channel_b = bit_field(12, int, default=0, signed=False)
+    txrx = bit_field(4, int, default=0, signed=False)
     power = bit_field(1, bool, default=0)  # 69 bits
 
     # If it is addressed (addressed field is 1),
@@ -953,14 +965,14 @@ class MessageType22Broadcast(Payload):
     Channel Management
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_22_channel_management
     """
-    msg_type = bit_field(6, int, default=22)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=22, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
     spare_1 = bit_field(2, int, default=0)
 
-    channel_a = bit_field(12, int, default=0)
-    channel_b = bit_field(12, int, default=0)
-    txrx = bit_field(4, int, default=0)
+    channel_a = bit_field(12, int, default=0, signed=False)
+    channel_b = bit_field(12, int, default=0, signed=False)
+    txrx = bit_field(4, int, default=0, signed=False)
     power = bit_field(1, bool, default=0)
 
     # If the message is broadcast (addressed field is 0),
@@ -975,7 +987,7 @@ class MessageType22Broadcast(Payload):
     addressed = bit_field(1, bool, default=0)
     band_a = bit_field(1, bool, default=0)
     band_b = bit_field(1, bool, default=0)
-    zonesize = bit_field(3, int, default=0)
+    zonesize = bit_field(3, int, default=0, signed=False)
     spare_2 = bit_field(23, int, default=0)
 
 
@@ -1011,8 +1023,8 @@ class MessageType23(Payload):
     Group Assignment Command
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_23_group_assignment_command
     """
-    msg_type = bit_field(6, int, default=23)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=23, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
     spare_1 = bit_field(2, int, default=0)
 
@@ -1026,41 +1038,42 @@ class MessageType23(Payload):
     ship_type = bit_field(8, int, default=0, from_converter=ShipType.from_value, to_converter=ShipType.from_value)
     spare_2 = bit_field(22, int, default=0)
 
-    txrx = bit_field(2, int, default=0, from_converter=TransmitMode.from_value, to_converter=TransmitMode.from_value)
+    txrx = bit_field(2, int, default=0, from_converter=TransmitMode.from_value, to_converter=TransmitMode.from_value,
+                     signed=False)
     interval = bit_field(4, int, default=0, from_converter=StationIntervals.from_value,
                          to_converter=StationIntervals.from_value)
-    quiet = bit_field(4, int, default=0)
+    quiet = bit_field(4, int, default=0, signed=False)
     spare_3 = bit_field(6, int, default=0)
 
 
 @attr.s(slots=True)
 class MessageType24PartA(Payload):
-    msg_type = bit_field(6, int, default=24)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=24, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
 
-    partno = bit_field(2, int, default=0)
+    partno = bit_field(2, int, default=0, signed=False)
     shipname = bit_field(120, str, default='')
     spare_1 = bit_field(8, int, default=0)
 
 
 @attr.s(slots=True)
 class MessageType24PartB(Payload):
-    msg_type = bit_field(6, int, default=24)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=24, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
 
-    partno = bit_field(2, int, default=0)
-    ship_type = bit_field(8, int, default=0)
-    vendorid = bit_field(18, str, default=0)
-    model = bit_field(4, int, default=0)
-    serial = bit_field(20, int, default=0)
+    partno = bit_field(2, int, default=0, signed=False)
+    ship_type = bit_field(8, int, default=0, signed=False)
+    vendorid = bit_field(18, str, default=0, signed=False)
+    model = bit_field(4, int, default=0, signed=False)
+    serial = bit_field(20, int, default=0, signed=False)
     callsign = bit_field(42, str, default='')
 
-    to_bow = bit_field(9, int, default=0)
-    to_stern = bit_field(9, int, default=0)
-    to_port = bit_field(6, int, default=0)
-    to_starboard = bit_field(6, int, default=0)
+    to_bow = bit_field(9, int, default=0, signed=False)
+    to_stern = bit_field(9, int, default=0, signed=False)
+    to_port = bit_field(6, int, default=0, signed=False)
+    to_starboard = bit_field(6, int, default=0, signed=False)
 
     spare_2 = bit_field(6, int, default=0)
 
@@ -1099,39 +1112,39 @@ class MessageType24(Payload):
 
 @attr.s(slots=True)
 class MessageType25AddressedStructured(Payload):
-    msg_type = bit_field(6, int, default=25)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=25, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
 
-    addressed = bit_field(1, bool, default=0)
-    structured = bit_field(1, bool, default=0)
+    addressed = bit_field(1, bool, default=0, signed=False)
+    structured = bit_field(1, bool, default=0, signed=False)
 
-    dest_mmsi = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
-    app_id = bit_field(16, int, default=0)
+    dest_mmsi = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi, signed=False)
+    app_id = bit_field(16, int, default=0, signed=False)
     data = bit_field(82, int, default=0, from_converter=int_to_bytes)
 
 
 @attr.s(slots=True)
 class MessageType25BroadcastStructured(Payload):
-    msg_type = bit_field(6, int, default=25)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=25, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
 
-    addressed = bit_field(1, bool, default=0)
-    structured = bit_field(1, bool, default=0)
+    addressed = bit_field(1, bool, default=0, signed=False)
+    structured = bit_field(1, bool, default=0, signed=False)
 
-    app_id = bit_field(16, int, default=0)
+    app_id = bit_field(16, int, default=0, signed=False)
     data = bit_field(112, int, default=0, from_converter=int_to_bytes)
 
 
 @attr.s(slots=True)
 class MessageType25AddressedUnstructured(Payload):
-    msg_type = bit_field(6, int, default=25)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=25, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
 
-    addressed = bit_field(1, bool, default=0)
-    structured = bit_field(1, bool, default=0)
+    addressed = bit_field(1, bool, default=0, signed=False)
+    structured = bit_field(1, bool, default=0, signed=False)
 
     dest_mmsi = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
     data = bit_field(98, int, default=0, from_converter=int_to_bytes)
@@ -1139,12 +1152,12 @@ class MessageType25AddressedUnstructured(Payload):
 
 @attr.s(slots=True)
 class MessageType25BroadcastUnstructured(Payload):
-    msg_type = bit_field(6, int, default=25)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=25, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
 
-    addressed = bit_field(1, bool, default=0)
-    structured = bit_field(1, bool, default=0)
+    addressed = bit_field(1, bool, default=0, signed=False)
+    structured = bit_field(1, bool, default=0, signed=False)
 
     data = bit_field(128, int, default=0, from_converter=int_to_bytes)
 
@@ -1194,59 +1207,59 @@ class MessageType25(Payload):
 
 @attr.s(slots=True)
 class MessageType26AddressedStructured(Payload):
-    msg_type = bit_field(6, int, default=26)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=26, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
 
-    addressed = bit_field(1, bool, default=0)
-    structured = bit_field(1, bool, default=0)
+    addressed = bit_field(1, bool, default=0, signed=False)
+    structured = bit_field(1, bool, default=0, signed=False)
 
     dest_mmsi = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
-    app_id = bit_field(16, int, default=0)
+    app_id = bit_field(16, int, default=0, signed=False)
     data = bit_field(958, int, default=0, from_converter=int_to_bytes)
-    radio = bit_field(20, int, default=0)
+    radio = bit_field(20, int, default=0, signed=False)
 
 
 @attr.s(slots=True)
 class MessageType26BroadcastStructured(Payload):
-    msg_type = bit_field(6, int, default=26)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=26, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
 
-    addressed = bit_field(1, bool, default=0)
-    structured = bit_field(1, bool, default=0)
+    addressed = bit_field(1, bool, default=0, signed=False)
+    structured = bit_field(1, bool, default=0, signed=False)
 
-    app_id = bit_field(16, int, default=0)
+    app_id = bit_field(16, int, default=0, signed=False)
     data = bit_field(988, int, default=0, from_converter=int_to_bytes)
-    radio = bit_field(20, int, default=0)
+    radio = bit_field(20, int, default=0, signed=False)
 
 
 @attr.s(slots=True)
 class MessageType26AddressedUnstructured(Payload):
-    msg_type = bit_field(6, int, default=26)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=26, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
 
-    addressed = bit_field(1, bool, default=0)
-    structured = bit_field(1, bool, default=0)
+    addressed = bit_field(1, bool, default=0, signed=False)
+    structured = bit_field(1, bool, default=0, signed=False)
 
     dest_mmsi = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
-    app_id = bit_field(16, int, default=0)
+    app_id = bit_field(16, int, default=0, signed=False)
     data = bit_field(958, int, default=0, from_converter=int_to_bytes)
-    radio = bit_field(20, int, default=0)
+    radio = bit_field(20, int, default=0, signed=False)
 
 
 @attr.s(slots=True)
 class MessageType26BroadcastUnstructured(Payload):
-    msg_type = bit_field(6, int, default=26)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=26, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
 
-    addressed = bit_field(1, bool, default=0)
-    structured = bit_field(1, bool, default=0)
+    addressed = bit_field(1, bool, default=0, signed=False)
+    structured = bit_field(1, bool, default=0, signed=False)
 
     data = bit_field(1004, int, default=0, from_converter=int_to_bytes)
-    radio = bit_field(20, int, default=0)
+    radio = bit_field(20, int, default=0, signed=False)
 
 
 class MessageType26(Payload):
@@ -1298,18 +1311,18 @@ class MessageType27(Payload):
     Long Range AIS Broadcast message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_27_long_range_ais_broadcast_message
     """
-    msg_type = bit_field(6, int, default=27)
-    repeat = bit_field(2, int, default=0)
+    msg_type = bit_field(6, int, default=27, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
 
-    accuracy = bit_field(1, int, default=0)
-    raim = bit_field(1, bool, default=0)
-    status = bit_field(4, int, default=0, from_converter=NavigationStatus, to_converter=NavigationStatus)
+    accuracy = bit_field(1, int, default=0, signed=False)
+    raim = bit_field(1, bool, default=0, signed=False)
+    status = bit_field(4, int, default=0, from_converter=NavigationStatus, to_converter=NavigationStatus, signed=False)
     lon = bit_field(18, float, from_converter=from_lat_lon_600, to_converter=to_lat_lon_600, default=0)
     lat = bit_field(17, float, from_converter=from_lat_lon_600, to_converter=to_lat_lon_600, default=0)
-    speed = bit_field(6, int, default=0)
-    course = bit_field(9, int, default=0)
-    gnss = bit_field(1, int, default=0)
+    speed = bit_field(6, int, default=0, signed=False)
+    course = bit_field(9, int, default=0, signed=False)
+    gnss = bit_field(1, int, default=0, signed=False)
     spare = bit_field(1, int, default=0)
 
 

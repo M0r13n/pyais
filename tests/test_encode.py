@@ -451,6 +451,11 @@ def test_encode_type_21():
     # Validated using: http://ais.tbsalling.dk/
     assert encoded[0] == "!AIVDO,1,1,,A,E4eHJhPR37q0000000000000000KUOSc=rq4h00000a@2000000000000000,4*39"
 
+    data['regional'] = 255
+    encoded = encode_dict(data)
+    # Validated using: http://ais.tbsalling.dk/
+    assert encoded[0] == "!AIVDO,1,1,,A,E4eHJhPR37q0000000000000000KUOSc=rq4h00000aOv000000000000000,4*72"
+
 
 def test_encode_type_20():
     data = {
@@ -495,7 +500,7 @@ def test_encode_type_19():
         'repeat': 0,
         'second': 46,
         'shipname': 'CAPT.J.RIMES',
-        'shiptype': 70,  # CARGO
+        'ship_type': 70,  # CARGO
         'speed': 5.5,
         'to_bow': 5,
         'to_port': 4,
@@ -504,6 +509,10 @@ def test_encode_type_19():
         'type': 19
     }
 
+    encoded = encode_dict(data)
+    assert encoded[0] == "!AIVDO,1,1,,A,C5N3SRP0=nJGEBT>NhWAwwo862PaLELTBJ:V00000000S0D:R220,0*25"
+
+    data['ship_type'] = 255
     encoded = encode_dict(data)
     assert encoded[0] == "!AIVDO,1,1,,A,C5N3SRP0=nJGEBT>NhWAwwo862PaLELTBJ:V0000000000D:R220,0*46"
 
@@ -560,6 +569,10 @@ def test_encode_type_18():
 
     encoded = encode_dict(data)
     assert encoded[0] == "!AIVDO,1,1,,A,B5NJ;PP005l4ot5Isbl03wsUkP06,0*74"
+
+    data['heading'] = 123
+    encoded = encode_dict(data)
+    assert encoded[0] == "!AIVDO,1,1,,A,B5NJ;PP005l4ot5Isbl00usUkP06,0*75"
 
 
 def test_encode_type_17_b():
@@ -823,6 +836,37 @@ def test_encode_type_4():
     encoded_part_1 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[0]
 
     assert encoded_part_1 == "!AIVDM,1,1,,B,403OviQuMGCqWrRO:HE6fD700@GO,0*3A"
+
+
+def test_encode_type_5_issue_59():
+    """https://github.com/M0r13n/pyais/issues/59"""
+    data = {
+        'ais_version': 0,
+        'callsign': '3FOF8',
+        'day': 15,
+        'destination': 'NEW YORK',
+        'draught': 12.8,
+        'dte': 0,
+        'epfd': 1,
+        'hour': 14,
+        'imo': 9134270,
+        'minute': 0,
+        'mmsi': '351759000',
+        'month': 5,
+        'repeat': 0,
+        'shipname': 'EVER DIADEM',
+        'shiptype': 70,
+        'to_bow': 225,
+        'to_port': 1,
+        'to_starboard': 31,
+        'to_stern': 70,
+        'type': 5
+    }
+
+    encoded_part_1 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[0]
+    encoded_part_2 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[1]
+    assert encoded_part_1 == "!AIVDM,2,1,,B,55?MbV02;H;s<HtKP00EHE:0@T4@Dl0000000000L961O5Gf0P3QEp6ClRh00,2*77"
+    assert encoded_part_2 == "!AIVDM,2,2,,B,0000000000,2*27"
 
 
 def test_encode_type_5():
