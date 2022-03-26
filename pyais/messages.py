@@ -489,11 +489,11 @@ def to_lat_lon_600(v: typing.Union[int, float]) -> float:
     return round(float(v) / 600.0, 6)
 
 
-def from_course(v: typing.Union[int, float]) -> float:
+def from_10th(v: typing.Union[int, float]) -> float:
     return float(v) * 10.0
 
 
-def to_course(v: typing.Union[int, float]) -> float:
+def to_10th(v: typing.Union[int, float]) -> float:
     return v / 10.0
 
 
@@ -520,7 +520,7 @@ class MessageType1(Payload):
     accuracy = bit_field(1, int, default=0)
     lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, default=0, signed=True)
     lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, default=0, signed=True)
-    course = bit_field(12, float, from_converter=from_course, to_converter=to_course, default=0)
+    course = bit_field(12, float, from_converter=from_10th, to_converter=to_10th, default=0)
     heading = bit_field(9, int, default=0)
     second = bit_field(6, int, default=0)
     maneuver = bit_field(2, int, default=0, from_converter=ManeuverIndicator.from_value,
@@ -593,10 +593,10 @@ class MessageType5(Payload):
     day = bit_field(5, int, default=0)
     hour = bit_field(5, int, default=0)
     minute = bit_field(6, int, default=0)
-    draught = bit_field(8, float, from_converter=from_course, to_converter=to_course, default=0)
+    draught = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0)
     destination = bit_field(120, str, default='')
-    dte = bit_field(1, int, default=0)
-    spare = bit_field(1, int, default=0)
+    dte = bit_field(1, bool, default=0)
+    spare = bit_field(1, bool, default=0)
 
 
 @attr.s(slots=True)
@@ -662,16 +662,17 @@ class MessageType9(Payload):
     repeat = bit_field(2, int, default=0)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
     alt = bit_field(12, int, default=0)
+    # speed over ground is in knots, not deciknots
     speed = bit_field(10, int, default=0)
     accuracy = bit_field(1, int, default=0)
     lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
     lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
-    course = bit_field(12, float, from_converter=from_course, to_converter=to_course, default=0)
+    course = bit_field(12, float, from_converter=from_10th, to_converter=to_10th, default=0)
     second = bit_field(6, int, default=0)
     reserved = bit_field(8, int, default=0)
-    dte = bit_field(1, int, default=0)
+    dte = bit_field(1, bool, default=0)
     spare = bit_field(3, int, default=0)
-    assigned = bit_field(1, int, default=0)
+    assigned = bit_field(1, bool, default=0)
     raim = bit_field(1, bool, default=0)
     radio = bit_field(20, int, default=0)
 
@@ -709,7 +710,7 @@ class MessageType12(Payload):
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
     seqno = bit_field(2, int, default=0)
     dest_mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
-    retransmit = bit_field(1, int, default=0)
+    retransmit = bit_field(1, bool, default=False)
     spare = bit_field(1, int, default=0)
     text = bit_field(936, str, default='')
 
@@ -787,8 +788,9 @@ class MessageType17(Payload):
     repeat = bit_field(2, int, default=0)
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
     spare_1 = bit_field(2, int, default=0)
-    lon = bit_field(18, float, from_converter=from_course, to_converter=to_course, default=0)
-    lat = bit_field(17, float, from_converter=from_course, to_converter=to_course, default=0)
+    # Note that latitude and longitude are in units of a tenth of a minute
+    lon = bit_field(18, float, from_converter=from_10th, to_converter=to_10th, default=0)
+    lat = bit_field(17, float, from_converter=from_10th, to_converter=to_10th, default=0)
     spare_2 = bit_field(5, int, default=0)
     data = bit_field(736, int, default=0, from_converter=int_to_bytes)
 
@@ -807,7 +809,7 @@ class MessageType18(Payload):
     accuracy = bit_field(1, int, default=0)
     lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
     lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
-    course = bit_field(12, float, from_converter=from_course, to_converter=to_course, default=0)
+    course = bit_field(12, float, from_converter=from_10th, to_converter=to_10th, default=0)
     heading = bit_field(9, int, default=0)
     second = bit_field(6, int, default=0)
     reserved_2 = bit_field(2, int, default=0)
@@ -835,7 +837,7 @@ class MessageType19(Payload):
     accuracy = bit_field(1, int, default=0)
     lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
     lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
-    course = bit_field(12, float, from_converter=from_course, to_converter=to_course, default=0)
+    course = bit_field(12, float, from_converter=from_10th, to_converter=to_10th, default=0)
     heading = bit_field(9, int, default=0)
     second = bit_field(6, int, default=0)
     regional = bit_field(4, int, default=0)
@@ -848,7 +850,7 @@ class MessageType19(Payload):
     epfd = bit_field(4, int, default=0, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value)
     raim = bit_field(1, bool, default=0)
     dte = bit_field(1, bool, default=0)
-    assigned = bit_field(1, int, default=0)
+    assigned = bit_field(1, bool, default=0)
     spare = bit_field(4, int, default=0)
 
 
@@ -896,7 +898,7 @@ class MessageType21(Payload):
 
     aid_type = bit_field(5, int, default=0, from_converter=NavAid.from_value, to_converter=NavAid.from_value)
     name = bit_field(120, str, default='')
-    accuracy = bit_field(1, bool, default=0)
+    accuracy = bit_field(1, int, default=0)
     lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
     lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
     to_bow = bit_field(9, int, default=0)
@@ -964,10 +966,11 @@ class MessageType22Broadcast(Payload):
     # If the message is broadcast (addressed field is 0),
     # the ne_lon, ne_lat, sw_lon, and sw_lat fields are the
     # corners of a rectangular jurisdiction area over which control parameter
-    ne_lon = bit_field(18, float, from_converter=from_course, to_converter=to_course, default=0, signed=True)
-    ne_lat = bit_field(17, float, from_converter=from_course, to_converter=to_course, default=0, signed=True)
-    sw_lon = bit_field(18, float, from_converter=from_course, to_converter=to_course, default=0, signed=True)
-    sw_lat = bit_field(17, float, from_converter=from_course, to_converter=to_course, default=0, signed=True)
+    # ne_lon, ne_lat, sw_lon, and sw_lat fields are in 0.1 minutes
+    ne_lon = bit_field(18, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
+    ne_lat = bit_field(17, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
+    sw_lon = bit_field(18, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
+    sw_lat = bit_field(17, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
 
     addressed = bit_field(1, bool, default=0)
     band_a = bit_field(1, bool, default=0)
@@ -1013,10 +1016,10 @@ class MessageType23(Payload):
     mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi)
     spare_1 = bit_field(2, int, default=0)
 
-    ne_lon = bit_field(18, int, from_converter=from_course, to_converter=to_course, default=0, signed=True)
-    ne_lat = bit_field(17, int, from_converter=from_course, to_converter=to_course, default=0, signed=True)
-    sw_lon = bit_field(18, int, from_converter=from_course, to_converter=to_course, default=0, signed=True)
-    sw_lat = bit_field(17, int, from_converter=from_course, to_converter=to_course, default=0, signed=True)
+    ne_lon = bit_field(18, int, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
+    ne_lat = bit_field(17, int, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
+    sw_lon = bit_field(18, int, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
+    sw_lat = bit_field(17, int, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
 
     station_type = bit_field(4, int, default=0, from_converter=StationType.from_value,
                              to_converter=StationType.from_value)

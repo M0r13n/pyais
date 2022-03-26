@@ -1,5 +1,6 @@
 import textwrap
 import unittest
+from pprint import pprint
 
 from pyais import NMEAMessage, encode_dict
 from pyais.ais_types import AISType
@@ -927,3 +928,25 @@ class TestAIS(unittest.TestCase):
         decoded = decode(short_msg)
 
         self.assertEqual(decoded.mmsi, '000000001')
+
+    def test_types_for_messages(self):
+        """Make sure that the types are consistent for all messages"""
+        types = {}
+        for typ, msg in MSG_CLASS.items():
+            for field in msg.fields():
+                d_type = field.metadata['d_type']
+                f_name = field.name
+                if f_name in types:
+                    if typ == 9 and f_name == 'speed' and d_type == int:
+                        continue
+                    if f_name == 'spare':
+                        continue
+                    if typ == 27 and f_name == 'speed' and d_type == int:
+                        continue
+                    if typ == 27 and f_name == 'course' and d_type == int:
+                        continue
+                    assert d_type == types[f_name], f"{typ}.{f_name}: {d_type} vs. {types[f_name]}"
+                else:
+                    types[f_name] = d_type
+
+        pprint(types)
