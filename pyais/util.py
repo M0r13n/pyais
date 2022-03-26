@@ -229,3 +229,20 @@ def str_to_bin(val: str, width: int) -> bitarray:
         out += bitarray(txt)
 
     return out
+
+
+def chk_to_int(chk_str: bytes) -> typing.Tuple[int, int]:
+    """
+    Converts a checksum string to a tuple of (fillbits, checksum).
+    >>> chk_to_int(b"0*1B")
+    (0, 27)
+    """
+    if not len(chk_str):
+        return 0, -1
+
+    fill_bits: int = int(chr(chk_str[0]))
+    try:
+        checksum = int(chk_str[2:], 16)
+    except (IndexError, ValueError):
+        checksum = -1
+    return fill_bits, checksum
