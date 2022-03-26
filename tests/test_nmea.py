@@ -5,6 +5,7 @@ from bitarray import bitarray
 
 from pyais.exceptions import InvalidNMEAMessageException
 from pyais.messages import NMEAMessage
+from pyais.util import chk_to_int
 
 
 class TestNMEA(unittest.TestCase):
@@ -173,3 +174,25 @@ class TestNMEA(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             _ = msg[1:3]
+
+    def test_missing_checksum(self):
+        msg = b"!AIVDM,1,1,,A,100u3FP04r28t0<WcshcQI<H0H79,0"
+        NMEAMessage(msg)
+
+    def test_chk_to_int_with_valid_checksum(self):
+        self.assertEqual(chk_to_int(b"0*1B"), (0, 27))
+        self.assertEqual(chk_to_int(b"0*FF"), (0, 255))
+        self.assertEqual(chk_to_int(b"0*00"), (0, 0))
+
+    def test_chk_to_int_with_fill_bits(self):
+        self.assertEqual(chk_to_int(b"1*1B"), (1, 27))
+        self.assertEqual(chk_to_int(b"5*1B"), (5, 27))
+
+    def test_chk_to_int_with_missing_checksum(self):
+        self.assertEqual(chk_to_int(b"1"), (1, -1))
+        self.assertEqual(chk_to_int(b"5*"), (5, -1))
+
+    def test_chk_to_int_with_missing_fill_bits(self):
+        self.assertEqual(chk_to_int(b""), (0, -1))
+        with self.assertRaises(ValueError):
+            self.assertEqual(chk_to_int(b"*1B"), (0, 24))

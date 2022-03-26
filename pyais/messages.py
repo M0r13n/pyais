@@ -11,7 +11,7 @@ from pyais.constants import TalkerID, NavigationStatus, ManeuverIndicator, EpfdT
 from pyais.exceptions import InvalidNMEAMessageException, UnknownMessageException, UnknownPartNoException, \
     InvalidDataTypeException
 from pyais.util import decode_into_bit_array, compute_checksum, int_to_bin, str_to_bin, \
-    encode_ascii_6, from_bytes, int_to_bytes, from_bytes_signed, decode_bin_as_ascii6, get_int
+    encode_ascii_6, from_bytes, int_to_bytes, from_bytes_signed, decode_bin_as_ascii6, get_int, chk_to_int
 
 NMEA_VALUE = typing.Union[str, float, int, bool, bytes]
 
@@ -195,10 +195,12 @@ class NMEAMessage(object):
         self.channel: str = channel.decode('ascii')
         # Decoded message payload as byte string
         self.payload: bytes = payload
+
+        fill, check = chk_to_int(checksum)
         # Fill bits (0 to 5)
-        self.fill_bits: int = int(chr(checksum[0]))
+        self.fill_bits: int = fill
         # Message Checksum (hex value)
-        self.checksum = int(checksum[2:], 16)
+        self.checksum = check
 
         # Finally decode bytes into bits
         self.bit_array: bitarray = decode_into_bit_array(self.payload, self.fill_bits)
