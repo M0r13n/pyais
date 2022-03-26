@@ -536,7 +536,7 @@ MessageType5
             * default: 0
 MessageType6
     Binary Addresses Message
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_4_base_station_report
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_6_binary_addressed_message
 
 
     Attributes:
