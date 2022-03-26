@@ -180,13 +180,14 @@ def int_to_bytes(val: typing.Union[int, bytes]) -> int:
     return int.from_bytes(val, 'big')
 
 
-def int_to_bin(val: typing.Union[int, bool], width: int) -> bitarray:
+def int_to_bin(val: typing.Union[int, bool], width: int, signed: bool = True) -> bitarray:
     """
     Convert an integer or boolean value to binary. If the value is too great to fit into
     `width` bits, the maximum possible number that still fits is used.
 
     @param val:     Any integer or boolean value.
     @param width:   The bit width. If less than width bits are required, leading zeros are added.
+    @param signed:  Set to True/False if the value is signed or not.
     @return:        The binary representation of value with exactly width bits. Type is bitarray.
     """
     # Compute the total number of bytes required to hold up to `width` bits.
@@ -200,7 +201,7 @@ def int_to_bin(val: typing.Union[int, bool], width: int) -> bitarray:
         return bitarray('1' * width)
 
     bits = bitarray(endian='big')
-    bits.frombytes(val.to_bytes(n_bytes, 'big', signed=True))
+    bits.frombytes(val.to_bytes(n_bytes, 'big', signed=signed))
     return bits[8 - mod if mod else 0:]
 
 
