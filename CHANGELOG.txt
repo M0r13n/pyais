@@ -2,6 +2,22 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 2.0.3 27 Mar 2022
+-------------------------------------------------------------------------------
+* Closes https://github.com/M0r13n/pyais/issues/54
+  * for some fields like speed, lat or lon their types were not properly
+    enforced. This led to typing errors and wrong values, e.g. `0` instead
+    of `0.0`.
+
+* Closes https://github.com/M0r13n/pyais/issues/59
+  * when encoding messages the underlying method `int_to_bin` incorrectly
+    assumed that all values were signed. This was wrong and could lead to
+    invalid messages, when encoding.
+
+* Closes https://github.com/M0r13n/pyais/issues/58
+  * A missing checksum caused a `ValueError`, which is now ignored
+
+-------------------------------------------------------------------------------
  Version 2.0.2  20 Mar 2022
 -------------------------------------------------------------------------------
 * Closes https://github.com/M0r13n/pyais/issues/55
