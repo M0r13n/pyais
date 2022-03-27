@@ -517,6 +517,33 @@ def test_encode_type_19():
     assert encoded[0] == "!AIVDO,1,1,,A,C5N3SRP0=nJGEBT>NhWAwwo862PaLELTBJ:V0000000000D:R220,0*46"
 
 
+def test_encode_type_18_with_speed_and_course():
+    data = {
+        'accuracy': 0,
+        'assigned': 0,
+        'band': 1,
+        'course': 10.1,
+        'cs': 1,
+        'display': 0,
+        'dsc': 1,
+        'heading': 511,
+        'lat': 37.785035,
+        'lon': -122.26732,
+        'mmsi': '367430530',
+        'msg22': 1,
+        'radio': 917510,
+        'raim': 0,
+        'regional': 0,
+        'repeat': 0,
+        'second': 55,
+        'speed': 67.85,
+        'type': 18
+    }
+
+    encoded = encode_dict(data)
+    assert encoded[0] == "!AIVDO,1,1,,A,B5NJ;PP2aUl4ot5Isbl6GwsUkP06,0*35"
+
+
 def test_encode_type_18():
     data = {
         'accuracy': 0,
@@ -953,17 +980,17 @@ def test_encode_type_1():
         'raim': 0,
         'repeat': 0,
         'second': 59,
-        'speed': 0.0,
+        'speed': 7.8,
         'status': 3,
         'turn': 0,
         'type': 1
     }
 
     encoded = encode_dict(data, radio_channel="B", talker_id="AIVDM")[0]
-    assert encoded == "!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C"
+    assert encoded == "!AIVDM,1,1,,B,15M67FC01>G?ufbE`FepT@3n00Sa,0*53"
 
     encoded = encode_dict(data, radio_channel="B")[0]
-    assert encoded == "!AIVDO,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5E"
+    assert encoded == "!AIVDO,1,1,,B,15M67FC01>G?ufbE`FepT@3n00Sa,0*51"
 
 
 def test_mmsi_too_long():
