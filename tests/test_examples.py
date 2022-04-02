@@ -17,4 +17,7 @@ class TestExamples(unittest.TestCase):
                 env['PYTHONPATH'] = f':{pathlib.Path(__file__).parent.parent.absolute()}'
                 assert subprocess.check_call(f'python3 {file}'.split(), env=env, shell=False) == 0
 
-        assert i == 7
+        # Delete the file that was created by one of the tests
+        pathlib.Path("decoded_message.csv").unlink(missing_ok=True)
+
+        assert i == 8
