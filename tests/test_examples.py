@@ -18,6 +18,8 @@ class TestExamples(unittest.TestCase):
                 assert subprocess.check_call(f'python3 {file}'.split(), env=env, shell=False) == 0
 
         # Delete the file that was created by one of the tests
-        pathlib.Path("decoded_message.csv").unlink(missing_ok=True)
+        csv_file = pathlib.Path("decoded_message.csv")
+        if csv_file.exists():
+            csv_file.unlink()
 
         assert i == 8

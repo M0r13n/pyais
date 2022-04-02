@@ -436,7 +436,7 @@ def test_encode_type_21():
         'name_extension': '',
         'off_position': 1,
         'raim': 1,
-        'regional': 0,
+        'reserved_1': 0,
         'repeat': 0,
         'second': 18,
         'to_bow': 0,
@@ -451,7 +451,7 @@ def test_encode_type_21():
     # Validated using: http://ais.tbsalling.dk/
     assert encoded[0] == "!AIVDO,1,1,,A,E4eHJhPR37q0000000000000000KUOSc=rq4h00000a@2000000000000000,4*39"
 
-    data['regional'] = 255
+    data['reserved_1'] = 255
     encoded = encode_dict(data)
     # Validated using: http://ais.tbsalling.dk/
     assert encoded[0] == "!AIVDO,1,1,,A,E4eHJhPR37q0000000000000000KUOSc=rq4h00000aOv000000000000000,4*72"
@@ -496,7 +496,7 @@ def test_encode_type_19():
         'lon': -88.81039166666666,
         'mmsi': '367059850',
         'raim': 0,
-        'regional': 4,
+        'reserved_2': 4,
         'repeat': 0,
         'second': 46,
         'shipname': 'CAPT.J.RIMES',

@@ -1,3 +1,4 @@
+import itertools
 import textwrap
 import unittest
 from pprint import pprint
@@ -7,7 +8,10 @@ from pyais.ais_types import AISType
 from pyais.constants import ManeuverIndicator, NavigationStatus, ShipType, NavAid, EpfdType, StationType, TransmitMode
 from pyais.decode import decode
 from pyais.exceptions import UnknownMessageException
-from pyais.messages import MessageType18, MessageType5, MessageType6, MSG_CLASS
+from pyais.messages import MessageType18, MessageType5, MessageType6, MSG_CLASS, MessageType24PartA, MessageType24PartB, \
+    MessageType25AddressedStructured, MessageType25BroadcastStructured, MessageType25AddressedUnstructured, \
+    MessageType25BroadcastUnstructured, MessageType26AddressedStructured, MessageType26BroadcastStructured, \
+    MessageType26BroadcastUnstructured
 from pyais.stream import ByteStream
 
 
@@ -35,14 +39,14 @@ class TestAIS(unittest.TestCase):
     "status": 0,
     "turn": -128,
     "speed": 0.0,
-    "accuracy": 1,
+    "accuracy": true,
     "lon": -122.408232,
     "lat": 37.808418,
     "course": 360.0,
     "heading": 511,
     "second": 34,
     "maneuver": 0,
-    "spare": 0,
+    "spare_1": 0,
     "raim": true,
     "radio": 34059
 }""")
@@ -67,6 +71,7 @@ class TestAIS(unittest.TestCase):
 
     def test_msg_type_1_a(self):
         result = decode(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C").asdict()
+
         assert result == {
             'msg_type': 1,
             'repeat': 0,
@@ -74,7 +79,7 @@ class TestAIS(unittest.TestCase):
             'status': NavigationStatus.RestrictedManoeuverability,
             'turn': 0,
             'speed': 0.0,
-            'accuracy': 0,
+            'accuracy': False,
             'lon': -122.341618,
             'lat': 37.802118,
             'course': 219.3,
@@ -83,7 +88,7 @@ class TestAIS(unittest.TestCase):
             'maneuver': ManeuverIndicator.NotAvailable,
             'raim': False,
             'radio': 2281,
-            'spare': 0
+            'spare_1': False
         }
 
     def test_msg_type_1_b(self):
@@ -105,15 +110,27 @@ class TestAIS(unittest.TestCase):
         assert isinstance(msg['raim'], bool)
 
     def test_msg_type_1_c(self):
-        msg = decode(b"!AIVDM,1,1,,B,181:Kjh01ewHFRPDK1s3IRcn06sd,0*08").asdict()
-        assert msg['course'] == 87.0
-        assert msg['mmsi'] == '538090443'
-        assert msg['speed'] == 10.9
+        msg = decode(b"!AIVDM,1,1,,B,181:Kjh01ewHFRPDK1s3IRcn06sd,0*08")
+
+        content = msg.asdict()
+
+        assert msg.rate_of_turn == 0.0
+        assert content['course'] == 87.0
+        assert content['mmsi'] == '538090443'
+        assert content['speed'] == 10.9
+        assert content['turn'] == 0
+
+    def test_msg_type_1_d(self):
+        msg = decode(b"!AIVDO,1,1,,A,15M67FC=P0G?ufdE`Fe`T@3n00Sa,0*26")
+        self.assertEqual(msg.rate_of_turn, 121)
 
     def test_decode_pos_1_2_3(self):
         # weired message of type 0 as part of issue #4
-        content = decode(b"!AIVDM,1,1,,B,0S9edj0P03PecbBN`ja@0?w42cFC,0*7C").asdict()
+        msg = decode(b"!AIVDM,1,1,,B,0S9edj0P03PecbBN`ja@0?w42cFC,0*7C")
 
+        content = msg.asdict()
+
+        assert msg.rate_of_turn is None
         assert content['repeat'] == 2
         assert content['mmsi'] == "211512520"
         assert content['turn'] == -128
@@ -435,7 +452,7 @@ class TestAIS(unittest.TestCase):
         assert not msg['to_starboard']
 
         assert msg['off_position']
-        assert msg['regional'] == 0
+        assert msg['reserved_1'] == 0
         assert msg['raim']
         assert msg['virtual_aid'] == 0
         assert msg['assigned'] == 0
@@ -700,7 +717,7 @@ class TestAIS(unittest.TestCase):
 
         # The following fields are None
         self.assertIsNone(decoded.off_position)
-        self.assertIsNone(decoded.regional)
+        self.assertIsNone(decoded.reserved_1)
         self.assertIsNone(decoded.raim)
         self.assertIsNone(decoded.virtual_aid)
         self.assertIsNone(decoded.assigned)
@@ -725,7 +742,7 @@ class TestAIS(unittest.TestCase):
         self.assertEqual(decoded.epfd, EpfdType.Surveyed)
         self.assertEqual(decoded.second, 60)
         self.assertEqual(decoded.off_position, False)
-        self.assertEqual(decoded.regional, 4)
+        self.assertEqual(decoded.reserved_1, 4)
 
         # The following fields are None
         self.assertIsNone(decoded.raim)
@@ -770,11 +787,11 @@ class TestAIS(unittest.TestCase):
                 'name_ext': None,
                 'off_position': False,
                 'raim': None,
-                'regional': 4,
+                'reserved_1': 4,
                 'repeat': 0,
                 'second': 60,
                 'name': 'STDB CUT 2',
-                'spare': None,
+                'spare_1': None,
                 'to_bow': 0,
                 'to_port': 0,
                 'to_starboard': 0,
@@ -808,12 +825,12 @@ class TestAIS(unittest.TestCase):
                 'payload': 'E>lt;KLab21@1bb@I@@@@@@@@@@D8k2tnmvs000003v0@',
                 'raim': None,
                 'raw': '!AIVDM,1,1,,B,E>lt;KLab21@1bb@I@@@@@@@@@@D8k2tnmvs000003v0@,2*52',
-                'regional': 4,
+                'reserved_1': 4,
                 'repeat': 0,
                 'second': 60,
                 'seq_id': None,
                 'name': 'STDB CUT 2',
-                'spare': None,
+                'spare_1': None,
                 'talker': 'AI',
                 'to_bow': 0,
                 'to_port': 0,
@@ -844,12 +861,12 @@ class TestAIS(unittest.TestCase):
                 'payload': 'E>lt;KLab21@1bb@I@@@@@@@@@@D8k2tnmvs000003v0@',
                 'raim': None,
                 'raw': '!AIVDM,1,1,,B,E>lt;KLab21@1bb@I@@@@@@@@@@D8k2tnmvs000003v0@,2*52',
-                'regional': 4,
+                'reserved_1': 4,
                 'repeat': 0,
                 'second': 60,
                 'seq_id': None,
                 'name': 'STDB CUT 2',
-                'spare': None,
+                'spare_1': None,
                 'talker': 'AI',
                 'to_bow': 0,
                 'to_port': 0,
@@ -932,14 +949,28 @@ class TestAIS(unittest.TestCase):
     def test_types_for_messages(self):
         """Make sure that the types are consistent for all messages"""
         types = {}
-        for typ, msg in MSG_CLASS.items():
+        for typ, msg in itertools.chain(
+                MSG_CLASS.items(),
+                [
+                    (24, MessageType24PartA),
+                    (24, MessageType24PartB),
+                    (25, MessageType25AddressedStructured),
+                    (25, MessageType25BroadcastStructured),
+                    (25, MessageType25AddressedUnstructured),
+                    (25, MessageType25BroadcastUnstructured),
+                    (26, MessageType26AddressedStructured),
+                    (26, MessageType26AddressedStructured),
+                    (26, MessageType26BroadcastStructured),
+                    (26, MessageType26BroadcastUnstructured),
+                ]
+        ):
             for field in msg.fields():
                 d_type = field.metadata['d_type']
                 f_name = field.name
                 if f_name in types:
                     if typ == 9 and f_name == 'speed' and d_type == int:
                         continue
-                    if f_name == 'spare':
+                    if f_name == 'spare_1':
                         continue
                     if typ == 27 and f_name == 'speed' and d_type == int:
                         continue

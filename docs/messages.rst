@@ -121,7 +121,7 @@ MessageType1
             * bit-width: 8
             * default: 0
         * `speed`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 10
             * default: 0
         * `accuracy`
@@ -129,15 +129,15 @@ MessageType1
             * bit-width: 1
             * default: 0
         * `lon`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 28
             * default: 0
         * `lat`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 27
             * default: 0
         * `course`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 12
             * default: 0
         * `heading`
@@ -191,7 +191,7 @@ MessageType1
             * bit-width: 8
             * default: 0
         * `speed`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 10
             * default: 0
         * `accuracy`
@@ -199,15 +199,15 @@ MessageType1
             * bit-width: 1
             * default: 0
         * `lon`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 28
             * default: 0
         * `lat`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 27
             * default: 0
         * `course`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 12
             * default: 0
         * `heading`
@@ -261,7 +261,7 @@ MessageType2
             * bit-width: 8
             * default: 0
         * `speed`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 10
             * default: 0
         * `accuracy`
@@ -269,15 +269,15 @@ MessageType2
             * bit-width: 1
             * default: 0
         * `lon`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 28
             * default: 0
         * `lat`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 27
             * default: 0
         * `course`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 12
             * default: 0
         * `heading`
@@ -331,7 +331,7 @@ MessageType3
             * bit-width: 8
             * default: 0
         * `speed`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 10
             * default: 0
         * `accuracy`
@@ -339,15 +339,15 @@ MessageType3
             * bit-width: 1
             * default: 0
         * `lon`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 28
             * default: 0
         * `lat`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 27
             * default: 0
         * `course`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 12
             * default: 0
         * `heading`
@@ -421,11 +421,11 @@ MessageType4
             * bit-width: 1
             * default: 0
         * `lon`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 28
             * default: 0
         * `lat`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 27
             * default: 0
         * `epfd`
@@ -437,7 +437,7 @@ MessageType4
             * bit-width: 10
             * default: 0
         * `raim`
-            * type: <class 'int'>
+            * type: <class 'bool'>
             * bit-width: 1
             * default: 0
         * `radio`
@@ -519,7 +519,7 @@ MessageType5
             * bit-width: 6
             * default: 0
         * `draught`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 8
             * default: 0
         * `destination`
@@ -536,7 +536,7 @@ MessageType5
             * default: 0
 MessageType6
     Binary Addresses Message
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_6_binary_addressed_message
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_4_base_station_report
 
 
     Attributes:
@@ -699,15 +699,15 @@ MessageType9
             * bit-width: 1
             * default: 0
         * `lon`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 28
             * default: 0
         * `lat`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 27
             * default: 0
         * `course`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 12
             * default: 0
         * `second`
@@ -731,7 +731,7 @@ MessageType9
             * bit-width: 1
             * default: 0
         * `raim`
-            * type: <class 'int'>
+            * type: <class 'bool'>
             * bit-width: 1
             * default: 0
         * `radio`
@@ -815,11 +815,11 @@ MessageType11
             * bit-width: 1
             * default: 0
         * `lon`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 28
             * default: 0
         * `lat`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 27
             * default: 0
         * `epfd`
@@ -831,7 +831,7 @@ MessageType11
             * bit-width: 10
             * default: 0
         * `raim`
-            * type: <class 'int'>
+            * type: <class 'bool'>
             * bit-width: 1
             * default: 0
         * `radio`
@@ -1090,11 +1090,11 @@ MessageType17
             * bit-width: 2
             * default: 0
         * `lon`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 18
             * default: 0
         * `lat`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 17
             * default: 0
         * `spare_2`
@@ -1128,7 +1128,7 @@ MessageType18
             * bit-width: 8
             * default: 0
         * `speed`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 10
             * default: 0
         * `accuracy`
@@ -1136,15 +1136,15 @@ MessageType18
             * bit-width: 1
             * default: 0
         * `lon`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 28
             * default: 0
         * `lat`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 27
             * default: 0
         * `course`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 12
             * default: 0
         * `heading`
@@ -1214,7 +1214,7 @@ MessageType19
             * bit-width: 8
             * default: 0
         * `speed`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 10
             * default: 0
         * `accuracy`
@@ -1222,15 +1222,15 @@ MessageType19
             * bit-width: 1
             * default: 0
         * `lon`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 28
             * default: 0
         * `lat`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 27
             * default: 0
         * `course`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 12
             * default: 0
         * `heading`
@@ -1406,11 +1406,11 @@ MessageType21
             * bit-width: 1
             * default: 0
         * `lon`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 28
             * default: 0
         * `lat`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 27
             * default: 0
         * `to_bow`
@@ -1554,7 +1554,7 @@ MessageType27
             * bit-width: 1
             * default: 0
         * `raim`
-            * type: <class 'int'>
+            * type: <class 'bool'>
             * bit-width: 1
             * default: 0
         * `status`
@@ -1562,11 +1562,11 @@ MessageType27
             * bit-width: 4
             * default: 0
         * `lon`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 18
             * default: 0
         * `lat`
-            * type: <class 'int'>
+            * type: <class 'float'>
             * bit-width: 17
             * default: 0
         * `speed`
