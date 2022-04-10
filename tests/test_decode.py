@@ -1,4 +1,6 @@
+import base64
 import itertools
+import json
 import textwrap
 import unittest
 from pprint import pprint
@@ -13,6 +15,7 @@ from pyais.messages import MessageType18, MessageType5, MessageType6, MSG_CLASS,
     MessageType25BroadcastUnstructured, MessageType26AddressedStructured, MessageType26BroadcastStructured, \
     MessageType26BroadcastUnstructured
 from pyais.stream import ByteStream
+from pyais.util import bytes2bits, bits2bytes, b64encode_str
 
 
 class TestAIS(unittest.TestCase):
@@ -187,7 +190,7 @@ class TestAIS(unittest.TestCase):
         assert msg['hour'] == 10
         assert msg['minute'] == 41
         assert msg['second'] == 11
-        assert msg['epfd'].value == 0
+        assert msg['epfd'] == 0
         assert msg['epfd'] == EpfdType.Undefined
 
     def test_msg_type_5(self):
@@ -215,7 +218,7 @@ class TestAIS(unittest.TestCase):
         assert msg['dac'] == 669
         assert msg['fid'] == 11
         assert not msg['retransmit']
-        assert msg['data'] == 258587390607345
+        assert msg['data'] == b'\xeb/\x11\x8f\x7f\xf1'
 
     def test_msg_type_7(self):
         msg = decode(b"!AIVDM,1,1,,A,702R5`hwCjq8,0*6B").asdict()
@@ -234,7 +237,8 @@ class TestAIS(unittest.TestCase):
         assert msg['mmsi'] == "366999712"
         assert msg['dac'] == 366
         assert msg['fid'] == 56
-        assert msg['data'] == 26382309960366212432958701962051450160982977169991995217145869625277036758523
+        assert msg['data'] == b"\x3a\x53\xdb\xb7\xbe\x4a\x77\x31\x37\xf8\x7d\x7b\x04\x45\xf0\x40" \
+                              b"\xde\xa0\x5d\x93\xf5\x93\x78\x31\x94\xae\x9b\x9d\x9d\xbe\x05\xfb"
 
     def test_msg_type_9(self):
         msg = decode(b"!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*30").asdict()
@@ -349,13 +353,18 @@ class TestAIS(unittest.TestCase):
             b"!AIVDM,2,1,5,A,A02VqLPA4I6C07h5Ed1h<OrsuBTTwS?r:C?w`?la<gno1RTRwSP9:BcurA8a,0*3A",
             b"!AIVDM,2,2,5,A,:Oko02TSwu8<:Jbb,0*11"
         ).asdict()
-        n = 0x7c0556c07031febbf52924fe33fa2933ffa0fd2932fdb7062922fe3809292afde9122929fcf7002923ffd20c29aaaa
+
         assert msg['msg_type'] == 17
         assert msg['repeat'] == 0
         assert msg['mmsi'] == "002734450"
         assert msg['lon'] == 1747.8
         assert msg['lat'] == 3599.2
-        assert msg['data'] == n
+
+        data = msg['data']
+        bits = bytes2bits(data).to01()
+
+        assert data == b'|\x05V\xc0p1\xfe\xbb\xf5)$\xfe3\xfa)3\xff\xa0\xfd)2\xfd\xb7\x06)"\xfe8\t)*\xfd\xe9\x12))\xfc\xf7\x00)#\xff\xd2\x0c)\xaa\xaa'
+        assert bits == "0111110000000101010101101100000001110000001100011111111010111011111101010010100100100100111111100011001111111010001010010011001111111111101000001111110100101001001100101111110110110111000001100010100100100010111111100011100000001001001010010010101011111101111010010001001000101001001010011111110011110111000000000010100100100011111111111101001000001100001010011010101010101010"
 
     def test_msg_type_17_b(self):
         msg = decode(b"!AIVDM,1,1,,A,A0476BQ>J8`<h2JpH:4P0?j@2mTEw8`=DP1DEnqvj0,0*79").asdict()
@@ -364,7 +373,12 @@ class TestAIS(unittest.TestCase):
         assert msg['mmsi'] == "004310602"
         assert msg['lat'] == 2058.2
         assert msg['lon'] == 8029.0
-        assert msg['data'] == 0x26b860a12000fc900b5915fc8a0d520054576e7ec80
+
+        data = msg['data']
+        bits = bytes2bits(data).to01()
+
+        assert data == b'&\xb8`\xa1 \x00\xfc\x90\x0bY\x15\xfc\x8a\rR\x00TWn~\xc8\x00'
+        assert bits == '00100110101110000110000010100001001000000000000011111100100100000000101101011001000101011111110010001010000011010101001000000000010101000101011101101110011111101100100000000000'
 
     def test_msg_type_18(self):
         msg = decode(b"!AIVDM,1,1,,A,B5NJ;PP005l4ot5Isbl03wsUkP06,0*76").asdict()
@@ -546,7 +560,7 @@ class TestAIS(unittest.TestCase):
         msg = decode(b"!AIVDO,1,1,,A,I6SWo?<P00a00;Cwwwwwwwwwwww0,0*4A").asdict()
         assert msg == {
             'addressed': 1,
-            'data': 1208925819614629174706112,
+            'data': b'?\xff\xff\xff\xff\xff\xff\xff\xff\xf0\x00',
             'dest_mmsi': '134218384',
             'mmsi': '440006460',
             'repeat': 0,
@@ -559,7 +573,7 @@ class TestAIS(unittest.TestCase):
         msg = decode(b"!AIVDO,1,1,,A,I6SWo?8P00a0003wwwwwwwwwwww0,0*35").asdict()
         assert msg == {
             'addressed': 1,
-            'data': 1208925819614629174706112,
+            'data': b'\x00\x00?\xff\xff\xff\xff\xff\xff\xff\xff\xf0\x00',
             'dest_mmsi': '134218384',
             'mmsi': '440006460',
             'repeat': 0,
@@ -573,14 +587,14 @@ class TestAIS(unittest.TestCase):
         assert msg['addressed']
         assert msg['structured']
         assert msg['dest_mmsi'] == "838351848"
-        assert msg['data'] == 0x332fc0a85c39e2c007006cf026c0f4882faad001000
+        assert msg['data'] == b'\xcc\xbf\x02\xa1p\xe7\x8b\x00\x1c\x01\xb3\xc0\x9b\x03\xd2 \xbe\xab@\x04\x00\x00'
 
     def test_msg_type_26_b(self):
         msg = decode(b"!AIVDM,1,1,,A,J0@00@370>t0Lh3P0000200H:2rN92,4*14").asdict()
         assert msg['msg_type'] == 26
         assert not msg['addressed']
         assert not msg['structured']
-        assert msg['data'] == 0xc700ef007300e0000000080018282e9e24
+        assert int.from_bytes(msg['data'], 'big') == 0xc700ef007300e0000000080018282e9e24
 
     def test_msg_type_27(self):
         msg = decode(b"!AIVDM,1,1,,B,KC5E2b@U19PFdLbMuc5=ROv62<7m,0*16").asdict()
@@ -981,3 +995,136 @@ class TestAIS(unittest.TestCase):
                     types[f_name] = d_type
 
         pprint(types)
+
+    def test___attrs_post_init___raises_value_error_for_invalid_types(self):
+        with self.assertRaises(ValueError):
+            MessageType5.create(mmsi='12344', to_bow='Hello')
+
+    def test_bits2bytes(self):
+        self.assertEqual(bits2bytes('00100110'), b'&')
+        self.assertEqual(bits2bytes(''), b'')
+        self.assertEqual(bits2bytes('0010011000100110'), b'&&')
+        self.assertEqual(bits2bytes('11111111'), b'\xff')
+        self.assertEqual(bits2bytes('111100001111'), b'\xf0\xf0')
+        self.assertEqual(bits2bytes('1111000011110000'), b'\xf0\xf0')
+        self.assertEqual(bits2bytes('1'), b'\x80')
+        self.assertEqual(bits2bytes('10000000'), b'\x80')
+        self.assertEqual(bits2bytes('0' * 64), b'\x00\x00\x00\x00\x00\x00\x00\x00')
+        self.assertEqual(bits2bytes('1' * 64), b'\xff\xff\xff\xff\xff\xff\xff\xff')
+        self.assertEqual(bits2bytes('10' * 32), b'\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa')
+
+    def test_bytes2bits(self):
+        self.assertEqual(bytes2bits(b'&').to01(), '00100110')
+        self.assertEqual(bytes2bits(b'').to01(), '')
+        self.assertEqual(bytes2bits(b'&&').to01(), '0010011000100110')
+        self.assertEqual(bytes2bits(b'\xff').to01(), '11111111')
+        self.assertEqual(bytes2bits(b'\x00\x00\x00\x00\x00\x00\x00\x00').to01(), '0' * 64)
+        self.assertEqual(bytes2bits(b'\xff\xff\xff\xff\xff\xff\xff\xff').to01(), '1' * 64)
+        self.assertEqual(bytes2bits(b'\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa').to01(), '10' * 32)
+
+    def test_b64encode_str(self):
+        in_val = b'\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa'
+        cipher = b64encode_str(in_val)
+        plain = base64.b64decode(cipher)
+
+        self.assertEqual(in_val, plain)
+
+    def test_msg_type_6_to_json(self):
+        json_str = decode(b"!AIVDM,1,1,,B,6B?n;be:cbapalgc;i6?Ow4,2*4A").to_json()
+        self.assertEqual(json_str, textwrap.dedent("""
+        {
+            "msg_type": 6,
+            "repeat": 1,
+            "mmsi": "150834090",
+            "seqno": 3,
+            "dest_mmsi": "313240222",
+            "retransmit": false,
+            "spare_1": false,
+            "dac": 669,
+            "fid": 11,
+            "data": "6y8Rj3/x"
+        }
+        """).strip())
+
+    def test_msg_type_8_to_json(self):
+        json_str = decode(b"!AIVDM,1,1,,A,85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs,0*47").to_json()
+        self.assertEqual(json_str, textwrap.dedent("""
+        {
+            "msg_type": 8,
+            "repeat": 0,
+            "mmsi": "366999712",
+            "spare_1": 0,
+            "dac": 366,
+            "fid": 56,
+            "data": "OlPbt75KdzE3+H17BEXwQN6gXZP1k3gxlK6bnZ2+Bfs="
+        }
+        """).strip())
+
+    def test_msg_type_17_to_json(self):
+        json_str = decode(
+            b"!AIVDM,2,1,5,A,A02VqLPA4I6C07h5Ed1h<OrsuBTTwS?r:C?w`?la<gno1RTRwSP9:BcurA8a,0*3A",
+            b"!AIVDM,2,2,5,A,:Oko02TSwu8<:Jbb,0*11"
+        ).to_json()
+        self.assertEqual(json_str, textwrap.dedent("""
+        {
+            "msg_type": 17,
+            "repeat": 0,
+            "mmsi": "002734450",
+            "spare_1": 0,
+            "lon": 1747.8,
+            "lat": 3599.2,
+            "spare_2": 0,
+            "data": "fAVWwHAx/rv1KST+M/opM/+g/Sky/bcGKSL+OAkpKv3pEikp/PcAKSP/0gwpqqo="
+        }
+        """).strip())
+
+    def test_msg_type_25_to_json(self):
+        json_str = decode(b"!AIVDM,1,1,,A,I6SWo?8P00a3PKpEKEVj0?vNP<65,0*73").to_json()
+        self.assertEqual(json_str, textwrap.dedent("""
+        {
+            "msg_type": 25,
+            "repeat": 0,
+            "mmsi": "440006460",
+            "addressed": true,
+            "structured": false,
+            "dest_mmsi": "134218384",
+            "data": "4G+FW1ZsgD/noDBhQA=="
+        }
+        """).strip())
+
+    def test_msg_type_26_to_json(self):
+        json_str = decode(b"!AIVDM,1,1,,A,JB3R0GO7p>vQL8tjw0b5hqpd0706kh9d3lR2vbl0400,2*40").to_json()
+        self.assertEqual(json_str, textwrap.dedent("""
+        {
+            "msg_type": 26,
+            "repeat": 1,
+            "mmsi": "137920605",
+            "addressed": true,
+            "structured": true,
+            "dest_mmsi": "838351848",
+            "app_id": 23587,
+            "data": "zL8CoXDniwAcAbPAmwPSIL6rQAQAAA==",
+            "radio": null
+        }
+        """).strip())
+
+    def test_msg_type_6_json_reverse(self):
+        string = textwrap.dedent("""
+        {
+            "msg_type": 6,
+            "repeat": 1,
+            "mmsi": "150834090",
+            "seqno": 3,
+            "dest_mmsi": "313240222",
+            "retransmit": false,
+            "spare_1": false,
+            "dac": 669,
+            "fid": 11,
+            "data": "6y8Rj3/x"
+        }
+        """)
+
+        data = json.loads(string)
+
+        assert data['data'] == '6y8Rj3/x'
+        assert base64.b64decode(data['data']) == b'\xeb/\x11\x8f\x7f\xf1'

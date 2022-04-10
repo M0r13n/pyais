@@ -24,6 +24,14 @@ Therefore ``pyais`` does not even try to decode the payload. Instead, you can ac
 
     payload = msg.data
 
+The data is stored as raw bytes to make it easy to post process such binary payload.
+The lib also includes some handy helper functions to transform bytes to bits and vice versa::
+
+    from pyais.utils import bits2bytes, bytes2bits
+
+    bits2bytes('00100110')      #=> b'&'
+    bytes2bits(b'&').to01()     #=> '00100110'
+
 NMEA messages
 ----------------
 
