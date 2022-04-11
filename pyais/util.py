@@ -189,12 +189,18 @@ def bits2bytes(bits: typing.Union[str, bitarray]) -> bytes:
     return bits.tobytes()
 
 
-def bytes2bits(in_bytes: bytes) -> bitarray:
+def bytes2bits(in_bytes: bytes, default: typing.Optional[bitarray] = None) -> bitarray:
     """
     Convert a bytes object to a bitarray.
+
+    @param  in_bytes :    The bytes to encode
+    @param  default  :    A default value to return if `in_bytes` is *Falseish*
+
     >>> bytes2bits(b'&')
     bitarray('00100110')
     """
+    if default is not None and not in_bytes:
+        return default
     bits = bitarray(endian='big')
     bits.frombytes(in_bytes)
     return bits

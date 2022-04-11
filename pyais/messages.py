@@ -109,14 +109,13 @@ def bit_field(width: int, d_type: typing.Type[typing.Any],
               from_converter: typing.Optional[typing.Callable[[typing.Any], typing.Any]] = None,
               to_converter: typing.Optional[typing.Callable[[typing.Any], typing.Any]] = None,
               default: typing.Optional[typing.Any] = None,
-              signed: bool = False, coerce: typing.Optional[typing.Type[typing.Any]] = None,
+              signed: bool = False,
               **kwargs: typing.Any) -> typing.Any:
     """
     Simple wrapper around the attr.ib interface to be used in conjunction with the Payload class.
 
     @param width:               The bit-width of the field.
     @param d_type:              The datatype of the field used while decoding
-    @param coerce:              The datatype to coerce the fields value into
     @param from_converter:      Optional converter function called **before** encoding
     @param to_converter:        Optional converter function called **after** decoding
     @param default:             Optional default value to be used when no value is explicitly passed.
@@ -131,7 +130,6 @@ def bit_field(width: int, d_type: typing.Type[typing.Any],
             'to_converter': to_converter,
             'signed': signed,
             'default': default,
-            'coerce': coerce,
         },
         **kwargs
     )
@@ -328,6 +326,10 @@ class NMEAMessage(object):
             raise UnknownMessageException(f"The message {self} is not supported!") from e
 
 
+class mmsi_str(str):
+    pass
+
+
 @attr.s(slots=True)
 class Payload(abc.ABC):
     """
@@ -337,29 +339,24 @@ class Payload(abc.ABC):
     Each message shall inherit from Payload and define it's set of field using the `bit_field` method.
     """
 
-    def __attrs_post_init__(self) -> None:
+    @staticmethod
+    def __force_type(field: typing.Any, val: typing.Any) -> typing.Any:
         """
-        Called after __init__ by attrs.
-        Makes sure that every object has the correct datatype. Therefore
-        strict types are enforced.
+        Force a value into a specific type for a given bitfield.
+
+        Note:   This method is meant to be used with `bit_fields` only.
         """
-        for field in self.fields():
-            val = getattr(self, field.name)
-            if val is None:
-                continue
+        if val is None:
+            return val
 
-            d_type = field.metadata['d_type']
-            coerce = field.metadata['coerce']
+        d_type = field.metadata['d_type']
 
-            if coerce is None:
-                coerce = d_type
+        try:
+            coerced_val = coerce_val(val, d_type)
+        except ValueError as err:
+            raise ValueError(f"Could not coerce value for field '{field.name}'") from err
 
-            try:
-                coerced_val = coerce_val(val, coerce)
-            except ValueError as err:
-                raise ValueError(f"Could not coerce value for field '{field.name}'") from err
-
-            setattr(self, field.name, coerced_val)
+        return coerced_val
 
     @classmethod
     def fields(cls) -> typing.Tuple[typing.Any]:
@@ -385,7 +382,7 @@ class Payload(abc.ABC):
 
             val = converter(val) if converter is not None else val
 
-            if d_type == int or d_type == bool:
+            if d_type in (bool, int, mmsi_str):
                 bits = int_to_bin(val, width, signed=signed)
             elif d_type == float:
                 val = int(val)
@@ -393,7 +390,7 @@ class Payload(abc.ABC):
             elif d_type == str:
                 bits = str_to_bin(val, width)
             elif d_type == bytes:
-                bits = bytes2bits(val)
+                bits = bytes2bits(val, default=bitarray('0' * width))
             else:
                 raise InvalidDataTypeException(d_type)
             bits = bits[:width]
@@ -424,7 +421,8 @@ class Payload(abc.ABC):
         for field in cls.fields():
             key = field.name
             try:
-                args[key] = kwargs[key]
+                val = cls.__force_type(field, kwargs[key])
+                args[key] = val
             except KeyError:
                 # Check if a default value was provided
                 default = field.metadata['default']
@@ -455,7 +453,7 @@ class Payload(abc.ABC):
 
             val: typing.Any
             # Get the correct data type and decoding function
-            if d_type == int or d_type == bool or d_type == float:
+            if d_type in (int, bool, float, mmsi_str):
                 shift = (8 - ((end - cur) % 8)) % 8
                 if field.metadata['signed']:
                     val = from_bytes_signed(bits) >> shift
@@ -471,6 +469,7 @@ class Payload(abc.ABC):
 
             val = converter(val) if converter is not None else val
 
+            val = cls.__force_type(field, val)
             kwargs[field.name] = val
 
             cur = end
@@ -550,7 +549,7 @@ class MessageType1(Payload):
     """
     msg_type = bit_field(6, int, default=1, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
     status = bit_field(4, int, default=0, converter=NavigationStatus.from_value, signed=False)
     turn = bit_field(8, int, default=0, signed=True)
     speed = bit_field(10, float, from_converter=from_speed, to_converter=to_speed, default=0, signed=False)
@@ -562,7 +561,7 @@ class MessageType1(Payload):
     second = bit_field(6, int, default=0, signed=False)
     maneuver = bit_field(2, int, default=0, from_converter=ManeuverIndicator.from_value,
                          to_converter=ManeuverIndicator.from_value, signed=False)
-    spare_1 = bit_field(3, int, default=0)
+    spare_1 = bit_field(3, bytes, default=b'')
     raim = bit_field(1, bool, default=0)
     radio = bit_field(19, int, default=0, signed=False)
 
@@ -601,7 +600,7 @@ class MessageType4(Payload):
     """
     msg_type = bit_field(6, int, default=4, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
     year = bit_field(14, int, default=1970, signed=False)
     month = bit_field(4, int, default=1, signed=False)
     day = bit_field(5, int, default=1, signed=False)
@@ -613,7 +612,7 @@ class MessageType4(Payload):
     lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
     epfd = bit_field(4, int, default=0, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value,
                      signed=False)
-    spare_1 = bit_field(10, int, default=0)
+    spare_1 = bit_field(10, bytes, default=b'')
     raim = bit_field(1, bool, default=0)
     radio = bit_field(19, int, default=0, signed=False)
 
@@ -626,7 +625,7 @@ class MessageType5(Payload):
     """
     msg_type = bit_field(6, int, default=5, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
     ais_version = bit_field(2, int, default=0, signed=False)
     imo = bit_field(30, int, default=0, signed=False)
     callsign = bit_field(42, str, default='')
@@ -644,7 +643,7 @@ class MessageType5(Payload):
     draught = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
     destination = bit_field(120, str, default='')
     dte = bit_field(1, bool, default=0, signed=False)
-    spare_1 = bit_field(1, bool, default=0)
+    spare_1 = bit_field(1, bytes, default=b'')
 
 
 @attr.s(slots=True)
@@ -655,11 +654,11 @@ class MessageType6(Payload):
     """
     msg_type = bit_field(6, int, default=6)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
     seqno = bit_field(2, int, default=0, signed=False)
-    dest_mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    dest_mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
     retransmit = bit_field(1, bool, default=False, signed=False)
-    spare_1 = bit_field(1, bool, default=0)
+    spare_1 = bit_field(1, bytes, default=b'')
     dac = bit_field(10, int, default=0, signed=False)
     fid = bit_field(6, int, default=0, signed=False)
     data = bit_field(920, bytes, default=b'')
@@ -673,15 +672,15 @@ class MessageType7(Payload):
     """
     msg_type = bit_field(6, int, default=7, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
-    spare_1 = bit_field(2, int, default=0)
-    mmsi1 = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'')
+    mmsi1 = bit_field(30, mmsi_str, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
     mmsiseq1 = bit_field(2, int, default=0, signed=False)
-    mmsi2 = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi2 = bit_field(30, mmsi_str, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
     mmsiseq2 = bit_field(2, int, default=0, signed=False)
-    mmsi3 = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi3 = bit_field(30, mmsi_str, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
     mmsiseq3 = bit_field(2, int, default=0, signed=False)
-    mmsi4 = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi4 = bit_field(30, mmsi_str, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
     mmsiseq4 = bit_field(2, int, default=0, signed=False)
 
 
@@ -693,8 +692,8 @@ class MessageType8(Payload):
     """
     msg_type = bit_field(6, int, default=8, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
-    spare_1 = bit_field(2, int, default=0)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'')
     dac = bit_field(10, int, default=0, signed=False)
     fid = bit_field(6, int, default=0, signed=False)
     data = bit_field(952, bytes, default=b'')
@@ -708,7 +707,7 @@ class MessageType9(Payload):
     """
     msg_type = bit_field(6, int, default=9, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
 
     alt = bit_field(12, int, default=0, signed=False)
     # speed over ground is in knots, not deciknots
@@ -721,7 +720,7 @@ class MessageType9(Payload):
 
     reserved_1 = bit_field(8, int, default=0)
     dte = bit_field(1, bool, default=0)
-    spare_1 = bit_field(3, int, default=0)
+    spare_1 = bit_field(3, bytes, default=b'')
     assigned = bit_field(1, bool, default=0)
     raim = bit_field(1, bool, default=0)
     radio = bit_field(20, int, default=0, signed=False)
@@ -735,10 +734,10 @@ class MessageType10(Payload):
     """
     msg_type = bit_field(6, int, default=10, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
-    spare_1 = bit_field(2, int, default=0)
-    dest_mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
-    spare_2 = bit_field(2, int, default=0)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'')
+    dest_mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
+    spare_2 = bit_field(2, bytes, default=b'')
 
 
 class MessageType11(MessageType4):
@@ -757,11 +756,11 @@ class MessageType12(Payload):
     """
     msg_type = bit_field(6, int, default=12, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
     seqno = bit_field(2, int, default=0, signed=False)
-    dest_mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    dest_mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
     retransmit = bit_field(1, bool, default=False, signed=False)
-    spare_1 = bit_field(1, bool, default=0, signed=False)
+    spare_1 = bit_field(1, bytes, default=b'')
     text = bit_field(936, str, default='')
 
 
@@ -780,8 +779,8 @@ class MessageType14(Payload):
     """
     msg_type = bit_field(6, int, default=14, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
-    spare_1 = bit_field(2, int, default=0)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'')
     text = bit_field(968, str, default='')
 
 
@@ -793,19 +792,19 @@ class MessageType15(Payload):
     """
     msg_type = bit_field(6, int, default=15, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
-    spare_1 = bit_field(2, int, default=0, signed=False)
-    mmsi1 = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'')
+    mmsi1 = bit_field(30, mmsi_str, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
     type1_1 = bit_field(6, int, default=0, signed=False)
     offset1_1 = bit_field(12, int, default=0, signed=False)
-    spare_2 = bit_field(2, int, default=0)
+    spare_2 = bit_field(2, bytes, default=b'')
     type1_2 = bit_field(6, int, default=0, signed=False)
     offset1_2 = bit_field(12, int, default=0, signed=False)
-    spare_3 = bit_field(2, int, default=0)
-    mmsi2 = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    spare_3 = bit_field(2, bytes, default=b'')
+    mmsi2 = bit_field(30, mmsi_str, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
     type2_1 = bit_field(6, int, default=0, signed=False)
     offset2_1 = bit_field(12, int, default=0, signed=False)
-    spare_4 = bit_field(2, int, default=0)
+    spare_4 = bit_field(2, bytes, default=b'')
 
 
 @attr.s(slots=True)
@@ -816,14 +815,14 @@ class MessageType16(Payload):
     """
     msg_type = bit_field(6, int, default=16, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
-    spare_1 = bit_field(2, int, default=0)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'')
 
-    mmsi1 = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi1 = bit_field(30, mmsi_str, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
     offset1 = bit_field(12, int, default=0, signed=False)
     increment1 = bit_field(10, int, default=0, signed=False)
 
-    mmsi2 = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi2 = bit_field(30, mmsi_str, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
     offset2 = bit_field(12, int, default=0, signed=False)
     increment2 = bit_field(10, int, default=0, signed=False)
 
@@ -836,12 +835,12 @@ class MessageType17(Payload):
     """
     msg_type = bit_field(6, int, default=17, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
-    spare_1 = bit_field(2, int, default=0)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'')
     # Note that latitude and longitude are in units of a tenth of a minute
     lon = bit_field(18, float, from_converter=from_10th, to_converter=to_10th, default=0)
     lat = bit_field(17, float, from_converter=from_10th, to_converter=to_10th, default=0)
-    spare_2 = bit_field(5, int, default=0)
+    spare_2 = bit_field(5, bytes, default=b'')
     data = bit_field(736, bytes, default=b'')
 
 
@@ -853,7 +852,7 @@ class MessageType18(Payload):
     """
     msg_type = bit_field(6, int, default=18, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
 
     reserved_1 = bit_field(8, int, default=0, signed=False)
     speed = bit_field(10, float, from_converter=from_speed, to_converter=to_speed, default=0, signed=False)
@@ -882,7 +881,7 @@ class MessageType19(Payload):
     """
     msg_type = bit_field(6, int, default=19, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
     reserved_1 = bit_field(8, int, default=0)
 
     speed = bit_field(10, float, from_converter=from_speed, to_converter=to_speed, default=0, signed=False)
@@ -904,7 +903,7 @@ class MessageType19(Payload):
     raim = bit_field(1, bool, default=0)
     dte = bit_field(1, bool, default=0)
     assigned = bit_field(1, bool, default=0, signed=False)
-    spare_1 = bit_field(4, int, default=0)
+    spare_1 = bit_field(4, bytes, default=b'')
 
 
 @attr.s(slots=True)
@@ -915,8 +914,8 @@ class MessageType20(Payload):
     """
     msg_type = bit_field(6, int, default=20, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
-    spare_1 = bit_field(2, int, default=0)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'')
 
     offset1 = bit_field(12, int, default=0, signed=False)
     number1 = bit_field(4, int, default=0, signed=False)
@@ -947,7 +946,7 @@ class MessageType21(Payload):
     """
     msg_type = bit_field(6, int, default=21, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
 
     aid_type = bit_field(5, int, default=0, from_converter=NavAid.from_value, to_converter=NavAid.from_value,
                          signed=False)
@@ -968,7 +967,7 @@ class MessageType21(Payload):
     raim = bit_field(1, bool, default=0)
     virtual_aid = bit_field(1, bool, default=0)
     assigned = bit_field(1, bool, default=0)
-    spare_1 = bit_field(1, bool, default=0)
+    spare_1 = bit_field(1, bytes, default=b'')
     name_ext = bit_field(88, str, default='')
 
 
@@ -980,8 +979,8 @@ class MessageType22Addressed(Payload):
     """
     msg_type = bit_field(6, int, default=22, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
-    spare_1 = bit_field(2, int, default=0)  # 40 bits
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'')
 
     channel_a = bit_field(12, int, default=0, signed=False)
     channel_b = bit_field(12, int, default=0, signed=False)
@@ -991,16 +990,16 @@ class MessageType22Addressed(Payload):
     # If it is addressed (addressed field is 1),
     # the same span of data is interpreted as two 30-bit MMSIs
     # beginning at bit offsets 69 and 104 respectively.
-    dest1 = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    dest1 = bit_field(30, mmsi_str, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
     empty_1 = bit_field(5, int, default=0)
-    dest2 = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    dest2 = bit_field(30, mmsi_str, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
     empty_2 = bit_field(5, int, default=0)
 
     addressed = bit_field(1, bool, default=0)
     band_a = bit_field(1, bool, default=0)
     band_b = bit_field(1, bool, default=0)
     zonesize = bit_field(3, int, default=0)
-    spare_2 = bit_field(23, int, default=0)
+    spare_2 = bit_field(23, bytes, default=b'')
 
 
 @attr.s(slots=True)
@@ -1011,8 +1010,8 @@ class MessageType22Broadcast(Payload):
     """
     msg_type = bit_field(6, int, default=22, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
-    spare_1 = bit_field(2, int, default=0)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'')
 
     channel_a = bit_field(12, int, default=0, signed=False)
     channel_b = bit_field(12, int, default=0, signed=False)
@@ -1032,7 +1031,7 @@ class MessageType22Broadcast(Payload):
     band_a = bit_field(1, bool, default=0)
     band_b = bit_field(1, bool, default=0)
     zonesize = bit_field(3, int, default=0, signed=False)
-    spare_2 = bit_field(23, int, default=0)
+    spare_2 = bit_field(23, bytes, default=b'')
 
 
 class MessageType22(Payload):
@@ -1069,8 +1068,8 @@ class MessageType23(Payload):
     """
     msg_type = bit_field(6, int, default=23, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
-    spare_1 = bit_field(2, int, default=0)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'')
 
     ne_lon = bit_field(18, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
     ne_lat = bit_field(17, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
@@ -1080,36 +1079,36 @@ class MessageType23(Payload):
     station_type = bit_field(4, int, default=0, from_converter=StationType.from_value,
                              to_converter=StationType.from_value)
     ship_type = bit_field(8, int, default=0, from_converter=ShipType.from_value, to_converter=ShipType.from_value)
-    spare_2 = bit_field(22, int, default=0)
+    spare_2 = bit_field(22, bytes, default=b'')
 
     txrx = bit_field(2, int, default=0, from_converter=TransmitMode.from_value, to_converter=TransmitMode.from_value,
                      signed=False)
     interval = bit_field(4, int, default=0, from_converter=StationIntervals.from_value,
                          to_converter=StationIntervals.from_value)
     quiet = bit_field(4, int, default=0, signed=False)
-    spare_3 = bit_field(6, int, default=0)
+    spare_3 = bit_field(6, bytes, default=b'')
 
 
 @attr.s(slots=True)
 class MessageType24PartA(Payload):
     msg_type = bit_field(6, int, default=24, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
 
     partno = bit_field(2, int, default=0, signed=False)
     shipname = bit_field(120, str, default='')
-    spare_1 = bit_field(8, int, default=0)
+    spare_1 = bit_field(8, bytes, default=b'')
 
 
 @attr.s(slots=True)
 class MessageType24PartB(Payload):
     msg_type = bit_field(6, int, default=24, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
 
     partno = bit_field(2, int, default=0, signed=False)
     ship_type = bit_field(8, int, default=0, signed=False)
-    vendorid = bit_field(18, str, default=0, signed=False)
+    vendorid = bit_field(18, str, default='', signed=False)
     model = bit_field(4, int, default=0, signed=False)
     serial = bit_field(20, int, default=0, signed=False)
     callsign = bit_field(42, str, default='')
@@ -1119,7 +1118,7 @@ class MessageType24PartB(Payload):
     to_port = bit_field(6, int, default=0, signed=False)
     to_starboard = bit_field(6, int, default=0, signed=False)
 
-    spare_1 = bit_field(6, int, default=0)
+    spare_1 = bit_field(6, bytes, default=b'')
 
 
 class MessageType24(Payload):
@@ -1158,12 +1157,12 @@ class MessageType24(Payload):
 class MessageType25AddressedStructured(Payload):
     msg_type = bit_field(6, int, default=25, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
 
     addressed = bit_field(1, bool, default=0, signed=False)
     structured = bit_field(1, bool, default=0, signed=False)
 
-    dest_mmsi = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str, signed=False)
+    dest_mmsi = bit_field(30, mmsi_str, default=0, from_converter=from_mmsi, to_converter=to_mmsi, signed=False)
     app_id = bit_field(16, int, default=0, signed=False)
     data = bit_field(82, bytes, default=b'')
 
@@ -1172,7 +1171,7 @@ class MessageType25AddressedStructured(Payload):
 class MessageType25BroadcastStructured(Payload):
     msg_type = bit_field(6, int, default=25, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
 
     addressed = bit_field(1, bool, default=0, signed=False)
     structured = bit_field(1, bool, default=0, signed=False)
@@ -1185,12 +1184,12 @@ class MessageType25BroadcastStructured(Payload):
 class MessageType25AddressedUnstructured(Payload):
     msg_type = bit_field(6, int, default=25, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
 
     addressed = bit_field(1, bool, default=0, signed=False)
     structured = bit_field(1, bool, default=0, signed=False)
 
-    dest_mmsi = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    dest_mmsi = bit_field(30, mmsi_str, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
     data = bit_field(98, bytes, default=b'')
 
 
@@ -1198,7 +1197,7 @@ class MessageType25AddressedUnstructured(Payload):
 class MessageType25BroadcastUnstructured(Payload):
     msg_type = bit_field(6, int, default=25, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
 
     addressed = bit_field(1, bool, default=0, signed=False)
     structured = bit_field(1, bool, default=0, signed=False)
@@ -1253,12 +1252,12 @@ class MessageType25(Payload):
 class MessageType26AddressedStructured(Payload):
     msg_type = bit_field(6, int, default=26, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
 
     addressed = bit_field(1, bool, default=0, signed=False)
     structured = bit_field(1, bool, default=0, signed=False)
 
-    dest_mmsi = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    dest_mmsi = bit_field(30, mmsi_str, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
     app_id = bit_field(16, int, default=0, signed=False)
     data = bit_field(958, bytes, default=b'')
     radio = bit_field(20, int, default=0, signed=False)
@@ -1268,7 +1267,7 @@ class MessageType26AddressedStructured(Payload):
 class MessageType26BroadcastStructured(Payload):
     msg_type = bit_field(6, int, default=26, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
 
     addressed = bit_field(1, bool, default=0, signed=False)
     structured = bit_field(1, bool, default=0, signed=False)
@@ -1282,12 +1281,12 @@ class MessageType26BroadcastStructured(Payload):
 class MessageType26AddressedUnstructured(Payload):
     msg_type = bit_field(6, int, default=26, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
 
     addressed = bit_field(1, bool, default=0, signed=False)
     structured = bit_field(1, bool, default=0, signed=False)
 
-    dest_mmsi = bit_field(30, int, default=0, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    dest_mmsi = bit_field(30, mmsi_str, default=0, from_converter=from_mmsi, to_converter=to_mmsi)
     app_id = bit_field(16, int, default=0, signed=False)
     data = bit_field(958, bytes, default=b'')
     radio = bit_field(20, int, default=0, signed=False)
@@ -1297,7 +1296,7 @@ class MessageType26AddressedUnstructured(Payload):
 class MessageType26BroadcastUnstructured(Payload):
     msg_type = bit_field(6, int, default=26, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
 
     addressed = bit_field(1, bool, default=0, signed=False)
     structured = bit_field(1, bool, default=0, signed=False)
@@ -1357,7 +1356,7 @@ class MessageType27(Payload):
     """
     msg_type = bit_field(6, int, default=27, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi, to_converter=to_mmsi, coerce=str)
+    mmsi = bit_field(30, mmsi_str, from_converter=from_mmsi, to_converter=to_mmsi)
 
     accuracy = bit_field(1, bool, default=0, signed=False)
     raim = bit_field(1, bool, default=0, signed=False)
@@ -1367,7 +1366,7 @@ class MessageType27(Payload):
     speed = bit_field(6, float, default=0, signed=False)
     course = bit_field(9, float, default=0, signed=False)
     gnss = bit_field(1, bool, default=0, signed=False)
-    spare_1 = bit_field(1, bool, default=0)
+    spare_1 = bit_field(1, bytes, default=b'')
 
 
 MSG_CLASS = {

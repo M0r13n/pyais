@@ -235,7 +235,6 @@ def test_int_to_bin():
     assert len(num) == 8
 
 
-@unittest.skip("TODO")
 def test_decode_encode():
     """Create each message with default values and test that it can be decoded again"""
     mmsi = 123
