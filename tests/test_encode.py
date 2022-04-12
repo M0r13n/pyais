@@ -242,9 +242,9 @@ def test_decode_encode():
         encoded = encode_dict({'mmsi': mmsi, 'dest_mmsi': 656634123, 'type': typ})
         decoded = decode(*encoded).asdict()
 
-        assert decoded['mmsi'] == '000000123'
+        assert decoded['mmsi'] == 123
         if 'dest_mmsi' in decoded:
-            assert decoded['dest_mmsi'] == '656634123'
+            assert decoded['dest_mmsi'] == 656634123
 
 
 def test_encode_type_27():
@@ -790,21 +790,18 @@ def test_encode_type_6():
     data = {
         'dac': 669,
         'data': b"\xeb\x11\x8f\x7f\xf2",
-        'dest_mmsi': '313240222',
+        'dest_mmsi': 313240222,
         'fid': 11,
-        'mmsi': '150834090',
+        'mmsi': 150834090,
         'repeat': 1,
         'retransmit': 0,
         'seqno': 3,
         'type': 6
     }
     encoded = encode_dict(data, radio_channel="B", talker_id="AIVDM")
-    print(encoded)
-    # assert encoded[0] == "!AIVDM,1,1,,B,6B?n;be:cbapalgc4Huwt2,4*23"
 
     decoded = decode(*encoded).asdict()
 
-    print(decoded['data'], data['data'])
     assert decoded['dac'] == data['dac']
     assert decoded['data'] == data['data']
     assert decoded['dest_mmsi'] == data['dest_mmsi']

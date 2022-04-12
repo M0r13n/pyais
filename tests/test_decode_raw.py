@@ -10,7 +10,7 @@ class TestDecode(unittest.TestCase):
         msg = decode(b"!AIVDM,1,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28").asdict()
         self.assertIsNotNone(msg)
         self.assertIsInstance(msg, dict)
-        self.assertEqual(msg['mmsi'], "003669713")
+        self.assertEqual(msg['mmsi'], 3669713)
         self.assertEqual(msg['lon'], 181.0)
 
     def test_bytes_invalid(self):
@@ -21,7 +21,7 @@ class TestDecode(unittest.TestCase):
         msg = decode("!AIVDM,1,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28").asdict()
         self.assertIsNotNone(msg)
         self.assertIsInstance(msg, dict)
-        self.assertEqual(msg['mmsi'], "003669713")
+        self.assertEqual(msg['mmsi'], 3669713)
         self.assertEqual(msg['lon'], 181.0)
 
     def test_str_invalid(self):
@@ -58,7 +58,7 @@ class TestDecode(unittest.TestCase):
             b'!AIVDM,2,2,1,A,F@V@00000000000,2*35',
         )
 
-        self.assertEqual(decoded.mmsi, "210035000")
+        self.assertEqual(decoded.mmsi, 210035000)
         self.assertEqual(decoded.callsign, "5BXT2")
         self.assertEqual(decoded.shipname, "NORDIC HAMBURG")
         self.assertEqual(decoded.destination, "CTT-LAYBY")

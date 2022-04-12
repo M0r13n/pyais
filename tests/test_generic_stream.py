@@ -108,5 +108,5 @@ class TestIterMessages(unittest.TestCase):
         decoded = [msg.decode().asdict() for msg in IterMessages(messages)]
 
         self.assertEqual(2, len(decoded))
-        self.assertTrue(all(d["mmsi"] == "210035000" for d in decoded))
+        self.assertTrue(all(d["mmsi"] == 210035000 for d in decoded))
         self.assertTrue(all(d["shipname"] == "NORDIC HAMBURG" for d in decoded))

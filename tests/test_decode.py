@@ -14,7 +14,7 @@ from pyais.exceptions import UnknownMessageException
 from pyais.messages import MessageType18, MessageType5, MessageType6, MSG_CLASS, MessageType24PartA, MessageType24PartB, \
     MessageType25AddressedStructured, MessageType25BroadcastStructured, MessageType25AddressedUnstructured, \
     MessageType25BroadcastUnstructured, MessageType26AddressedStructured, MessageType26BroadcastStructured, \
-    MessageType26BroadcastUnstructured, mmsi_str
+    MessageType26BroadcastUnstructured, MessageType22Addressed, MessageType22Broadcast
 from pyais.stream import ByteStream
 from pyais.util import bytes2bits, bits2bytes, b64encode_str
 
@@ -49,7 +49,7 @@ class TestAIS(unittest.TestCase):
         text = textwrap.dedent("""{
     "msg_type": 1,
     "repeat": 0,
-    "mmsi": "367533950",
+    "mmsi": 367533950,
     "status": 0,
     "turn": -128,
     "speed": 0.0,
@@ -88,7 +88,7 @@ class TestAIS(unittest.TestCase):
         assert result == {
             'msg_type': 1,
             'repeat': 0,
-            'mmsi': '366053209',
+            'mmsi': 366053209,
             'status': NavigationStatus.RestrictedManoeuverability,
             'turn': 0,
             'speed': 0.0,
@@ -107,7 +107,7 @@ class TestAIS(unittest.TestCase):
     def test_msg_type_1_b(self):
         msg = decode(b"!AIVDM,1,1,,A,15NPOOPP00o?b=bE`UNv4?w428D;,0*24").asdict()
         assert msg['msg_type'] == 1
-        assert msg['mmsi'] == '367533950'
+        assert msg['mmsi'] == 367533950
         assert msg['repeat'] == 0
         assert msg['status'] == NavigationStatus.UnderWayUsingEngine
         assert msg['turn'] == -128
@@ -129,7 +129,7 @@ class TestAIS(unittest.TestCase):
 
         assert msg.rate_of_turn == 0.0
         assert content['course'] == 87.0
-        assert content['mmsi'] == '538090443'
+        assert content['mmsi'] == 538090443
         assert content['speed'] == 10.9
         assert content['turn'] == 0
 
@@ -147,7 +147,7 @@ class TestAIS(unittest.TestCase):
 
         assert msg.rate_of_turn is None
         assert content['repeat'] == 2
-        assert content['mmsi'] == "211512520"
+        assert content['mmsi'] == 211512520
         assert content['turn'] == -128
         assert content['speed'] == 0.3
         assert round(content['lat'], 4) == 53.5427
@@ -165,7 +165,7 @@ class TestAIS(unittest.TestCase):
     def test_msg_type_3(self):
         msg = decode(b"!AIVDM,1,1,,A,35NSH95001G?wopE`beasVk@0E5:,0*6F").asdict()
         assert msg['msg_type'] == 3
-        assert msg['mmsi'] == "367581220"
+        assert msg['mmsi'] == 367581220
         assert msg['repeat'] == 0
         assert msg['status'] == NavigationStatus.Moored
         assert msg['turn'] == 0
@@ -198,7 +198,7 @@ class TestAIS(unittest.TestCase):
         msg = decode(b"!AIVDM,1,1,,B,403OtVAv>lba;o?Ia`E`4G?02H6k,0*44").asdict()
         assert round(msg['lon'], 4) == -122.4648
         assert round(msg['lat'], 4) == 37.7943
-        assert msg['mmsi'] == "003669145"
+        assert msg['mmsi'] == 3669145
         assert msg['accuracy'] == 1
         assert msg['year'] == 2019
         assert msg['month'] == 11
@@ -233,8 +233,8 @@ class TestAIS(unittest.TestCase):
     def test_msg_type_6(self):
         msg = decode(b"!AIVDM,1,1,,B,6B?n;be:cbapalgc;i6?Ow4,2*4A").asdict()
         assert msg['seqno'] == 3
-        assert msg['dest_mmsi'] == "313240222"
-        assert msg['mmsi'] == "150834090"
+        assert msg['dest_mmsi'] == 313240222
+        assert msg['mmsi'] == 150834090
         assert msg['dac'] == 669
         assert msg['fid'] == 11
         assert not msg['retransmit']
@@ -244,9 +244,9 @@ class TestAIS(unittest.TestCase):
 
     def test_msg_type_7(self):
         msg = decode(b"!AIVDM,1,1,,A,702R5`hwCjq8,0*6B").asdict()
-        assert msg['mmsi'] == "002655651"
+        assert msg['mmsi'] == 2655651
         assert msg['msg_type'] == 7
-        assert msg['mmsi1'] == "265538450"
+        assert msg['mmsi1'] == 265538450
         assert msg['mmsiseq1'] == 0
         assert msg['mmsi2'] is None
         assert msg['mmsi3'] is None
@@ -258,7 +258,7 @@ class TestAIS(unittest.TestCase):
         msg = decode(b"!AIVDM,1,1,,A,85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs,0*47").asdict()
 
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == "366999712"
+        assert msg['mmsi'] == 366999712
         assert msg['dac'] == 366
         assert msg['fid'] == 56
         assert msg['data'] == b"\x3a\x53\xdb\xb7\xbe\x4a\x77\x31\x37\xf8\x7d\x7b\x04\x45\xf0\x40" \
@@ -270,7 +270,7 @@ class TestAIS(unittest.TestCase):
         msg = decode(b"!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*30").asdict()
         assert msg['msg_type'] == 9
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == "111232511"
+        assert msg['mmsi'] == 111232511
         assert msg['alt'] == 303
         assert msg['speed'] == 42
         assert msg['accuracy'] == 0
@@ -287,12 +287,12 @@ class TestAIS(unittest.TestCase):
 
     def test_msg_type_10_a(self):
         msg = decode(b"!AIVDM,1,1,,B,:5MlU41GMK6@,0*6C").asdict()
-        assert msg['dest_mmsi'] == "366832740"
+        assert msg['dest_mmsi'] == 366832740
         assert msg['repeat'] == 0
 
     def test_msg_type_10_b(self):
         msg = decode(b"!AIVDM,1,1,,B,:6TMCD1GOS60,0*5B").asdict()
-        assert msg['dest_mmsi'] == "366972000"
+        assert msg['dest_mmsi'] == 366972000
         assert msg['repeat'] == 0
 
     def test_msg_type_11(self):
@@ -312,9 +312,9 @@ class TestAIS(unittest.TestCase):
         msg = decode(b"!AIVDM,1,1,,A,<5?SIj1;GbD07??4,0*38").asdict()
         assert msg['msg_type'] == 12
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == "351853000"
+        assert msg['mmsi'] == 351853000
         assert msg['seqno'] == 0
-        assert msg['dest_mmsi'] == "316123456"
+        assert msg['dest_mmsi'] == 316123456
         assert msg['retransmit'] == 0
         assert msg['text'] == "GOOD"
 
@@ -323,9 +323,9 @@ class TestAIS(unittest.TestCase):
         assert msg.msg_type == 12
 
         assert msg.repeat == 0
-        assert msg.mmsi == "271002099"
+        assert msg.mmsi == 271002099
         assert msg.seqno == 0
-        assert msg.dest_mmsi == "271002111"
+        assert msg.dest_mmsi == 271002111
         assert msg.retransmit == 1
 
         ensure_type_for_msg_dict(msg.asdict())
@@ -334,8 +334,8 @@ class TestAIS(unittest.TestCase):
         msg = decode(b"!AIVDM,1,1,,A,=39UOj0jFs9R,0*65").asdict()
         assert msg['msg_type'] == 13
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == "211378120"
-        assert msg['mmsi1'] == "211217560"
+        assert msg['mmsi'] == 211378120
+        assert msg['mmsi1'] == 211217560
 
         ensure_type_for_msg_dict(msg)
 
@@ -343,7 +343,7 @@ class TestAIS(unittest.TestCase):
         msg = decode(b"!AIVDM,1,1,,A,>5?Per18=HB1U:1@E=B0m<L,2*51").asdict()
         assert msg['msg_type'] == 14
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == "351809000"
+        assert msg['mmsi'] == 351809000
         assert msg['text'] == "RCVD YR TEST MSG"
 
         ensure_type_for_msg_dict(msg)
@@ -352,9 +352,9 @@ class TestAIS(unittest.TestCase):
         msg = decode(b"!AIVDM,1,1,,A,?5OP=l00052HD00,2*5B").asdict()
         assert msg['msg_type'] == 15
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == "368578000"
+        assert msg['mmsi'] == 368578000
         assert msg['offset1_1'] == 0
-        assert msg['mmsi1'] == '000005158'
+        assert msg['mmsi1'] == 5158
         assert msg['offset1_2'] is None
         assert msg['mmsi2'] is None
 
@@ -364,9 +364,9 @@ class TestAIS(unittest.TestCase):
         msg = decode(b"!AIVDM,1,1,,B,?h3Ovn1GP<K0<P@59a0,2*04").asdict()
         assert msg['msg_type'] == 15
         assert msg['repeat'] == 3
-        assert msg['mmsi'] == "003669720"
-        assert msg['mmsi1'] == "367014320"
-        assert msg['mmsi2'] == "000000000"
+        assert msg['mmsi'] == 3669720
+        assert msg['mmsi1'] == 367014320
+        assert msg['mmsi2'] == 0
         assert msg['type1_1'] == 3
         assert msg['type1_2'] == 5
         assert msg['offset1_2'] == 617
@@ -379,11 +379,11 @@ class TestAIS(unittest.TestCase):
 
         assert msg['msg_type'] == 16
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == "002053501"
-        assert msg['mmsi1'] == "224251000"
+        assert msg['mmsi'] == 2053501
+        assert msg['mmsi1'] == 224251000
         assert msg['offset1'] == 200
         assert msg['increment1'] == 0
-        assert msg['mmsi2'] == '000000000'
+        assert msg['mmsi2'] == 0
         assert msg['offset2'] is None
         assert msg['increment2'] is None
 
@@ -397,7 +397,7 @@ class TestAIS(unittest.TestCase):
 
         assert msg['msg_type'] == 17
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == "002734450"
+        assert msg['mmsi'] == 2734450
         assert msg['lon'] == 1747.8
         assert msg['lat'] == 3599.2
 
@@ -413,7 +413,7 @@ class TestAIS(unittest.TestCase):
         msg = decode(b"!AIVDM,1,1,,A,A0476BQ>J8`<h2JpH:4P0?j@2mTEw8`=DP1DEnqvj0,0*79").asdict()
         assert msg['msg_type'] == 17
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == "004310602"
+        assert msg['mmsi'] == 4310602
         assert msg['lat'] == 2058.2
         assert msg['lon'] == 8029.0
 
@@ -428,7 +428,7 @@ class TestAIS(unittest.TestCase):
     def test_msg_type_18(self):
         msg = decode(b"!AIVDM,1,1,,A,B5NJ;PP005l4ot5Isbl03wsUkP06,0*76").asdict()
         assert msg['msg_type'] == 18
-        assert msg['mmsi'] == "367430530"
+        assert msg['mmsi'] == 367430530
         assert msg['speed'] == 0.0
         assert msg['accuracy'] == 0
         assert round(msg['lat'], 2) == 37.79
@@ -464,7 +464,7 @@ class TestAIS(unittest.TestCase):
     def test_msg_type_19(self):
         msg = decode(b"!AIVDM,1,1,,B,C5N3SRgPEnJGEBT>NhWAwwo862PaLELTBJ:V00000000S0D:R220,0*0B").asdict()
         assert msg['msg_type'] == 19
-        assert msg['mmsi'] == "367059850"
+        assert msg['mmsi'] == 367059850
         assert msg['speed'] == 8.7
         assert msg['accuracy'] == 0
         assert msg['lat'] == 29.543695
@@ -488,7 +488,7 @@ class TestAIS(unittest.TestCase):
     def test_msg_type_20(self):
         msg = decode(b"!AIVDM,1,1,,A,D028rqP<QNfp000000000000000,2*0C").asdict()
         assert msg['msg_type'] == 20
-        assert msg['mmsi'] == "002243302"
+        assert msg['mmsi'] == 2243302
         assert msg['offset1'] == 200
         assert msg['number1'] == 5
         assert msg['timeout1'] == 7
@@ -508,7 +508,7 @@ class TestAIS(unittest.TestCase):
             b"!AIVDM,2,2,7,B,@20,4*54"
         ).asdict()
         assert msg['msg_type'] == 21
-        assert msg['mmsi'] == "316021442"
+        assert msg['mmsi'] == 316021442
         assert msg['aid_type'] == NavAid.REFERENCE_POINT
         assert msg['name'] == "DFO2"
         assert msg['accuracy'] == 1
@@ -533,7 +533,7 @@ class TestAIS(unittest.TestCase):
         # Broadcast
         msg = decode(b"!AIVDM,1,1,,B,F030p:j2N2P5aJR0r;6f3rj10000,0*11").asdict()
         assert msg['msg_type'] == 22
-        assert msg['mmsi'] == "003160107"
+        assert msg['mmsi'] == 3160107
         assert msg['channel_a'] == 2087
         assert msg['channel_b'] == 2088
         assert msg['power'] == 0
@@ -561,14 +561,14 @@ class TestAIS(unittest.TestCase):
         # Addressed
         msg = decode(b"!AIVDM,1,1,,A,F@@W>gOP00PH=JrN9l000?wB2HH;,0*44").asdict()
         assert msg['msg_type'] == 22
-        assert msg['mmsi'] == "017419965"
+        assert msg['mmsi'] == 17419965
         assert msg['channel_a'] == 3584
         assert msg['channel_b'] == 8
         assert msg['power'] == 1
         assert msg['addressed'] == 1
 
-        assert msg['dest1'] == "028144881"
-        assert msg['dest2'] == "268435519"
+        assert msg['dest1'] == 28144881
+        assert msg['dest2'] == 268435519
 
         assert msg['band_a'] == 0
         assert msg['band_b'] == 0
@@ -584,7 +584,7 @@ class TestAIS(unittest.TestCase):
     def test_msg_type_23(self):
         msg = decode(b"!AIVDM,1,1,,B,G02:Kn01R`sn@291nj600000900,2*12").asdict()
         assert msg['msg_type'] == 23
-        assert msg['mmsi'] == "002268120"
+        assert msg['mmsi'] == 2268120
         assert msg['ne_lon'] == 157.8
         assert msg['ship_type'] == ShipType.NotAvailable
         assert msg['ne_lat'] == 3064.2
@@ -600,7 +600,7 @@ class TestAIS(unittest.TestCase):
     def test_msg_type_24(self):
         msg = decode(b"!AIVDM,1,1,,A,H52KMeDU653hhhi0000000000000,0*1A").asdict()
         assert msg['msg_type'] == 24
-        assert msg['mmsi'] == "338091445"
+        assert msg['mmsi'] == 338091445
         assert msg['partno'] == 1
         assert msg['ship_type'] == ShipType.PleasureCraft
         assert msg['vendorid'] == "FEC"
@@ -618,7 +618,7 @@ class TestAIS(unittest.TestCase):
         assert msg['msg_type'] == 25
         assert msg['addressed']
         assert not msg['structured']
-        assert msg['dest_mmsi'] == "134218384"
+        assert msg['dest_mmsi'] == 134218384
 
         ensure_type_for_msg_dict(msg)
 
@@ -627,8 +627,8 @@ class TestAIS(unittest.TestCase):
         assert msg == {
             'addressed': 1,
             'data': b'?\xff\xff\xff\xff\xff\xff\xff\xff\xf0\x00',
-            'dest_mmsi': '134218384',
-            'mmsi': '440006460',
+            'dest_mmsi': 134218384,
+            'mmsi': 440006460,
             'repeat': 0,
             'structured': 1,
             'app_id': 45,
@@ -642,8 +642,8 @@ class TestAIS(unittest.TestCase):
         assert msg == {
             'addressed': 1,
             'data': b'\x00\x00?\xff\xff\xff\xff\xff\xff\xff\xff\xf0\x00',
-            'dest_mmsi': '134218384',
-            'mmsi': '440006460',
+            'dest_mmsi': 134218384,
+            'mmsi': 440006460,
             'repeat': 0,
             'structured': 0,
             'msg_type': 25
@@ -656,7 +656,7 @@ class TestAIS(unittest.TestCase):
         assert msg['msg_type'] == 26
         assert msg['addressed']
         assert msg['structured']
-        assert msg['dest_mmsi'] == "838351848"
+        assert msg['dest_mmsi'] == 838351848
         assert msg['data'] == b'\xcc\xbf\x02\xa1p\xe7\x8b\x00\x1c\x01\xb3\xc0\x9b\x03\xd2 \xbe\xab@\x04\x00\x00'
 
         ensure_type_for_msg_dict(msg)
@@ -673,7 +673,7 @@ class TestAIS(unittest.TestCase):
     def test_msg_type_27(self):
         msg = decode(b"!AIVDM,1,1,,B,KC5E2b@U19PFdLbMuc5=ROv62<7m,0*16").asdict()
         assert msg['msg_type'] == 27
-        assert msg['mmsi'] == "206914217"
+        assert msg['mmsi'] == 206914217
         assert msg['accuracy'] == 0
         assert msg['raim'] == 0
         assert msg['status'] == NavigationStatus.NotUnderCommand
@@ -712,7 +712,7 @@ class TestAIS(unittest.TestCase):
         for msg in ByteStream(messages):
             decoded = msg.decode().asdict()
             assert decoded['shipname'] == 'NORDIC HAMBURG'
-            assert decoded['mmsi'] == "210035000"
+            assert decoded['mmsi'] == 210035000
             assert decoded
             counter += 1
         assert counter == 2
@@ -725,7 +725,7 @@ class TestAIS(unittest.TestCase):
         content = decode(msg).asdict()
         self.assertEqual(content["msg_type"], 18)
         self.assertEqual(content["repeat"], 0)
-        self.assertEqual(content["mmsi"], "1000000000")
+        self.assertEqual(content["mmsi"], 1000000000)
         self.assertEqual(content["speed"], 102.3)
         self.assertEqual(content["accuracy"], 0)
         self.assertEqual(str(content["lon"]), "181.0")
@@ -745,7 +745,7 @@ class TestAIS(unittest.TestCase):
         ).asdict()
 
         self.assertEqual(content["msg_type"], 5)
-        self.assertEqual(content["mmsi"], "255801960")
+        self.assertEqual(content["mmsi"], 255801960)
         self.assertEqual(content["repeat"], 0)
         self.assertEqual(content["ais_version"], 2)
         self.assertEqual(content["imo"], 9356945)
@@ -784,7 +784,7 @@ class TestAIS(unittest.TestCase):
 
         decoded = decode(*parts)
 
-        assert decoded.asdict()['mmsi'] == '368060190'
+        assert decoded.asdict()['mmsi'] == 368060190
 
     def test_issue_46_a(self):
         msg = b"!ARVDM,2,1,3,B,E>m1c1>9TV`9WW@97QUP0000000F@lEpmdceP00003b,0*5C"
@@ -792,7 +792,7 @@ class TestAIS(unittest.TestCase):
 
         self.assertEqual(decoded.msg_type, 21)
         self.assertEqual(decoded.repeat, 0)
-        self.assertEqual(decoded.mmsi, '995126020')
+        self.assertEqual(decoded.mmsi, 995126020)
         self.assertEqual(decoded.aid_type, NavAid.ISOLATED_DANGER)
         self.assertEqual(decoded.name, 'SIMPSON ROCK')
         self.assertEqual(decoded.accuracy, True)
@@ -819,7 +819,7 @@ class TestAIS(unittest.TestCase):
 
         self.assertEqual(decoded.msg_type, 21)
         self.assertEqual(decoded.repeat, 0)
-        self.assertEqual(decoded.mmsi, '995036013')
+        self.assertEqual(decoded.mmsi, 995036013)
         self.assertEqual(decoded.aid_type, NavAid.STARBOARD_HAND_MARK)
         self.assertEqual(decoded.name, 'STDB CUT 2')
         self.assertEqual(decoded.accuracy, True)
@@ -846,7 +846,7 @@ class TestAIS(unittest.TestCase):
 
         self.assertEqual(decoded.msg_type, 21)
         self.assertEqual(decoded.repeat, 0)
-        self.assertEqual(decoded.mmsi, '000971714')
+        self.assertEqual(decoded.mmsi, 971714)
         self.assertIsNone(decoded.aid_type)
         self.assertIsNone(decoded.epfd)
 
@@ -872,7 +872,7 @@ class TestAIS(unittest.TestCase):
                 'epfd': 7,
                 'lat': -32.004333,
                 'lon': 115.691833,
-                'mmsi': '995036013',
+                'mmsi': 995036013,
                 'msg_type': 21,
                 'name_ext': None,
                 'off_position': False,
@@ -908,7 +908,7 @@ class TestAIS(unittest.TestCase):
                 'frag_num': 1,
                 'lat': -32.004333,
                 'lon': 115.691833,
-                'mmsi': '995036013',
+                'mmsi': 995036013,
                 'msg_type': 21,
                 'name_ext': None,
                 'off_position': False,
@@ -944,7 +944,7 @@ class TestAIS(unittest.TestCase):
                 'frag_num': 1,
                 'lat': -32.004333,
                 'lon': 115.691833,
-                'mmsi': '995036013',
+                'mmsi': 995036013,
                 'msg_type': 21,
                 'name_ext': None,
                 'off_position': False,
@@ -1007,7 +1007,7 @@ class TestAIS(unittest.TestCase):
             for field in fields:
                 val = getattr(decoded, field)
                 if field == 'mmsi':
-                    self.assertEqual(val, '000001337')
+                    self.assertEqual(val, 1337)
                 elif field == 'msg_type':
                     self.assertEqual(val, mtype)
                 elif field == 'repeat':
@@ -1020,21 +1020,21 @@ class TestAIS(unittest.TestCase):
         short_msg = b'!AIVDO,1,1,,A,Ig,0*65'
         decoded = decode(short_msg)
 
-        self.assertEqual(decoded.mmsi, '000000015')
+        self.assertEqual(decoded.mmsi, 15)
 
     def test_type_26_very_short(self):
         """If the message is very short, an IndexError might occur"""
         short_msg = b'!AIVDO,1,1,,A,Jgg,4*4E'
         decoded = decode(short_msg)
 
-        self.assertEqual(decoded.mmsi, '000000062')
+        self.assertEqual(decoded.mmsi, 62)
 
     def test_type_22_very_short(self):
         """If the mssage is very short an IndexError might occur"""
         short_msg = b'!AIVDO,1,1,,A,F0001,0*74'
         decoded = decode(short_msg)
 
-        self.assertEqual(decoded.mmsi, '000000001')
+        self.assertEqual(decoded.mmsi, 1)
 
     def test_types_for_messages(self):
         """Make sure that the types are consistent for all messages"""
@@ -1042,6 +1042,8 @@ class TestAIS(unittest.TestCase):
         for typ, msg in itertools.chain(
                 MSG_CLASS.items(),
                 [
+                    (22, MessageType22Addressed),
+                    (22, MessageType22Broadcast),
                     (24, MessageType24PartA),
                     (24, MessageType24PartB),
                     (25, MessageType25AddressedStructured),
@@ -1054,18 +1056,12 @@ class TestAIS(unittest.TestCase):
                     (26, MessageType26BroadcastUnstructured),
                 ]
         ):
+            # Make sure that the same fields have the same datatype for all classes
+            # E.g. lat is of type float for all messages
             for field in msg.fields():
                 d_type = field.metadata['d_type']
                 f_name = field.name
                 if f_name in types:
-                    if typ == 9 and f_name == 'speed' and d_type == int:
-                        continue
-                    if f_name == 'spare_1':
-                        continue
-                    if typ == 27 and f_name == 'speed' and d_type == int:
-                        continue
-                    if typ == 27 and f_name == 'course' and d_type == int:
-                        continue
                     assert d_type == types[f_name], f"{typ}.{f_name}: {d_type} vs. {types[f_name]}"
                 else:
                     types[f_name] = d_type
@@ -1117,9 +1113,9 @@ class TestAIS(unittest.TestCase):
         {
             "msg_type": 6,
             "repeat": 1,
-            "mmsi": "150834090",
+            "mmsi": 150834090,
             "seqno": 3,
-            "dest_mmsi": "313240222",
+            "dest_mmsi": 313240222,
             "retransmit": false,
             "spare_1": "AA==",
             "dac": 669,
@@ -1134,7 +1130,7 @@ class TestAIS(unittest.TestCase):
         {
             "msg_type": 8,
             "repeat": 0,
-            "mmsi": "366999712",
+            "mmsi": 366999712,
             "spare_1": "AA==",
             "dac": 366,
             "fid": 56,
@@ -1151,7 +1147,7 @@ class TestAIS(unittest.TestCase):
         {
             "msg_type": 17,
             "repeat": 0,
-            "mmsi": "002734450",
+            "mmsi": 2734450,
             "spare_1": "AA==",
             "lon": 1747.8,
             "lat": 3599.2,
@@ -1166,10 +1162,10 @@ class TestAIS(unittest.TestCase):
         {
             "msg_type": 25,
             "repeat": 0,
-            "mmsi": "440006460",
+            "mmsi": 440006460,
             "addressed": true,
             "structured": false,
-            "dest_mmsi": "134218384",
+            "dest_mmsi": 134218384,
             "data": "4G+FW1ZsgD/noDBhQA=="
         }
         """).strip())
@@ -1180,10 +1176,10 @@ class TestAIS(unittest.TestCase):
         {
             "msg_type": 26,
             "repeat": 1,
-            "mmsi": "137920605",
+            "mmsi": 137920605,
             "addressed": true,
             "structured": true,
-            "dest_mmsi": "838351848",
+            "dest_mmsi": 838351848,
             "app_id": 23587,
             "data": "zL8CoXDniwAcAbPAmwPSIL6rQAQAAA==",
             "radio": null
@@ -1210,11 +1206,3 @@ class TestAIS(unittest.TestCase):
 
         assert data['data'] == '6y8Rj3/x'
         assert base64.b64decode(data['data']) == b'\xeb/\x11\x8f\x7f\xf1'
-
-    def test_that_mmsi_str_is_a_string(self):
-        i = mmsi_str("001234")
-
-        self.assertEqual(i, "001234")
-        self.assertTrue(isinstance(i, str))
-        self.assertTrue(isinstance(i, mmsi_str))
-        self.assertEqual(int(i), 1234)
