@@ -919,12 +919,11 @@ def test_encode_msg_type2():
         'repeat': 2,
         'second': 34,
         'speed': 0.3,
-        'turn': -128,
+        'turn': 0,
         'type': 2
     }
-
     encoded = encode_dict(data)[0]
-    assert encoded == "!AIVDO,1,1,,A,1S9edj0P03PecbBN`ja@0?w42000,0*2A"
+    assert encoded == "!AIVDO,1,1,,A,1S9edj0003PecbBN`ja@0?w42000,0*4A"
 
 
 def test_encode_msg_type_3():
@@ -996,6 +995,7 @@ def test_mmsi_too_long():
 def test_lon_too_large():
     msg = MessageType1.create(mmsi="123", lon=1 << 30)
     encoded = encode_msg(msg)
+    print(encoded)
     assert encoded[0] == "!AIVDO,1,1,,A,10000Nh000Owwwv0000000000000,0*7D"
 
 

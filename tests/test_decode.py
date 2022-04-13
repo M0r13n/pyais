@@ -14,7 +14,7 @@ from pyais.exceptions import UnknownMessageException
 from pyais.messages import MessageType18, MessageType5, MessageType6, MSG_CLASS, MessageType24PartA, MessageType24PartB, \
     MessageType25AddressedStructured, MessageType25BroadcastStructured, MessageType25AddressedUnstructured, \
     MessageType25BroadcastUnstructured, MessageType26AddressedStructured, MessageType26BroadcastStructured, \
-    MessageType26BroadcastUnstructured, MessageType22Addressed, MessageType22Broadcast
+    MessageType26BroadcastUnstructured, MessageType22Addressed, MessageType22Broadcast, to_turn, from_turn
 from pyais.stream import ByteStream
 from pyais.util import bytes2bits, bits2bytes, b64encode_str
 
@@ -51,7 +51,7 @@ class TestAIS(unittest.TestCase):
     "repeat": 0,
     "mmsi": 367533950,
     "status": 0,
-    "turn": -128,
+    "turn": null,
     "speed": 0.0,
     "accuracy": true,
     "lon": -122.408232,
@@ -110,7 +110,7 @@ class TestAIS(unittest.TestCase):
         assert msg['mmsi'] == 367533950
         assert msg['repeat'] == 0
         assert msg['status'] == NavigationStatus.UnderWayUsingEngine
-        assert msg['turn'] == -128
+        assert msg['turn'] is None
         assert msg['speed'] == 0
         assert msg['accuracy'] == 1
         assert round(msg['lat'], 4) == 37.8084
@@ -127,7 +127,6 @@ class TestAIS(unittest.TestCase):
 
         content = msg.asdict()
 
-        assert msg.rate_of_turn == 0.0
         assert content['course'] == 87.0
         assert content['mmsi'] == 538090443
         assert content['speed'] == 10.9
@@ -135,20 +134,15 @@ class TestAIS(unittest.TestCase):
 
         ensure_type_for_msg_dict(content)
 
-    def test_msg_type_1_d(self):
-        msg = decode(b"!AIVDO,1,1,,A,15M67FC=P0G?ufdE`Fe`T@3n00Sa,0*26")
-        self.assertEqual(msg.rate_of_turn, 121)
-
     def test_decode_pos_1_2_3(self):
         # weired message of type 0 as part of issue #4
         msg = decode(b"!AIVDM,1,1,,B,0S9edj0P03PecbBN`ja@0?w42cFC,0*7C")
 
         content = msg.asdict()
 
-        assert msg.rate_of_turn is None
         assert content['repeat'] == 2
         assert content['mmsi'] == 211512520
-        assert content['turn'] == -128
+        assert content['turn'] is None
         assert content['speed'] == 0.3
         assert round(content['lat'], 4) == 53.5427
         assert round(content['lon'], 4) == 9.9794
@@ -1206,3 +1200,43 @@ class TestAIS(unittest.TestCase):
 
         assert data['data'] == '6y8Rj3/x'
         assert base64.b64decode(data['data']) == b'\xeb/\x11\x8f\x7f\xf1'
+
+    def test_turn_is_none_for_127_or_128(self):
+        self.assertIsNone(to_turn(127), None)
+        self.assertIsNone(to_turn(-127), None)
+        self.assertIsNone(to_turn(128), None)
+
+        self.assertEqual(0, from_turn(None))
+
+    def test_rot_encode_yields_expected_values(self):
+        encoded = encode_dict({'msg_type': 1, 'mmsi': 123, 'turn': 25.0})[0]
+        assert encoded == "!AIVDO,1,1,,A,10000Nh600000000000000000000,0*05"
+        assert decode(encoded).turn == 25.0
+
+        encoded = encode_dict({'msg_type': 1, 'mmsi': 123, 'turn': -16.0})[0]
+        assert encoded == "!AIVDO,1,1,,A,10000Nhs@0000000000000000000,0*30"
+        assert decode(encoded).turn == -16.0
+
+        encoded = encode_dict({'msg_type': 1, 'mmsi': 123, 'turn': 4.0})[0]
+        assert encoded == "!AIVDO,1,1,,A,10000Nh2@0000000000000000000,0*71"
+        assert decode(encoded).turn == 4.0
+
+        encoded = encode_dict({'msg_type': 1, 'mmsi': 123, 'turn': -4.0})[0]
+        assert encoded == "!AIVDO,1,1,,A,10000Nhuh0000000000000000000,0*1E"
+        assert decode(encoded).turn == -4.0
+
+        encoded = encode_dict({'msg_type': 1, 'mmsi': 123, 'turn': -121.0})[0]
+        assert encoded == "!AIVDO,1,1,,A,10000Nhk00000000000000000000,0*58"
+        assert decode(encoded).turn == -121.0
+
+        encoded = encode_dict({'msg_type': 1, 'mmsi': 123, 'turn': 64.0})[0]
+        assert encoded == "!AIVDO,1,1,,A,10000Nh9P0000000000000000000,0*6A"
+        assert decode(encoded).turn == 64.0
+
+    def test_rot_decode_yields_expected_values(self):
+        assert decode(b"!AIVDM,1,1,,A,14QIG<5620KF@Gl:L9DI4o8N0P00,0*28").turn == 25.0
+        assert decode(b"!AIVDM,1,1,,B,13u><=gsQj0mQW:Q1<wRL28P0@:4,0*32").turn == -16.0
+        assert decode(b"!AIVDM,1,1,,A,14SSRt021O0?bK@MO7H6QUA600Rg,0*12").turn == 4.0
+        assert decode(b"!AIVDM,1,1,,2,13aB:Hhuh0PHjEFNKJg@11sH08J=,0*1E").turn == -4.0
+        assert decode(b"!AIVDM,1,1,,A,16:VFv0k0I`KQPpFATG4SgvT40:v,0*7B").turn == -121.0
+        assert decode(b"!AIVDM,1,1,,B,16:D3F0:15`5ogh<O?bk>1Dd2L1<,0*0B").turn == 64.0

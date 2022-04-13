@@ -389,6 +389,7 @@ class Payload(abc.ABC):
                 bits = bytes2bits(val, default=bitarray('0' * width))
             else:
                 raise InvalidDataTypeException(d_type)
+
             bits = bits[:width]
             out += bits
 
@@ -533,6 +534,21 @@ def from_mmsi(v: typing.Union[str, int]) -> int:
     return int(v)
 
 
+def to_turn(turn: typing.Union[int, float]) -> typing.Optional[float]:
+    if not turn:
+        return 0.0
+    elif abs(turn) == 127 or abs(turn) == 128:
+        return None
+    else:
+        return math.copysign((round(turn / 4.733)) ** 2, turn)
+
+
+def from_turn(turn: typing.Optional[typing.Union[int, float]]) -> int:
+    if turn is None:
+        return 0
+    return int(math.copysign(round(4.733 * math.sqrt(abs(turn))), turn))
+
+
 @attr.s(slots=True)
 class MessageType1(Payload):
     """
@@ -543,7 +559,7 @@ class MessageType1(Payload):
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
     status = bit_field(4, int, default=0, converter=NavigationStatus.from_value, signed=False)
-    turn = bit_field(8, int, default=0, signed=True)
+    turn = bit_field(8, float, default=0, signed=True, to_converter=to_turn, from_converter=from_turn)
     speed = bit_field(10, float, from_converter=from_speed, to_converter=to_speed, default=0, signed=False)
     accuracy = bit_field(1, bool, default=0, signed=False)
     lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, default=0, signed=True)
@@ -556,16 +572,6 @@ class MessageType1(Payload):
     spare_1 = bit_field(3, bytes, default=b'')
     raim = bit_field(1, bool, default=0)
     radio = bit_field(19, int, default=0, signed=False)
-
-    @property
-    def rate_of_turn(self) -> typing.Optional[float]:
-        turn = self.turn
-        if not turn:
-            return 0.0
-        elif abs(turn) == 127 or abs(turn) == 128:
-            return None
-        else:
-            return math.copysign((round(turn / 4.733)) ** 2, turn)
 
 
 class MessageType2(MessageType1):
