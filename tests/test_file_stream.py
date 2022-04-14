@@ -151,7 +151,7 @@ class TestFileReaderStream(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             FileReaderStream("doesnotexist")
 
-    @skip("This takes too long for now")
+    @skip("Takes too long")
     def test_large_file(self):
         start = time.time()
         # The ais sample data is downloaded from https://www.aishub.net/ais-dispatcher
@@ -167,6 +167,8 @@ class TestFileReaderStream(unittest.TestCase):
 
         print(f"Decoding {i + 1} messages took:", time.time() - start)
         print("ERRORS", errors)
+
+        assert errors == 2
 
     def test_marine_traffic_sample(self):
         """Test some messages from https://help.marinetraffic.com/hc/en-us

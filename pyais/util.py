@@ -1,3 +1,4 @@
+import base64
 import typing
 from collections import OrderedDict
 from functools import partial, reduce
@@ -161,8 +162,6 @@ def encode_ascii_6(bits: bitarray) -> typing.Tuple[str, int]:
     for chunk in chunks(bits, 6):  # type:ignore
         padding = 6 - len(chunk)
         num = from_bytes(chunk.tobytes()) >> 2
-        if padding:
-            num = num >> padding
         armor = PAYLOAD_ARMOR[num]
         out += armor
     return out, padding
@@ -178,6 +177,46 @@ def int_to_bytes(val: typing.Union[int, bytes]) -> int:
     if isinstance(val, int):
         return val
     return int.from_bytes(val, 'big')
+
+
+def bits2bytes(bits: typing.Union[str, bitarray]) -> bytes:
+    """
+    Convert a bitstring or a bitarray to bytes.
+    >>> bits2bytes('00100110')
+    b'&'
+    """
+    bits = bitarray(bits)
+    return bits.tobytes()
+
+
+def bytes2bits(in_bytes: bytes, default: typing.Optional[bitarray] = None) -> bitarray:
+    """
+    Convert a bytes object to a bitarray.
+
+    @param  in_bytes :    The bytes to encode
+    @param  default  :    A default value to return if `in_bytes` is *Falseish*
+
+    >>> bytes2bits(b'&')
+    bitarray('00100110')
+    """
+    if default is not None and not in_bytes:
+        return default
+    bits = bitarray(endian='big')
+    bits.frombytes(in_bytes)
+    return bits
+
+
+def b64encode_str(val: bytes, encoding: str = 'utf-8') -> str:
+    """BASE64 encoded a bytes string and returns the result as UTF-8 string"""
+    return base64.b64encode(val).decode(encoding)
+
+
+def coerce_val(val: typing.Any, d_type: typing.Type[T]) -> T:
+    """Forces a given value in a given datatype"""
+    if d_type == bytes and not isinstance(val, bytes):
+        raise ValueError(f"Expected bytes, but got: {type(val)}")
+
+    return d_type(val)  # type: ignore
 
 
 def int_to_bin(val: typing.Union[int, bool], width: int, signed: bool = True) -> bitarray:

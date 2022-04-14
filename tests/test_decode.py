@@ -1,4 +1,8 @@
+import base64
+import itertools
+import json
 import textwrap
+import typing
 import unittest
 from pprint import pprint
 
@@ -7,8 +11,22 @@ from pyais.ais_types import AISType
 from pyais.constants import ManeuverIndicator, NavigationStatus, ShipType, NavAid, EpfdType, StationType, TransmitMode
 from pyais.decode import decode
 from pyais.exceptions import UnknownMessageException
-from pyais.messages import MessageType18, MessageType5, MessageType6, MSG_CLASS
+from pyais.messages import MessageType18, MessageType5, MessageType6, MSG_CLASS, MessageType24PartA, MessageType24PartB, \
+    MessageType25AddressedStructured, MessageType25BroadcastStructured, MessageType25AddressedUnstructured, \
+    MessageType25BroadcastUnstructured, MessageType26AddressedStructured, MessageType26BroadcastStructured, \
+    MessageType26BroadcastUnstructured, MessageType22Addressed, MessageType22Broadcast, to_turn, from_turn
 from pyais.stream import ByteStream
+from pyais.util import bytes2bits, bits2bytes, b64encode_str
+
+
+def ensure_type_for_msg_dict(msg_dict: typing.Dict[str, typing.Any]) -> None:
+    cls = MSG_CLASS[msg_dict['msg_type']]
+    for field, attr in zip(cls.fields(), msg_dict.values()):
+        if attr is None:
+            continue
+        err_msg = f"Invalid type for Typ: {msg_dict['msg_type']} and field '{field.name}'."
+        err_msg += f"Expected type '{field.metadata['d_type']}', but got {type(attr)}"
+        assert isinstance(attr, field.metadata['d_type']), err_msg
 
 
 class TestAIS(unittest.TestCase):
@@ -31,24 +49,23 @@ class TestAIS(unittest.TestCase):
         text = textwrap.dedent("""{
     "msg_type": 1,
     "repeat": 0,
-    "mmsi": "367533950",
+    "mmsi": 367533950,
     "status": 0,
-    "turn": -128,
+    "turn": null,
     "speed": 0.0,
-    "accuracy": 1,
+    "accuracy": true,
     "lon": -122.408232,
     "lat": 37.808418,
     "course": 360.0,
     "heading": 511,
     "second": 34,
     "maneuver": 0,
-    "spare": 0,
+    "spare_1": "AA==",
     "raim": true,
     "radio": 34059
 }""")
         self.assertEqual(json_dump, text)
 
-    @unittest.skip("TODO")
     def test_msg_type(self):
         """
         Test if msg type is correct
@@ -67,14 +84,15 @@ class TestAIS(unittest.TestCase):
 
     def test_msg_type_1_a(self):
         result = decode(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C").asdict()
+
         assert result == {
             'msg_type': 1,
             'repeat': 0,
-            'mmsi': '366053209',
+            'mmsi': 366053209,
             'status': NavigationStatus.RestrictedManoeuverability,
             'turn': 0,
             'speed': 0.0,
-            'accuracy': 0,
+            'accuracy': False,
             'lon': -122.341618,
             'lat': 37.802118,
             'course': 219.3,
@@ -83,16 +101,16 @@ class TestAIS(unittest.TestCase):
             'maneuver': ManeuverIndicator.NotAvailable,
             'raim': False,
             'radio': 2281,
-            'spare': 0
+            'spare_1': b'\x00'
         }
 
     def test_msg_type_1_b(self):
         msg = decode(b"!AIVDM,1,1,,A,15NPOOPP00o?b=bE`UNv4?w428D;,0*24").asdict()
         assert msg['msg_type'] == 1
-        assert msg['mmsi'] == '367533950'
+        assert msg['mmsi'] == 367533950
         assert msg['repeat'] == 0
         assert msg['status'] == NavigationStatus.UnderWayUsingEngine
-        assert msg['turn'] == -128
+        assert msg['turn'] is None
         assert msg['speed'] == 0
         assert msg['accuracy'] == 1
         assert round(msg['lat'], 4) == 37.8084
@@ -105,18 +123,26 @@ class TestAIS(unittest.TestCase):
         assert isinstance(msg['raim'], bool)
 
     def test_msg_type_1_c(self):
-        msg = decode(b"!AIVDM,1,1,,B,181:Kjh01ewHFRPDK1s3IRcn06sd,0*08").asdict()
-        assert msg['course'] == 87.0
-        assert msg['mmsi'] == '538090443'
-        assert msg['speed'] == 10.9
+        msg = decode(b"!AIVDM,1,1,,B,181:Kjh01ewHFRPDK1s3IRcn06sd,0*08")
+
+        content = msg.asdict()
+
+        assert content['course'] == 87.0
+        assert content['mmsi'] == 538090443
+        assert content['speed'] == 10.9
+        assert content['turn'] == 0
+
+        ensure_type_for_msg_dict(content)
 
     def test_decode_pos_1_2_3(self):
         # weired message of type 0 as part of issue #4
-        content = decode(b"!AIVDM,1,1,,B,0S9edj0P03PecbBN`ja@0?w42cFC,0*7C").asdict()
+        msg = decode(b"!AIVDM,1,1,,B,0S9edj0P03PecbBN`ja@0?w42cFC,0*7C")
+
+        content = msg.asdict()
 
         assert content['repeat'] == 2
-        assert content['mmsi'] == "211512520"
-        assert content['turn'] == -128
+        assert content['mmsi'] == 211512520
+        assert content['turn'] is None
         assert content['speed'] == 0.3
         assert round(content['lat'], 4) == 53.5427
         assert round(content['lon'], 4) == 9.9794
@@ -133,7 +159,7 @@ class TestAIS(unittest.TestCase):
     def test_msg_type_3(self):
         msg = decode(b"!AIVDM,1,1,,A,35NSH95001G?wopE`beasVk@0E5:,0*6F").asdict()
         assert msg['msg_type'] == 3
-        assert msg['mmsi'] == "367581220"
+        assert msg['mmsi'] == 367581220
         assert msg['repeat'] == 0
         assert msg['status'] == NavigationStatus.Moored
         assert msg['turn'] == 0
@@ -147,6 +173,8 @@ class TestAIS(unittest.TestCase):
         assert msg['maneuver'] == ManeuverIndicator.NotAvailable
         assert not msg['raim']
 
+        ensure_type_for_msg_dict(msg)
+
     def test_msg_type_4_a(self):
         msg = decode(b"!AIVDM,1,1,,A,403OviQuMGCqWrRO9>E6fE700@GO,0*4D").asdict()
         assert msg['lon'] == -76.352362
@@ -158,11 +186,13 @@ class TestAIS(unittest.TestCase):
         assert msg['minute'] == 57
         assert msg['second'] == 39
 
+        ensure_type_for_msg_dict(msg)
+
     def test_msg_type_4_b(self):
         msg = decode(b"!AIVDM,1,1,,B,403OtVAv>lba;o?Ia`E`4G?02H6k,0*44").asdict()
         assert round(msg['lon'], 4) == -122.4648
         assert round(msg['lat'], 4) == 37.7943
-        assert msg['mmsi'] == "003669145"
+        assert msg['mmsi'] == 3669145
         assert msg['accuracy'] == 1
         assert msg['year'] == 2019
         assert msg['month'] == 11
@@ -170,8 +200,10 @@ class TestAIS(unittest.TestCase):
         assert msg['hour'] == 10
         assert msg['minute'] == 41
         assert msg['second'] == 11
-        assert msg['epfd'].value == 0
+        assert msg['epfd'] == 0
         assert msg['epfd'] == EpfdType.Undefined
+
+        ensure_type_for_msg_dict(msg)
 
     def test_msg_type_5(self):
         msg = decode(
@@ -190,40 +222,49 @@ class TestAIS(unittest.TestCase):
         assert msg['dte'] == 0
         assert msg['epfd'] == EpfdType.GPS
 
+        ensure_type_for_msg_dict(msg)
+
     def test_msg_type_6(self):
         msg = decode(b"!AIVDM,1,1,,B,6B?n;be:cbapalgc;i6?Ow4,2*4A").asdict()
         assert msg['seqno'] == 3
-        assert msg['dest_mmsi'] == "313240222"
-        assert msg['mmsi'] == "150834090"
+        assert msg['dest_mmsi'] == 313240222
+        assert msg['mmsi'] == 150834090
         assert msg['dac'] == 669
         assert msg['fid'] == 11
         assert not msg['retransmit']
-        assert msg['data'] == 258587390607345
+        assert msg['data'] == b'\xeb/\x11\x8f\x7f\xf1'
+
+        ensure_type_for_msg_dict(msg)
 
     def test_msg_type_7(self):
         msg = decode(b"!AIVDM,1,1,,A,702R5`hwCjq8,0*6B").asdict()
-        assert msg['mmsi'] == "002655651"
+        assert msg['mmsi'] == 2655651
         assert msg['msg_type'] == 7
-        assert msg['mmsi1'] == "265538450"
+        assert msg['mmsi1'] == 265538450
         assert msg['mmsiseq1'] == 0
         assert msg['mmsi2'] is None
         assert msg['mmsi3'] is None
         assert msg['mmsi4'] is None
 
+        ensure_type_for_msg_dict(msg)
+
     def test_msg_type_8(self):
         msg = decode(b"!AIVDM,1,1,,A,85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs,0*47").asdict()
 
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == "366999712"
+        assert msg['mmsi'] == 366999712
         assert msg['dac'] == 366
         assert msg['fid'] == 56
-        assert msg['data'] == 26382309960366212432958701962051450160982977169991995217145869625277036758523
+        assert msg['data'] == b"\x3a\x53\xdb\xb7\xbe\x4a\x77\x31\x37\xf8\x7d\x7b\x04\x45\xf0\x40" \
+                              b"\xde\xa0\x5d\x93\xf5\x93\x78\x31\x94\xae\x9b\x9d\x9d\xbe\x05\xfb"
+
+        ensure_type_for_msg_dict(msg)
 
     def test_msg_type_9(self):
         msg = decode(b"!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*30").asdict()
         assert msg['msg_type'] == 9
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == "111232511"
+        assert msg['mmsi'] == 111232511
         assert msg['alt'] == 303
         assert msg['speed'] == 42
         assert msg['accuracy'] == 0
@@ -236,14 +277,16 @@ class TestAIS(unittest.TestCase):
         assert not msg['raim']
         assert isinstance(msg['raim'], bool)
 
+        ensure_type_for_msg_dict(msg)
+
     def test_msg_type_10_a(self):
         msg = decode(b"!AIVDM,1,1,,B,:5MlU41GMK6@,0*6C").asdict()
-        assert msg['dest_mmsi'] == "366832740"
+        assert msg['dest_mmsi'] == 366832740
         assert msg['repeat'] == 0
 
     def test_msg_type_10_b(self):
         msg = decode(b"!AIVDM,1,1,,B,:6TMCD1GOS60,0*5B").asdict()
-        assert msg['dest_mmsi'] == "366972000"
+        assert msg['dest_mmsi'] == 366972000
         assert msg['repeat'] == 0
 
     def test_msg_type_11(self):
@@ -263,96 +306,123 @@ class TestAIS(unittest.TestCase):
         msg = decode(b"!AIVDM,1,1,,A,<5?SIj1;GbD07??4,0*38").asdict()
         assert msg['msg_type'] == 12
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == "351853000"
+        assert msg['mmsi'] == 351853000
         assert msg['seqno'] == 0
-        assert msg['dest_mmsi'] == "316123456"
+        assert msg['dest_mmsi'] == 316123456
         assert msg['retransmit'] == 0
         assert msg['text'] == "GOOD"
 
     def test_msg_type_12_b(self):
         msg = decode(b"!AIVDM,1,1,,A,<42Lati0W:Ov=C7P6B?=Pjoihhjhqq0,2*2B")
         assert msg.msg_type == 12
+
         assert msg.repeat == 0
-        assert msg.mmsi == "271002099"
+        assert msg.mmsi == 271002099
         assert msg.seqno == 0
-        assert msg.dest_mmsi == "271002111"
+        assert msg.dest_mmsi == 271002111
         assert msg.retransmit == 1
+
+        ensure_type_for_msg_dict(msg.asdict())
 
     def test_msg_type_13(self):
         msg = decode(b"!AIVDM,1,1,,A,=39UOj0jFs9R,0*65").asdict()
         assert msg['msg_type'] == 13
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == "211378120"
-        assert msg['mmsi1'] == "211217560"
+        assert msg['mmsi'] == 211378120
+        assert msg['mmsi1'] == 211217560
+
+        ensure_type_for_msg_dict(msg)
 
     def test_msg_type_14(self):
         msg = decode(b"!AIVDM,1,1,,A,>5?Per18=HB1U:1@E=B0m<L,2*51").asdict()
         assert msg['msg_type'] == 14
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == "351809000"
+        assert msg['mmsi'] == 351809000
         assert msg['text'] == "RCVD YR TEST MSG"
+
+        ensure_type_for_msg_dict(msg)
 
     def test_msg_type_15_a(self):
         msg = decode(b"!AIVDM,1,1,,A,?5OP=l00052HD00,2*5B").asdict()
         assert msg['msg_type'] == 15
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == "368578000"
+        assert msg['mmsi'] == 368578000
         assert msg['offset1_1'] == 0
-        assert msg['mmsi1'] == '000005158'
+        assert msg['mmsi1'] == 5158
         assert msg['offset1_2'] is None
         assert msg['mmsi2'] is None
+
+        ensure_type_for_msg_dict(msg)
 
     def test_msg_type_15_b(self):
         msg = decode(b"!AIVDM,1,1,,B,?h3Ovn1GP<K0<P@59a0,2*04").asdict()
         assert msg['msg_type'] == 15
         assert msg['repeat'] == 3
-        assert msg['mmsi'] == "003669720"
-        assert msg['mmsi1'] == "367014320"
-        assert msg['mmsi2'] == "000000000"
+        assert msg['mmsi'] == 3669720
+        assert msg['mmsi1'] == 367014320
+        assert msg['mmsi2'] == 0
         assert msg['type1_1'] == 3
         assert msg['type1_2'] == 5
         assert msg['offset1_2'] == 617
         assert msg['offset1_1'] == 516
+
+        ensure_type_for_msg_dict(msg)
 
     def test_msg_type_16(self):
         msg = decode(b"!AIVDM,1,1,,A,@01uEO@mMk7P<P00,0*18").asdict()
 
         assert msg['msg_type'] == 16
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == "002053501"
-        assert msg['mmsi1'] == "224251000"
+        assert msg['mmsi'] == 2053501
+        assert msg['mmsi1'] == 224251000
         assert msg['offset1'] == 200
         assert msg['increment1'] == 0
-        assert msg['mmsi2'] == '000000000'
+        assert msg['mmsi2'] == 0
         assert msg['offset2'] is None
         assert msg['increment2'] is None
+
+        ensure_type_for_msg_dict(msg)
 
     def test_msg_type_17_a(self):
         msg = decode(
             b"!AIVDM,2,1,5,A,A02VqLPA4I6C07h5Ed1h<OrsuBTTwS?r:C?w`?la<gno1RTRwSP9:BcurA8a,0*3A",
             b"!AIVDM,2,2,5,A,:Oko02TSwu8<:Jbb,0*11"
         ).asdict()
-        n = 0x7c0556c07031febbf52924fe33fa2933ffa0fd2932fdb7062922fe3809292afde9122929fcf7002923ffd20c29aaaa
+
         assert msg['msg_type'] == 17
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == "002734450"
+        assert msg['mmsi'] == 2734450
         assert msg['lon'] == 1747.8
         assert msg['lat'] == 3599.2
-        assert msg['data'] == n
+
+        data = msg['data']
+        bits = bytes2bits(data).to01()
+
+        assert data == b'|\x05V\xc0p1\xfe\xbb\xf5)$\xfe3\xfa)3\xff\xa0\xfd)2\xfd\xb7\x06)"\xfe8\t)*\xfd\xe9\x12))\xfc\xf7\x00)#\xff\xd2\x0c)\xaa\xaa'
+        assert bits == "0111110000000101010101101100000001110000001100011111111010111011111101010010100100100100111111100011001111111010001010010011001111111111101000001111110100101001001100101111110110110111000001100010100100100010111111100011100000001001001010010010101011111101111010010001001000101001001010011111110011110111000000000010100100100011111111111101001000001100001010011010101010101010"
+
+        ensure_type_for_msg_dict(msg)
 
     def test_msg_type_17_b(self):
         msg = decode(b"!AIVDM,1,1,,A,A0476BQ>J8`<h2JpH:4P0?j@2mTEw8`=DP1DEnqvj0,0*79").asdict()
         assert msg['msg_type'] == 17
         assert msg['repeat'] == 0
-        assert msg['mmsi'] == "004310602"
+        assert msg['mmsi'] == 4310602
         assert msg['lat'] == 2058.2
         assert msg['lon'] == 8029.0
-        assert msg['data'] == 0x26b860a12000fc900b5915fc8a0d520054576e7ec80
+
+        data = msg['data']
+        bits = bytes2bits(data).to01()
+
+        assert data == b'&\xb8`\xa1 \x00\xfc\x90\x0bY\x15\xfc\x8a\rR\x00TWn~\xc8\x00'
+        assert bits == '00100110101110000110000010100001001000000000000011111100100100000000101101011001000101011111110010001010000011010101001000000000010101000101011101101110011111101100100000000000'
+
+        ensure_type_for_msg_dict(msg)
 
     def test_msg_type_18(self):
         msg = decode(b"!AIVDM,1,1,,A,B5NJ;PP005l4ot5Isbl03wsUkP06,0*76").asdict()
         assert msg['msg_type'] == 18
-        assert msg['mmsi'] == "367430530"
+        assert msg['mmsi'] == 367430530
         assert msg['speed'] == 0.0
         assert msg['accuracy'] == 0
         assert round(msg['lat'], 2) == 37.79
@@ -375,16 +445,20 @@ class TestAIS(unittest.TestCase):
         assert isinstance(msg['speed'], float)
         assert isinstance(msg['course'], float)
 
+        ensure_type_for_msg_dict(msg)
+
     def test_msg_type_18_speed(self):
         msg = decode(b"!AIVDO,1,1,,A,B5NJ;PP2aUl4ot5Isbl6GwsUkP06,0*35").asdict()
 
         assert msg['speed'] == 67.8
         assert msg['course'] == 10.1
 
+        ensure_type_for_msg_dict(msg)
+
     def test_msg_type_19(self):
         msg = decode(b"!AIVDM,1,1,,B,C5N3SRgPEnJGEBT>NhWAwwo862PaLELTBJ:V00000000S0D:R220,0*0B").asdict()
         assert msg['msg_type'] == 19
-        assert msg['mmsi'] == "367059850"
+        assert msg['mmsi'] == 367059850
         assert msg['speed'] == 8.7
         assert msg['accuracy'] == 0
         assert msg['lat'] == 29.543695
@@ -403,19 +477,24 @@ class TestAIS(unittest.TestCase):
         assert msg['dte'] == 0
         assert msg['assigned'] == 0
 
+        ensure_type_for_msg_dict(msg)
+
     def test_msg_type_20(self):
         msg = decode(b"!AIVDM,1,1,,A,D028rqP<QNfp000000000000000,2*0C").asdict()
         assert msg['msg_type'] == 20
-        assert msg['mmsi'] == "002243302"
+        assert msg['mmsi'] == 2243302
         assert msg['offset1'] == 200
         assert msg['number1'] == 5
         assert msg['timeout1'] == 7
         assert msg['increment1'] == 750
+        assert msg['spare_1'] == b'\x00'
 
         # All other values are zero
         for k, v in msg.items():
-            if k not in ('msg_type', 'mmsi', 'offset1', 'number1', 'timeout1', 'increment1'):
+            if k not in ('msg_type', 'mmsi', 'offset1', 'number1', 'timeout1', 'increment1', 'spare_1'):
                 assert not v
+
+        ensure_type_for_msg_dict(msg)
 
     def test_msg_type_21(self):
         msg = decode(
@@ -423,7 +502,7 @@ class TestAIS(unittest.TestCase):
             b"!AIVDM,2,2,7,B,@20,4*54"
         ).asdict()
         assert msg['msg_type'] == 21
-        assert msg['mmsi'] == "316021442"
+        assert msg['mmsi'] == 316021442
         assert msg['aid_type'] == NavAid.REFERENCE_POINT
         assert msg['name'] == "DFO2"
         assert msg['accuracy'] == 1
@@ -435,18 +514,20 @@ class TestAIS(unittest.TestCase):
         assert not msg['to_starboard']
 
         assert msg['off_position']
-        assert msg['regional'] == 0
+        assert msg['reserved_1'] == 0
         assert msg['raim']
         assert msg['virtual_aid'] == 0
         assert msg['assigned'] == 0
         assert msg['name_ext'] is None
         assert msg['epfd'] == EpfdType.GPS
 
+        ensure_type_for_msg_dict(msg)
+
     def test_msg_type_22_broadcast(self):
         # Broadcast
         msg = decode(b"!AIVDM,1,1,,B,F030p:j2N2P5aJR0r;6f3rj10000,0*11").asdict()
         assert msg['msg_type'] == 22
-        assert msg['mmsi'] == "003160107"
+        assert msg['mmsi'] == 3160107
         assert msg['channel_a'] == 2087
         assert msg['channel_b'] == 2088
         assert msg['power'] == 0
@@ -468,18 +549,20 @@ class TestAIS(unittest.TestCase):
         assert isinstance(msg['sw_lon'], float)
         assert isinstance(msg['sw_lat'], float)
 
+        ensure_type_for_msg_dict(msg)
+
     def test_msg_type_22_addressed(self):
         # Addressed
         msg = decode(b"!AIVDM,1,1,,A,F@@W>gOP00PH=JrN9l000?wB2HH;,0*44").asdict()
         assert msg['msg_type'] == 22
-        assert msg['mmsi'] == "017419965"
+        assert msg['mmsi'] == 17419965
         assert msg['channel_a'] == 3584
         assert msg['channel_b'] == 8
         assert msg['power'] == 1
         assert msg['addressed'] == 1
 
-        assert msg['dest1'] == "028144881"
-        assert msg['dest2'] == "268435519"
+        assert msg['dest1'] == 28144881
+        assert msg['dest2'] == 268435519
 
         assert msg['band_a'] == 0
         assert msg['band_b'] == 0
@@ -490,10 +573,12 @@ class TestAIS(unittest.TestCase):
         assert 'sw_lon' not in msg.keys()
         assert 'sw_lat' not in msg.keys()
 
+        ensure_type_for_msg_dict(msg)
+
     def test_msg_type_23(self):
         msg = decode(b"!AIVDM,1,1,,B,G02:Kn01R`sn@291nj600000900,2*12").asdict()
         assert msg['msg_type'] == 23
-        assert msg['mmsi'] == "002268120"
+        assert msg['mmsi'] == 2268120
         assert msg['ne_lon'] == 157.8
         assert msg['ship_type'] == ShipType.NotAvailable
         assert msg['ne_lat'] == 3064.2
@@ -504,10 +589,12 @@ class TestAIS(unittest.TestCase):
         assert msg['interval'] == 9
         assert msg['quiet'] == 0
 
+        ensure_type_for_msg_dict(msg)
+
     def test_msg_type_24(self):
         msg = decode(b"!AIVDM,1,1,,A,H52KMeDU653hhhi0000000000000,0*1A").asdict()
         assert msg['msg_type'] == 24
-        assert msg['mmsi'] == "338091445"
+        assert msg['mmsi'] == 338091445
         assert msg['partno'] == 1
         assert msg['ship_type'] == ShipType.PleasureCraft
         assert msg['vendorid'] == "FEC"
@@ -517,58 +604,70 @@ class TestAIS(unittest.TestCase):
         assert msg['to_port'] == 0
         assert msg['to_starboard'] == 0
 
+        ensure_type_for_msg_dict(msg)
+
     def test_msg_type_25_a(self):
         msg = decode(b"!AIVDM,1,1,,A,I6SWo?8P00a3PKpEKEVj0?vNP<65,0*73").asdict()
 
         assert msg['msg_type'] == 25
         assert msg['addressed']
         assert not msg['structured']
-        assert msg['dest_mmsi'] == "134218384"
+        assert msg['dest_mmsi'] == 134218384
+
+        ensure_type_for_msg_dict(msg)
 
     def test_msg_type_25_b(self):
         msg = decode(b"!AIVDO,1,1,,A,I6SWo?<P00a00;Cwwwwwwwwwwww0,0*4A").asdict()
         assert msg == {
             'addressed': 1,
-            'data': 1208925819614629174706112,
-            'dest_mmsi': '134218384',
-            'mmsi': '440006460',
+            'data': b'?\xff\xff\xff\xff\xff\xff\xff\xff\xf0\x00',
+            'dest_mmsi': 134218384,
+            'mmsi': 440006460,
             'repeat': 0,
             'structured': 1,
             'app_id': 45,
             'msg_type': 25
         }
 
+        ensure_type_for_msg_dict(msg)
+
     def test_msg_type_25_c(self):
         msg = decode(b"!AIVDO,1,1,,A,I6SWo?8P00a0003wwwwwwwwwwww0,0*35").asdict()
         assert msg == {
             'addressed': 1,
-            'data': 1208925819614629174706112,
-            'dest_mmsi': '134218384',
-            'mmsi': '440006460',
+            'data': b'\x00\x00?\xff\xff\xff\xff\xff\xff\xff\xff\xf0\x00',
+            'dest_mmsi': 134218384,
+            'mmsi': 440006460,
             'repeat': 0,
             'structured': 0,
             'msg_type': 25
         }
+
+        ensure_type_for_msg_dict(msg)
 
     def test_msg_type_26_a(self):
         msg = decode(b"!AIVDM,1,1,,A,JB3R0GO7p>vQL8tjw0b5hqpd0706kh9d3lR2vbl0400,2*40").asdict()
         assert msg['msg_type'] == 26
         assert msg['addressed']
         assert msg['structured']
-        assert msg['dest_mmsi'] == "838351848"
-        assert msg['data'] == 0x332fc0a85c39e2c007006cf026c0f4882faad001000
+        assert msg['dest_mmsi'] == 838351848
+        assert msg['data'] == b'\xcc\xbf\x02\xa1p\xe7\x8b\x00\x1c\x01\xb3\xc0\x9b\x03\xd2 \xbe\xab@\x04\x00\x00'
+
+        ensure_type_for_msg_dict(msg)
 
     def test_msg_type_26_b(self):
         msg = decode(b"!AIVDM,1,1,,A,J0@00@370>t0Lh3P0000200H:2rN92,4*14").asdict()
         assert msg['msg_type'] == 26
         assert not msg['addressed']
         assert not msg['structured']
-        assert msg['data'] == 0xc700ef007300e0000000080018282e9e24
+        assert int.from_bytes(msg['data'], 'big') == 0xc700ef007300e0000000080018282e9e24
+
+        ensure_type_for_msg_dict(msg)
 
     def test_msg_type_27(self):
         msg = decode(b"!AIVDM,1,1,,B,KC5E2b@U19PFdLbMuc5=ROv62<7m,0*16").asdict()
         assert msg['msg_type'] == 27
-        assert msg['mmsi'] == "206914217"
+        assert msg['mmsi'] == 206914217
         assert msg['accuracy'] == 0
         assert msg['raim'] == 0
         assert msg['status'] == NavigationStatus.NotUnderCommand
@@ -577,6 +676,8 @@ class TestAIS(unittest.TestCase):
         assert msg['speed'] == 57
         assert msg['course'] == 167
         assert msg['gnss'] == 0
+
+        ensure_type_for_msg_dict(msg)
 
     def test_broken_messages(self):
         # Undefined epfd
@@ -605,7 +706,7 @@ class TestAIS(unittest.TestCase):
         for msg in ByteStream(messages):
             decoded = msg.decode().asdict()
             assert decoded['shipname'] == 'NORDIC HAMBURG'
-            assert decoded['mmsi'] == "210035000"
+            assert decoded['mmsi'] == 210035000
             assert decoded
             counter += 1
         assert counter == 2
@@ -618,7 +719,7 @@ class TestAIS(unittest.TestCase):
         content = decode(msg).asdict()
         self.assertEqual(content["msg_type"], 18)
         self.assertEqual(content["repeat"], 0)
-        self.assertEqual(content["mmsi"], "1000000000")
+        self.assertEqual(content["mmsi"], 1000000000)
         self.assertEqual(content["speed"], 102.3)
         self.assertEqual(content["accuracy"], 0)
         self.assertEqual(str(content["lon"]), "181.0")
@@ -638,7 +739,7 @@ class TestAIS(unittest.TestCase):
         ).asdict()
 
         self.assertEqual(content["msg_type"], 5)
-        self.assertEqual(content["mmsi"], "255801960")
+        self.assertEqual(content["mmsi"], 255801960)
         self.assertEqual(content["repeat"], 0)
         self.assertEqual(content["ais_version"], 2)
         self.assertEqual(content["imo"], 9356945)
@@ -677,7 +778,7 @@ class TestAIS(unittest.TestCase):
 
         decoded = decode(*parts)
 
-        assert decoded.asdict()['mmsi'] == '368060190'
+        assert decoded.asdict()['mmsi'] == 368060190
 
     def test_issue_46_a(self):
         msg = b"!ARVDM,2,1,3,B,E>m1c1>9TV`9WW@97QUP0000000F@lEpmdceP00003b,0*5C"
@@ -685,7 +786,7 @@ class TestAIS(unittest.TestCase):
 
         self.assertEqual(decoded.msg_type, 21)
         self.assertEqual(decoded.repeat, 0)
-        self.assertEqual(decoded.mmsi, '995126020')
+        self.assertEqual(decoded.mmsi, 995126020)
         self.assertEqual(decoded.aid_type, NavAid.ISOLATED_DANGER)
         self.assertEqual(decoded.name, 'SIMPSON ROCK')
         self.assertEqual(decoded.accuracy, True)
@@ -700,7 +801,7 @@ class TestAIS(unittest.TestCase):
 
         # The following fields are None
         self.assertIsNone(decoded.off_position)
-        self.assertIsNone(decoded.regional)
+        self.assertIsNone(decoded.reserved_1)
         self.assertIsNone(decoded.raim)
         self.assertIsNone(decoded.virtual_aid)
         self.assertIsNone(decoded.assigned)
@@ -712,7 +813,7 @@ class TestAIS(unittest.TestCase):
 
         self.assertEqual(decoded.msg_type, 21)
         self.assertEqual(decoded.repeat, 0)
-        self.assertEqual(decoded.mmsi, '995036013')
+        self.assertEqual(decoded.mmsi, 995036013)
         self.assertEqual(decoded.aid_type, NavAid.STARBOARD_HAND_MARK)
         self.assertEqual(decoded.name, 'STDB CUT 2')
         self.assertEqual(decoded.accuracy, True)
@@ -725,7 +826,7 @@ class TestAIS(unittest.TestCase):
         self.assertEqual(decoded.epfd, EpfdType.Surveyed)
         self.assertEqual(decoded.second, 60)
         self.assertEqual(decoded.off_position, False)
-        self.assertEqual(decoded.regional, 4)
+        self.assertEqual(decoded.reserved_1, 4)
 
         # The following fields are None
         self.assertIsNone(decoded.raim)
@@ -739,7 +840,7 @@ class TestAIS(unittest.TestCase):
 
         self.assertEqual(decoded.msg_type, 21)
         self.assertEqual(decoded.repeat, 0)
-        self.assertEqual(decoded.mmsi, '000971714')
+        self.assertEqual(decoded.mmsi, 971714)
         self.assertIsNone(decoded.aid_type)
         self.assertIsNone(decoded.epfd)
 
@@ -765,16 +866,16 @@ class TestAIS(unittest.TestCase):
                 'epfd': 7,
                 'lat': -32.004333,
                 'lon': 115.691833,
-                'mmsi': '995036013',
+                'mmsi': 995036013,
                 'msg_type': 21,
                 'name_ext': None,
                 'off_position': False,
                 'raim': None,
-                'regional': 4,
+                'reserved_1': 4,
                 'repeat': 0,
                 'second': 60,
                 'name': 'STDB CUT 2',
-                'spare': None,
+                'spare_1': None,
                 'to_bow': 0,
                 'to_port': 0,
                 'to_starboard': 0,
@@ -801,19 +902,19 @@ class TestAIS(unittest.TestCase):
                 'frag_num': 1,
                 'lat': -32.004333,
                 'lon': 115.691833,
-                'mmsi': '995036013',
+                'mmsi': 995036013,
                 'msg_type': 21,
                 'name_ext': None,
                 'off_position': False,
                 'payload': 'E>lt;KLab21@1bb@I@@@@@@@@@@D8k2tnmvs000003v0@',
                 'raim': None,
                 'raw': '!AIVDM,1,1,,B,E>lt;KLab21@1bb@I@@@@@@@@@@D8k2tnmvs000003v0@,2*52',
-                'regional': 4,
+                'reserved_1': 4,
                 'repeat': 0,
                 'second': 60,
                 'seq_id': None,
                 'name': 'STDB CUT 2',
-                'spare': None,
+                'spare_1': None,
                 'talker': 'AI',
                 'to_bow': 0,
                 'to_port': 0,
@@ -837,19 +938,19 @@ class TestAIS(unittest.TestCase):
                 'frag_num': 1,
                 'lat': -32.004333,
                 'lon': 115.691833,
-                'mmsi': '995036013',
+                'mmsi': 995036013,
                 'msg_type': 21,
                 'name_ext': None,
                 'off_position': False,
                 'payload': 'E>lt;KLab21@1bb@I@@@@@@@@@@D8k2tnmvs000003v0@',
                 'raim': None,
                 'raw': '!AIVDM,1,1,,B,E>lt;KLab21@1bb@I@@@@@@@@@@D8k2tnmvs000003v0@,2*52',
-                'regional': 4,
+                'reserved_1': 4,
                 'repeat': 0,
                 'second': 60,
                 'seq_id': None,
                 'name': 'STDB CUT 2',
-                'spare': None,
+                'spare_1': None,
                 'talker': 'AI',
                 'to_bow': 0,
                 'to_port': 0,
@@ -900,7 +1001,7 @@ class TestAIS(unittest.TestCase):
             for field in fields:
                 val = getattr(decoded, field)
                 if field == 'mmsi':
-                    self.assertEqual(val, '000001337')
+                    self.assertEqual(val, 1337)
                 elif field == 'msg_type':
                     self.assertEqual(val, mtype)
                 elif field == 'repeat':
@@ -913,40 +1014,229 @@ class TestAIS(unittest.TestCase):
         short_msg = b'!AIVDO,1,1,,A,Ig,0*65'
         decoded = decode(short_msg)
 
-        self.assertEqual(decoded.mmsi, '000000015')
+        self.assertEqual(decoded.mmsi, 15)
 
     def test_type_26_very_short(self):
         """If the message is very short, an IndexError might occur"""
         short_msg = b'!AIVDO,1,1,,A,Jgg,4*4E'
         decoded = decode(short_msg)
 
-        self.assertEqual(decoded.mmsi, '000000062')
+        self.assertEqual(decoded.mmsi, 62)
 
     def test_type_22_very_short(self):
         """If the mssage is very short an IndexError might occur"""
         short_msg = b'!AIVDO,1,1,,A,F0001,0*74'
         decoded = decode(short_msg)
 
-        self.assertEqual(decoded.mmsi, '000000001')
+        self.assertEqual(decoded.mmsi, 1)
 
     def test_types_for_messages(self):
         """Make sure that the types are consistent for all messages"""
         types = {}
-        for typ, msg in MSG_CLASS.items():
+        for typ, msg in itertools.chain(
+                MSG_CLASS.items(),
+                [
+                    (22, MessageType22Addressed),
+                    (22, MessageType22Broadcast),
+                    (24, MessageType24PartA),
+                    (24, MessageType24PartB),
+                    (25, MessageType25AddressedStructured),
+                    (25, MessageType25BroadcastStructured),
+                    (25, MessageType25AddressedUnstructured),
+                    (25, MessageType25BroadcastUnstructured),
+                    (26, MessageType26AddressedStructured),
+                    (26, MessageType26AddressedStructured),
+                    (26, MessageType26BroadcastStructured),
+                    (26, MessageType26BroadcastUnstructured),
+                ]
+        ):
+            # Make sure that the same fields have the same datatype for all classes
+            # E.g. lat is of type float for all messages
             for field in msg.fields():
                 d_type = field.metadata['d_type']
                 f_name = field.name
                 if f_name in types:
-                    if typ == 9 and f_name == 'speed' and d_type == int:
-                        continue
-                    if f_name == 'spare':
-                        continue
-                    if typ == 27 and f_name == 'speed' and d_type == int:
-                        continue
-                    if typ == 27 and f_name == 'course' and d_type == int:
-                        continue
                     assert d_type == types[f_name], f"{typ}.{f_name}: {d_type} vs. {types[f_name]}"
                 else:
                     types[f_name] = d_type
 
         pprint(types)
+
+    def test_bits2bytes(self):
+        self.assertEqual(bits2bytes('00100110'), b'&')
+        self.assertEqual(bits2bytes(''), b'')
+        self.assertEqual(bits2bytes('0010011000100110'), b'&&')
+        self.assertEqual(bits2bytes('11111111'), b'\xff')
+        self.assertEqual(bits2bytes('111100001111'), b'\xf0\xf0')
+        self.assertEqual(bits2bytes('1111000011110000'), b'\xf0\xf0')
+        self.assertEqual(bits2bytes('1'), b'\x80')
+        self.assertEqual(bits2bytes('10000000'), b'\x80')
+        self.assertEqual(bits2bytes('0' * 64), b'\x00\x00\x00\x00\x00\x00\x00\x00')
+        self.assertEqual(bits2bytes('1' * 64), b'\xff\xff\xff\xff\xff\xff\xff\xff')
+        self.assertEqual(bits2bytes('10' * 32), b'\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa')
+
+    def test_bytes2bits(self):
+        self.assertEqual(bytes2bits(b'&').to01(), '00100110')
+        self.assertEqual(bytes2bits(b'').to01(), '')
+        self.assertEqual(bytes2bits(b'&&').to01(), '0010011000100110')
+        self.assertEqual(bytes2bits(b'\xff').to01(), '11111111')
+        self.assertEqual(bytes2bits(b'\x00\x00\x00\x00\x00\x00\x00\x00').to01(), '0' * 64)
+        self.assertEqual(bytes2bits(b'\xff\xff\xff\xff\xff\xff\xff\xff').to01(), '1' * 64)
+        self.assertEqual(bytes2bits(b'\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa').to01(), '10' * 32)
+
+    def test_b64encode_str(self):
+        in_val = b'\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa'
+        cipher = b64encode_str(in_val)
+        plain = base64.b64decode(cipher)
+
+        self.assertEqual(in_val, plain)
+
+    def test_b64encode_str_empty(self):
+        in_val = int(0).to_bytes(1, 'big')
+        assert in_val == b'\x00'
+
+        cipher = b64encode_str(in_val)
+        plain = base64.b64decode(cipher)
+
+        self.assertEqual(in_val, plain)
+        self.assertEqual(cipher, 'AA==')
+
+    def test_msg_type_6_to_json(self):
+        json_str = decode(b"!AIVDM,1,1,,B,6B?n;be:cbapalgc;i6?Ow4,2*4A").to_json()
+        self.assertEqual(json_str, textwrap.dedent("""
+        {
+            "msg_type": 6,
+            "repeat": 1,
+            "mmsi": 150834090,
+            "seqno": 3,
+            "dest_mmsi": 313240222,
+            "retransmit": false,
+            "spare_1": "AA==",
+            "dac": 669,
+            "fid": 11,
+            "data": "6y8Rj3/x"
+        }
+        """).strip())
+
+    def test_msg_type_8_to_json(self):
+        json_str = decode(b"!AIVDM,1,1,,A,85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs,0*47").to_json()
+        self.assertEqual(json_str, textwrap.dedent("""
+        {
+            "msg_type": 8,
+            "repeat": 0,
+            "mmsi": 366999712,
+            "spare_1": "AA==",
+            "dac": 366,
+            "fid": 56,
+            "data": "OlPbt75KdzE3+H17BEXwQN6gXZP1k3gxlK6bnZ2+Bfs="
+        }
+        """).strip())
+
+    def test_msg_type_17_to_json(self):
+        json_str = decode(
+            b"!AIVDM,2,1,5,A,A02VqLPA4I6C07h5Ed1h<OrsuBTTwS?r:C?w`?la<gno1RTRwSP9:BcurA8a,0*3A",
+            b"!AIVDM,2,2,5,A,:Oko02TSwu8<:Jbb,0*11"
+        ).to_json()
+        self.assertEqual(json_str, textwrap.dedent("""
+        {
+            "msg_type": 17,
+            "repeat": 0,
+            "mmsi": 2734450,
+            "spare_1": "AA==",
+            "lon": 1747.8,
+            "lat": 3599.2,
+            "spare_2": "AA==",
+            "data": "fAVWwHAx/rv1KST+M/opM/+g/Sky/bcGKSL+OAkpKv3pEikp/PcAKSP/0gwpqqo="
+        }
+        """).strip())
+
+    def test_msg_type_25_to_json(self):
+        json_str = decode(b"!AIVDM,1,1,,A,I6SWo?8P00a3PKpEKEVj0?vNP<65,0*73").to_json()
+        self.assertEqual(json_str, textwrap.dedent("""
+        {
+            "msg_type": 25,
+            "repeat": 0,
+            "mmsi": 440006460,
+            "addressed": true,
+            "structured": false,
+            "dest_mmsi": 134218384,
+            "data": "4G+FW1ZsgD/noDBhQA=="
+        }
+        """).strip())
+
+    def test_msg_type_26_to_json(self):
+        json_str = decode(b"!AIVDM,1,1,,A,JB3R0GO7p>vQL8tjw0b5hqpd0706kh9d3lR2vbl0400,2*40").to_json()
+        self.assertEqual(json_str, textwrap.dedent("""
+        {
+            "msg_type": 26,
+            "repeat": 1,
+            "mmsi": 137920605,
+            "addressed": true,
+            "structured": true,
+            "dest_mmsi": 838351848,
+            "app_id": 23587,
+            "data": "zL8CoXDniwAcAbPAmwPSIL6rQAQAAA==",
+            "radio": null
+        }
+        """).strip())
+
+    def test_msg_type_6_json_reverse(self):
+        string = textwrap.dedent("""
+        {
+            "msg_type": 6,
+            "repeat": 1,
+            "mmsi": "150834090",
+            "seqno": 3,
+            "dest_mmsi": "313240222",
+            "retransmit": false,
+            "spare_1": "AA==",
+            "dac": 669,
+            "fid": 11,
+            "data": "6y8Rj3/x"
+        }
+        """)
+
+        data = json.loads(string)
+
+        assert data['data'] == '6y8Rj3/x'
+        assert base64.b64decode(data['data']) == b'\xeb/\x11\x8f\x7f\xf1'
+
+    def test_turn_is_none_for_127_or_128(self):
+        self.assertIsNone(to_turn(127), None)
+        self.assertIsNone(to_turn(-127), None)
+        self.assertIsNone(to_turn(128), None)
+
+        self.assertEqual(0, from_turn(None))
+
+    def test_rot_encode_yields_expected_values(self):
+        encoded = encode_dict({'msg_type': 1, 'mmsi': 123, 'turn': 25.0})[0]
+        assert encoded == "!AIVDO,1,1,,A,10000Nh600000000000000000000,0*05"
+        assert decode(encoded).turn == 25.0
+
+        encoded = encode_dict({'msg_type': 1, 'mmsi': 123, 'turn': -16.0})[0]
+        assert encoded == "!AIVDO,1,1,,A,10000Nhs@0000000000000000000,0*30"
+        assert decode(encoded).turn == -16.0
+
+        encoded = encode_dict({'msg_type': 1, 'mmsi': 123, 'turn': 4.0})[0]
+        assert encoded == "!AIVDO,1,1,,A,10000Nh2@0000000000000000000,0*71"
+        assert decode(encoded).turn == 4.0
+
+        encoded = encode_dict({'msg_type': 1, 'mmsi': 123, 'turn': -4.0})[0]
+        assert encoded == "!AIVDO,1,1,,A,10000Nhuh0000000000000000000,0*1E"
+        assert decode(encoded).turn == -4.0
+
+        encoded = encode_dict({'msg_type': 1, 'mmsi': 123, 'turn': -121.0})[0]
+        assert encoded == "!AIVDO,1,1,,A,10000Nhk00000000000000000000,0*58"
+        assert decode(encoded).turn == -121.0
+
+        encoded = encode_dict({'msg_type': 1, 'mmsi': 123, 'turn': 64.0})[0]
+        assert encoded == "!AIVDO,1,1,,A,10000Nh9P0000000000000000000,0*6A"
+        assert decode(encoded).turn == 64.0
+
+    def test_rot_decode_yields_expected_values(self):
+        assert decode(b"!AIVDM,1,1,,A,14QIG<5620KF@Gl:L9DI4o8N0P00,0*28").turn == 25.0
+        assert decode(b"!AIVDM,1,1,,B,13u><=gsQj0mQW:Q1<wRL28P0@:4,0*32").turn == -16.0
+        assert decode(b"!AIVDM,1,1,,A,14SSRt021O0?bK@MO7H6QUA600Rg,0*12").turn == 4.0
+        assert decode(b"!AIVDM,1,1,,2,13aB:Hhuh0PHjEFNKJg@11sH08J=,0*1E").turn == -4.0
+        assert decode(b"!AIVDM,1,1,,A,16:VFv0k0I`KQPpFATG4SgvT40:v,0*7B").turn == -121.0
+        assert decode(b"!AIVDM,1,1,,B,16:D3F0:15`5ogh<O?bk>1Dd2L1<,0*0B").turn == 64.0

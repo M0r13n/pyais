@@ -14,7 +14,7 @@ from pyais.messages import MessageType1, MessageType26BroadcastUnstructured, Mes
     MessageType15, MessageType4, MessageType5, MessageType6, MessageType7, MessageType8, MessageType2, MessageType3, \
     MSG_CLASS
 from pyais.util import decode_bin_as_ascii6, decode_into_bit_array, str_to_bin, int_to_bin, to_six_bit, encode_ascii_6, \
-    int_to_bytes
+    int_to_bytes, bits2bytes
 
 
 def test_widths():
@@ -235,7 +235,6 @@ def test_int_to_bin():
     assert len(num) == 8
 
 
-@unittest.skip("TODO")
 def test_decode_encode():
     """Create each message with default values and test that it can be decoded again"""
     mmsi = 123
@@ -243,9 +242,9 @@ def test_decode_encode():
         encoded = encode_dict({'mmsi': mmsi, 'dest_mmsi': 656634123, 'type': typ})
         decoded = decode(*encoded).asdict()
 
-        assert decoded['mmsi'] == '000000123'
+        assert decoded['mmsi'] == 123
         if 'dest_mmsi' in decoded:
-            assert decoded['dest_mmsi'] == '656634123'
+            assert decoded['dest_mmsi'] == 656634123
 
 
 def test_encode_type_27():
@@ -279,9 +278,7 @@ def test_encode_type_26():
     }
 
     encoded = encode_dict(data)
-    assert encoded[0] == "!AIVDO,3,1,,A,J0@00@0000000000000000000000000000000000000000000000000000000,4*68"
-    assert encoded[1] == "!AIVDO,3,2,,A,0000000000000000000000000000000000000000000000000000000000000,4*11"
-    assert encoded[2] == "!AIVDO,3,3,,A,000000000000000000000000000000000000003wwwwwwwwwwww0WR@2,4*54"
+    assert encoded[0] == "!AIVDO,1,1,,A,J0@00@3wwwwwwwwwwww0WR@P,4*4C"
 
 
 def test_encode_type_25_b():
@@ -296,13 +293,13 @@ def test_encode_type_25_b():
         'type': 25
     }
     encoded = encode_dict(data)
-    assert encoded[0] == "!AIVDO,1,1,,A,I6SWo?<P00a00;Cwwwwwwwwwwww0,0*4A"
+    assert encoded[0] == '!AIVDO,1,1,,A,I6SWo?<P00a00;Owwwwwwwwwwwt0,2*47'
 
 
 def test_encode_type_25_a():
     data = {
         'addressed': 1,
-        'data': b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xc0",
+        'data': b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xc0",
         'dest_mmsi': '134218384',
         'mmsi': '440006460',
         'repeat': 0,
@@ -311,7 +308,7 @@ def test_encode_type_25_a():
     }
 
     encoded = encode_dict(data)
-    assert encoded[0] == "!AIVDO,1,1,,A,I6SWo?8P00a0003wwwwwwwwwwww0,0*35"
+    assert encoded[0] == "!AIVDO,1,1,,A,I6SWo?8P00a3wwwwwwwwwwwwwwt0,2*73"
 
 
 def test_encode_type_24_partno_invalid():
@@ -436,7 +433,7 @@ def test_encode_type_21():
         'name_extension': '',
         'off_position': 1,
         'raim': 1,
-        'regional': 0,
+        'reserved_1': 0,
         'repeat': 0,
         'second': 18,
         'to_bow': 0,
@@ -451,7 +448,7 @@ def test_encode_type_21():
     # Validated using: http://ais.tbsalling.dk/
     assert encoded[0] == "!AIVDO,1,1,,A,E4eHJhPR37q0000000000000000KUOSc=rq4h00000a@2000000000000000,4*39"
 
-    data['regional'] = 255
+    data['reserved_1'] = 255
     encoded = encode_dict(data)
     # Validated using: http://ais.tbsalling.dk/
     assert encoded[0] == "!AIVDO,1,1,,A,E4eHJhPR37q0000000000000000KUOSc=rq4h00000aOv000000000000000,4*72"
@@ -496,7 +493,7 @@ def test_encode_type_19():
         'lon': -88.81039166666666,
         'mmsi': '367059850',
         'raim': 0,
-        'regional': 4,
+        'reserved_2': 4,
         'repeat': 0,
         'second': 46,
         'shipname': 'CAPT.J.RIMES',
@@ -577,7 +574,7 @@ def test_encode_type_18():
 
 def test_encode_type_17_b():
     data = {
-        'data': 14486955885545814640451754168044205828166539334830080,
+        'data': bits2bytes('00000011101011001011110001000110001111011111111111000100'),
         'lat': 2058.2,
         'lon': 8029.2,
         'mmsi': '004310602',
@@ -586,14 +583,12 @@ def test_encode_type_17_b():
     }
 
     encoded = encode_dict(data)
-    assert encoded[0] == "!AIVDO,3,1,,A,A0476BQ>J@`<h000000000000000000000000000000000000000000000000,0*71"
-    assert encoded[1] == "!AIVDO,3,2,,A,0000000000000000000000000000000000000000000000Vf62Q803tT0eI5O,0*3D"
-    assert encoded[2] == "!AIVDO,3,3,,A,j:3E80E5MfOdP0,0*1A"
+    assert encoded[0] == "!AIVDO,1,1,,A,A0476BQ>J@`<h0>dg4Huwt@,2*36"
 
 
 def test_encode_type_17_a():
     data = {
-        'data': 74564674320211730832670193178193588797084406868345488138198505092899590740876957371807575026797147834907158489770,
+        'data': bits2bytes('00000011101011001011110001000110001111011111111111000100'),
         'lat': 3599.2,
         'lon': 1747.8,
         'mmsi': '002734450',
@@ -602,9 +597,7 @@ def test_encode_type_17_a():
     }
 
     encoded = encode_dict(data)
-    assert encoded[0] == "!AIVDO,3,1,,A,A02VqLPA4I6C0000000000000000000000000000000000000000000000000,0*27"
-    assert encoded[1] == "!AIVDO,3,2,,A,0000000000007h5Ed1h<OrsuBTTwS?r:C?w`?la<gno1RTRwSP9:BcurA8a:O,0*7B"
-    assert encoded[2] == "!AIVDO,3,3,,A,ko02TSwu8<:Jbb,0*53"
+    assert encoded[0] == "!AIVDO,1,1,,A,A02VqLPA4I6C00>dg4Huwt@,2*60"
 
 
 def test_encode_type_16():
@@ -753,16 +746,14 @@ def test_encode_type_9():
 def test_encode_type_8():
     data = {
         'dac': 366,
-        'data': 0x3a53dbb7be4a773137f87d7b0445f040dea05d93f593783194ae9b9d9dbe05fb,
+        'data': bits2bytes('00000011101011001011110001000110001111011111111111000100'),
         'fid': 56,
         'mmsi': '366999712',
         'repeat': 0,
         'type': 8
     }
     encoded = encode_dict(data, radio_channel="B", talker_id="AIVDM")
-    assert encoded[0] == "!AIVDM,3,1,,B,85Mwp`1Kf0000000000000000000000000000000000000000000000000000,0*1C"
-    assert encoded[1] == "!AIVDM,3,2,,B,0000000000000000000000000000000000000000000000000000000000000,0*14"
-    assert encoded[2] == "!AIVDM,3,3,,B,0003aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs,0*4F"
+    assert encoded[0] == "!AIVDM,1,1,,B,85Mwp`1Kf0>dg4Huwt@,2*5B"
 
 
 def test_encode_type_7():
@@ -792,27 +783,30 @@ def test_encode_type_6_bytes():
         'type': 6
     }
     encoded = encode_dict(data, radio_channel="B", talker_id="AIVDM")
-    assert encoded[0] == "!AIVDM,3,1,,B,6B?n;be:cbapald0000000000000000000000000000000000000000000000,0*7D"
-    assert encoded[1] == "!AIVDM,3,2,,B,0000000000000000000000000000000000000000000000000000000000000,0*14"
-    assert encoded[2] == "!AIVDM,3,3,,B,00000000000000000000000000000000000003c;i6?Ow4,0*12"
+    assert encoded[0] == "!AIVDM,1,1,,B,6B?n;be:cbapald3c;i6?Ow4,0*78"
 
 
 def test_encode_type_6():
     data = {
         'dac': 669,
-        'data': 0x3acbc463dffc4,
-        'dest_mmsi': '313240222',
+        'data': b"\xeb\x11\x8f\x7f\xf2",
+        'dest_mmsi': 313240222,
         'fid': 11,
-        'mmsi': '150834090',
+        'mmsi': 150834090,
         'repeat': 1,
         'retransmit': 0,
         'seqno': 3,
         'type': 6
     }
     encoded = encode_dict(data, radio_channel="B", talker_id="AIVDM")
-    assert encoded[0] == "!AIVDM,3,1,,B,6B?n;be:cbapald0000000000000000000000000000000000000000000000,0*7D"
-    assert encoded[1] == "!AIVDM,3,2,,B,0000000000000000000000000000000000000000000000000000000000000,0*14"
-    assert encoded[2] == "!AIVDM,3,3,,B,00000000000000000000000000000000000003c;i6?Ow4,0*12"
+
+    decoded = decode(*encoded).asdict()
+
+    assert decoded['dac'] == data['dac']
+    assert decoded['data'] == data['data']
+    assert decoded['dest_mmsi'] == data['dest_mmsi']
+    assert decoded['fid'] == data['fid']
+    assert decoded['mmsi'] == data['mmsi']
 
 
 def test_encode_type_4():
@@ -925,12 +919,11 @@ def test_encode_msg_type2():
         'repeat': 2,
         'second': 34,
         'speed': 0.3,
-        'turn': -128,
+        'turn': 0,
         'type': 2
     }
-
     encoded = encode_dict(data)[0]
-    assert encoded == "!AIVDO,1,1,,A,1S9edj0P03PecbBN`ja@0?w42000,0*2A"
+    assert encoded == "!AIVDO,1,1,,A,1S9edj0003PecbBN`ja@0?w42000,0*4A"
 
 
 def test_encode_msg_type_3():
@@ -1002,6 +995,7 @@ def test_mmsi_too_long():
 def test_lon_too_large():
     msg = MessageType1.create(mmsi="123", lon=1 << 30)
     encoded = encode_msg(msg)
+    print(encoded)
     assert encoded[0] == "!AIVDO,1,1,,A,10000Nh000Owwwv0000000000000,0*7D"
 
 
