@@ -41,7 +41,7 @@ setuptools.setup(
         "attrs"
     ],
     extras_require={
-        'dev': ['nose', 'mypy', 'flake8', 'coverage', 'twine', 'sphinx']
+        'dev': ['mypy', 'flake8', 'coverage', 'twine', 'sphinx', 'pytest', 'pytest-cov']
     },
     entry_points={
         "console_scripts": [

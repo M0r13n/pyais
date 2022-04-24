@@ -10,8 +10,9 @@ attrs
 # TEST
 flake8
 coverage
-nose
 mypy
+pytest
+pytest-cov
 
 # DEPLOY
 twine
