@@ -2,6 +2,14 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 2.1.1 24 Apr 2022
+-------------------------------------------------------------------------------
+* Closes https://github.com/M0r13n/pyais/issues/65
+  * makes lat and lon signed for type 27 messages
+* drops nosetest as a development dependency
+
+
+-------------------------------------------------------------------------------
  Version 2.1.0 14 Apr 2022
 -------------------------------------------------------------------------------
 * Closes https://github.com/M0r13n/pyais/issues/63#issuecomment-1099045541

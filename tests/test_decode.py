@@ -8,15 +8,25 @@ from pprint import pprint
 
 from pyais import NMEAMessage, encode_dict
 from pyais.ais_types import AISType
-from pyais.constants import ManeuverIndicator, NavigationStatus, ShipType, NavAid, EpfdType, StationType, TransmitMode
+from pyais.constants import (EpfdType, ManeuverIndicator, NavAid,
+                             NavigationStatus, ShipType, StationType,
+                             TransmitMode)
 from pyais.decode import decode
 from pyais.exceptions import UnknownMessageException
-from pyais.messages import MessageType18, MessageType5, MessageType6, MSG_CLASS, MessageType24PartA, MessageType24PartB, \
-    MessageType25AddressedStructured, MessageType25BroadcastStructured, MessageType25AddressedUnstructured, \
-    MessageType25BroadcastUnstructured, MessageType26AddressedStructured, MessageType26BroadcastStructured, \
-    MessageType26BroadcastUnstructured, MessageType22Addressed, MessageType22Broadcast, to_turn, from_turn
+from pyais.messages import (MSG_CLASS, MessageType5, MessageType6,
+                            MessageType18, MessageType22Addressed,
+                            MessageType22Broadcast, MessageType24PartA,
+                            MessageType24PartB,
+                            MessageType25AddressedStructured,
+                            MessageType25AddressedUnstructured,
+                            MessageType25BroadcastStructured,
+                            MessageType25BroadcastUnstructured,
+                            MessageType26AddressedStructured,
+                            MessageType26BroadcastStructured,
+                            MessageType26BroadcastUnstructured, from_turn,
+                            to_turn)
 from pyais.stream import ByteStream
-from pyais.util import bytes2bits, bits2bytes, b64encode_str
+from pyais.util import b64encode_str, bits2bytes, bytes2bits
 
 
 def ensure_type_for_msg_dict(msg_dict: typing.Dict[str, typing.Any]) -> None:
@@ -678,6 +688,12 @@ class TestAIS(unittest.TestCase):
         assert msg['gnss'] == 0
 
         ensure_type_for_msg_dict(msg)
+
+    def test_msg_type_27_signed(self):
+        msg = decode('!AIVDO,1,1,,A,K01;FQh?PbtE3P00,0*75').asdict()
+        assert msg['mmsi'] == 1234567
+        assert msg['lon'] == -13.368333
+        assert msg['lat'] == -50.121667
 
     def test_broken_messages(self):
         # Undefined epfd
