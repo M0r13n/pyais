@@ -9,7 +9,7 @@ from pprint import pprint
 from pyais import NMEAMessage, encode_dict
 from pyais.ais_types import AISType
 from pyais.constants import (EpfdType, ManeuverIndicator, NavAid,
-                             NavigationStatus, ShipType, StationType,
+                             NavigationStatus, ShipType, StationType, SyncState,
                              TransmitMode)
 from pyais.decode import decode
 from pyais.exceptions import UnknownMessageException
@@ -26,7 +26,7 @@ from pyais.messages import (MSG_CLASS, MessageType5, MessageType6,
                             MessageType26BroadcastUnstructured, from_turn,
                             to_turn)
 from pyais.stream import ByteStream
-from pyais.util import b64encode_str, bits2bytes, bytes2bits
+from pyais.util import b64encode_str, bits2bytes, bytes2bits, get_sotdma_comm_state
 
 
 def ensure_type_for_msg_dict(msg_dict: typing.Dict[str, typing.Any]) -> None:
@@ -1256,3 +1256,48 @@ class TestAIS(unittest.TestCase):
         assert decode(b"!AIVDM,1,1,,2,13aB:Hhuh0PHjEFNKJg@11sH08J=,0*1E").turn == -4.0
         assert decode(b"!AIVDM,1,1,,A,16:VFv0k0I`KQPpFATG4SgvT40:v,0*7B").turn == -121.0
         assert decode(b"!AIVDM,1,1,,B,16:D3F0:15`5ogh<O?bk>1Dd2L1<,0*0B").turn == 64.0
+
+    def test_get_sotdma_comm_state_utc_direct(self):
+        msg = "!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23"
+        decoded = decode(msg)
+        actual = get_sotdma_comm_state(decoded.radio)
+
+        self.assertEqual(actual, {
+            'received_stations': 0,
+            'slot_number': 0,
+            'utc_hour': 11,
+            'utc_minute': 30,
+            'slot_offset': 0,
+            'slot_timeout': 1,
+            'sync_state': SyncState.UTC_DIRECT,
+        })
+
+    def test_get_sotdma_comm_state_utc_direct_slot_number(self):
+        msg = "!AIVDM,1,1,,B,403OtVAv>lba;o?Ia`E`4G?02H6k,0*44"
+        decoded = decode(msg)
+        actual = get_sotdma_comm_state(decoded.radio)
+
+        self.assertEqual(actual, {
+            'received_stations': 0,
+            'slot_number': 435,
+            'utc_hour': 0,
+            'utc_minute': 0,
+            'slot_offset': 0,
+            'slot_timeout': 6,
+            'sync_state': SyncState.UTC_DIRECT,
+        })
+
+    def test_get_sotdma_comm_state_utc_direct_slot_timeout(self):
+        msg = "!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*30"
+        decoded = decode(msg)
+        actual = get_sotdma_comm_state(decoded.radio)
+
+        self.assertEqual(actual, {
+            'received_stations': 0,
+            'slot_number': 624,
+            'utc_hour': 0,
+            'utc_minute': 0,
+            'slot_offset': 0,
+            'slot_timeout': 2,
+            'sync_state': SyncState.UTC_DIRECT,
+        })

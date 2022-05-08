@@ -3,9 +3,11 @@ import typing
 from collections import OrderedDict
 from functools import partial, reduce
 from operator import xor
-from typing import Any, Generator, Hashable, TYPE_CHECKING, Union
+from typing import Any, Generator, Hashable, TYPE_CHECKING, Union, Dict
 
 from bitarray import bitarray
+
+from pyais.constants import SyncState
 
 if TYPE_CHECKING:
     BaseDict = OrderedDict[Hashable, Any]
@@ -286,3 +288,85 @@ def chk_to_int(chk_str: bytes) -> typing.Tuple[int, int]:
     except (IndexError, ValueError):
         checksum = -1
     return fill_bits, checksum
+
+
+SYNC_MASK = 0x03
+TIMEOUT_MASK = 0x07
+MSG_MASK = 0x3fff
+
+
+def get_sotdma_comm_state(radio: int) -> Dict[str, int]:
+    """
+    This method returns the SOTDMA communication state for messages,
+    that have a `radio` field (e.g. 1,2,4,9,18).
+
+    @param msg: The raw (uninterpreted) integer value as returned by
+                calling `decode` method.
+    @return:    A dictionary holding the interpreted data. The dict has
+                the following keys:
+
+                - slot_number
+                - utc_hour
+                - utc_minute
+                - slot_offset
+                - slot_timeout
+                - sync_state
+
+    The SOTDMA communication state is structured as follows:
+    +-------------------+----------------------+------------------------------------------------------------------------------------------------+
+    | Parameter         |  Number of bits      |  Description                                                                                   |
+    +-------------------+----------------------+------------------------------------------------------------------------------------------------+
+    | Sync state        |  2                   |  0 UTC direct                                                                                  |
+    |                   |                      |  1 UTC indirect                                                                                |
+    |                   |                      |  2 Station is synchronized to a base station                                                   |
+    |                   |                      |  3 Station is synchronized to another station based on the highest number of received stations |
+    | Slot time-out     |  3                   |  Specifies frames remaining until a new slot is selected                                       |
+    |                   |                      |  0 means that this was the last transmission in this slot                                      |
+    |                   |                      |  1-7 means that 1 to 7 frames respectively are left until slot change                          |
+    | Sub message       |  14                  |  14 The sub message depends on the current value in slot time-out                              |
+    +-------------------+----------------------+------------------------------------------------------------------------------------------------+
+
+    The slot time-out defines how to interpret the sub message:
+    +-----------------+---------------------------------------------------------------------------+
+    | Slot time-out   |  Description                                                              |
+    +-----------------+---------------------------------------------------------------------------+
+    | 3, 5, 7         |  Number of receiving stations (not own station) (between 0 and 16 383)    |
+    | 2, 4, 6         |  Slot number Slot number used for this transmission (between 0 and 2 249) |
+    | 1               |  UTC hour (bits 13 to 9) and minute (bits 8 to 2)                         |
+    | 0               |  Next frame                                                               |
+    +-----------------+---------------------------------------------------------------------------+
+
+    You may refer to:
+    - https://github.com/M0r13n/pyais/issues/17
+    - https://www.itu.int/dms_pubrec/itu-r/rec/m/R-REC-M.1371-1-200108-S!!PDF-E.pdf
+    - https://www.navcen.uscg.gov/?pageName=AISMessagesA#Sync
+    """
+    result = {
+        'received_stations': 0,
+        'slot_number': 0,
+        'utc_hour': 0,
+        'utc_minute': 0,
+        'slot_offset': 0,
+        'slot_timeout': 0,
+        'sync_state': 0,
+    }
+
+    sync_state = (radio >> 17) & SYNC_MASK  # First two (2) bits
+    slot_timeout = (radio >> 14) & TIMEOUT_MASK  # Next three (3) bits
+    sub_msg = radio & MSG_MASK  # Last 14 bits
+
+    if slot_timeout == 0:
+        result['slot_offset'] = sub_msg
+    elif slot_timeout == 1:
+        result['utc_hour'] = (sub_msg >> 9) & 0xf
+        result['utc_minute'] = (sub_msg >> 2) & 0x3f
+    elif slot_timeout in (2, 4, 6):
+        result['slot_number'] = sub_msg
+    elif slot_timeout in (3, 5, 7):
+        result['received_stations'] = sub_msg
+    else:
+        raise ValueError("Slot timeout can only be an integer between 0 and 7")
+
+    result['sync_state'] = SyncState(sync_state)
+    result['slot_timeout'] = slot_timeout
+    return result
