@@ -320,4 +320,4 @@ class SyncState(IntEnum):
     UTC_DIRECT = 0x00
     UTC_INDIRECT = 0x01
     BASE_DIRECT = 0x02
-    BASE_INDIRECT = 0x04
+    BASE_INDIRECT = 0x03

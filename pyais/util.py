@@ -293,25 +293,11 @@ def chk_to_int(chk_str: bytes) -> typing.Tuple[int, int]:
 SYNC_MASK = 0x03
 TIMEOUT_MASK = 0x07
 MSG_MASK = 0x3fff
+SLOT_INCREMENT_MASK = 0x1fff
 
 
-def get_sotdma_comm_state(radio: int) -> Dict[str, int]:
+def get_sotdma_comm_state(radio: int) -> Dict[str, typing.Optional[int]]:
     """
-    This method returns the SOTDMA communication state for messages,
-    that have a `radio` field (e.g. 1,2,4,9,18).
-
-    @param msg: The raw (uninterpreted) integer value as returned by
-                calling `decode` method.
-    @return:    A dictionary holding the interpreted data. The dict has
-                the following keys:
-
-                - slot_number
-                - utc_hour
-                - utc_minute
-                - slot_offset
-                - slot_timeout
-                - sync_state
-
     The SOTDMA communication state is structured as follows:
     +-------------------+----------------------+------------------------------------------------------------------------------------------------+
     | Parameter         |  Number of bits      |  Description                                                                                   |
@@ -342,11 +328,11 @@ def get_sotdma_comm_state(radio: int) -> Dict[str, int]:
     - https://www.navcen.uscg.gov/?pageName=AISMessagesA#Sync
     """
     result = {
-        'received_stations': 0,
-        'slot_number': 0,
-        'utc_hour': 0,
-        'utc_minute': 0,
-        'slot_offset': 0,
+        'received_stations': None,
+        'slot_number': None,
+        'utc_hour': None,
+        'utc_minute': None,
+        'slot_offset': None,
         'slot_timeout': 0,
         'sync_state': 0,
     }
@@ -370,3 +356,38 @@ def get_sotdma_comm_state(radio: int) -> Dict[str, int]:
     result['sync_state'] = SyncState(sync_state)
     result['slot_timeout'] = slot_timeout
     return result
+
+
+def get_itdma_comm_state(radio: int) -> Dict[str, typing.Optional[int]]:
+    """
+    +-----------------+------+--------------------------------------------------------------------------------+
+    |    Parameter    | Bits |                                  Description                                   |
+    +-----------------+------+--------------------------------------------------------------------------------+
+    | Sync state      |   2  | 0 UTC direct                                                                   |
+    |                 |      | 1 UTC indirec                                                                  |
+    |                 |      | 2 Station is synchronized to a base station                                    |
+    |                 |      | 3 Station is synchronized to another station                                   |
+    | Slot increment  |  13  | Offset to next slot to be used, or zero (0) if no more transmissions           |
+    | Number of slots |   3  | Number of consecutive slots to allocate. (0 = 1 slot, 1 = 2 slots,2 = 3 slots, |
+    |                 |      | 3 = 4 slots, 4 = 5 slots)                                                      |
+    | Keep flag       |   1  | Set to TRUE = 1 if the slot remains allocated for one additional frame         |
+    +-----------------+------+--------------------------------------------------------------------------------+
+
+    You may refer to:
+    - https://github.com/M0r13n/pyais/issues/17
+    - https://www.itu.int/dms_pubrec/itu-r/rec/m/R-REC-M.1371-1-200108-S!!PDF-E.pdf
+    - https://www.navcen.uscg.gov/?pageName=AISMessagesA#Sync
+    """
+
+    sync_state = (radio >> 17) & SYNC_MASK  # First two (2) bits
+    slot_increment = (radio >> 4) & SLOT_INCREMENT_MASK  # Next 13 bits
+    num_slots = (radio >> 1) & TIMEOUT_MASK  # Next three (3) bits
+    keep_flag = radio & 0x01  # Last bit
+
+    return {
+        'keep_flag': keep_flag,
+        'sync_state': sync_state,
+        'slot_increment': slot_increment,
+        'num_slots': num_slots,
+        'keep_flag': keep_flag,
+    }
