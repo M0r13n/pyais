@@ -65,7 +65,7 @@ def ais_to_nmea_0183(payload: str, ais_talker_id: str, radio_channel: str, fill_
         tpl = "!{},{},{},{},{},{},{}*{:02X}"
         dummy_message = tpl.format(ais_talker_id, frag_cnt, frag_num, seq_id, radio_channel, chunk, fill_bits, 0)
         checksum = compute_checksum(dummy_message)
-        fill_bits_frag = fill_bits if frag_num == frag_cnt else 0 # Make sure we set fill bits only for last fragment
+        fill_bits_frag = fill_bits if frag_num == frag_cnt else 0  # Make sure we set fill bits only for last fragment
         msg = tpl.format(ais_talker_id, frag_cnt, frag_num, seq_id, radio_channel, chunk, fill_bits_frag, checksum)
         messages.append(msg)
 

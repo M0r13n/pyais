@@ -481,14 +481,14 @@ class Payload(abc.ABC):
         """
         if enum_as_int:
             d: typing.Dict[str, typing.Optional[NMEA_VALUE]] = {}
-            for slt in self.__slots__:
+            for slt in self.__slots__:  # type: ignore
                 val = getattr(self, slt)
                 if val is not None and slt in ENUM_FIELDS:
                     val = int(getattr(self, slt))
                 d[slt] = val
             return d
         else:
-            return {slt: getattr(self, slt) for slt in self.__slots__}
+            return {slt: getattr(self, slt) for slt in self.__slots__}  # type: ignore
 
     def to_json(self) -> str:
         return JSONEncoder(indent=4).encode(self.asdict())

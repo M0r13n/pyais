@@ -755,6 +755,7 @@ def test_encode_type_8():
     encoded = encode_dict(data, radio_channel="B", talker_id="AIVDM")
     assert encoded[0] == "!AIVDM,1,1,,B,85Mwp`1Kf0>dg4Huwt@,2*5B"
 
+
 def tes_encode_type_8_multi():
     data = {
         'dac': 0,

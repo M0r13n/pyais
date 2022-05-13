@@ -272,7 +272,7 @@ class TestAIS(unittest.TestCase):
 
     def test_msg_type_8_multipart(self):
         msgs = ['!AIVDO,2,1,,A,8=?eN>0000:C=4B1KTTsgLoUelGetEo0FoWr8jo=?045TNv5Tge6sAUl4MKWo,0*5F', '!AIVDO,2,2,,A,vhOL9NIPln:BsP0=BLOiiCbE7;SKsSJfALeATapHfdm6Tl,2*79']
-        
+
         msg = decode(*msgs).asdict()
 
         assert msg["repeat"] == 0
@@ -280,7 +280,7 @@ class TestAIS(unittest.TestCase):
         assert msg['dac'] == 0
         assert msg["fid"] == 0
         assert msg["data"] == b"\x02\x934D\x81nI;\xbd\xcd\xe5\xb7E\xed\xf1]\xc0[y\xfa#-\xcd<\x01\x05\x91\xef\x85\x92\xfbF\xed\x19t\x11\xd6\xe7\xdf\xec\x1fp\x97\x99\x83M\x8aK\xb8\x005'\x1f\xc7\x14\xeaTr\xe3o\xb8\xda\xb9\x17-FJxb\xeb5\x1aM"
-        
+
         ensure_type_for_msg_dict(msg)
 
     def test_msg_type_9(self):
