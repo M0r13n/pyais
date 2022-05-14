@@ -18,11 +18,11 @@
 # -- Project information -----------------------------------------------------
 
 project = 'Pyais'
-copyright = '2021, Leon Morten Richter'
+copyright = '2022, Leon Morten Richter'
 author = 'Leon Morten Richter'
 
 # The full version, including alpha/beta/rc tags
-release = '1.5.0'
+release = '2.1.1'
 
 # -- General configuration ---------------------------------------------------
 

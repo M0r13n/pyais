@@ -2,6 +2,13 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 2.1.2 14 May 2022
+-------------------------------------------------------------------------------
+* Closes https://github.com/M0r13n/pyais/issues/17
+  * decoded `radio state` fields
+  * provided functions to access SOTDMA/ITDMA communication state information
+
+-------------------------------------------------------------------------------
  Version 2.1.1 24 Apr 2022
 -------------------------------------------------------------------------------
 * Closes https://github.com/M0r13n/pyais/issues/65

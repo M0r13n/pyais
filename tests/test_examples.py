@@ -22,4 +22,4 @@ class TestExamples(unittest.TestCase):
         if csv_file.exists():
             csv_file.unlink()
 
-        assert i == 9
+        assert i == 10
