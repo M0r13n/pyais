@@ -311,3 +311,13 @@ class StationIntervals(IntEnum):
     @classmethod
     def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["StationIntervals"]:
         return cls(v) if v is not None else None
+
+
+class SyncState(IntEnum):
+    """
+    https://www.navcen.uscg.gov/?pageName=AISMessagesA#Sync
+    """
+    UTC_DIRECT = 0x00
+    UTC_INDIRECT = 0x01
+    BASE_DIRECT = 0x02
+    BASE_INDIRECT = 0x03

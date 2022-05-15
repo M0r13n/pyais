@@ -9,7 +9,7 @@ from pprint import pprint
 from pyais import NMEAMessage, encode_dict
 from pyais.ais_types import AISType
 from pyais.constants import (EpfdType, ManeuverIndicator, NavAid,
-                             NavigationStatus, ShipType, StationType,
+                             NavigationStatus, ShipType, StationType, SyncState,
                              TransmitMode)
 from pyais.decode import decode
 from pyais.exceptions import UnknownMessageException
@@ -1269,3 +1269,132 @@ class TestAIS(unittest.TestCase):
         assert decode(b"!AIVDM,1,1,,2,13aB:Hhuh0PHjEFNKJg@11sH08J=,0*1E").turn == -4.0
         assert decode(b"!AIVDM,1,1,,A,16:VFv0k0I`KQPpFATG4SgvT40:v,0*7B").turn == -121.0
         assert decode(b"!AIVDM,1,1,,B,16:D3F0:15`5ogh<O?bk>1Dd2L1<,0*0B").turn == 64.0
+
+    def test_get_sotdma_comm_state_utc_direct(self):
+        msg = "!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23"
+        decoded = decode(msg)
+        actual = decoded.get_communication_state()
+
+        assert decoded.is_sotdma
+        assert not decoded.is_itdma
+
+        self.assertEqual(actual, {
+            'received_stations': None,
+            'slot_number': None,
+            'utc_hour': 11,
+            'utc_minute': 30,
+            'slot_offset': None,
+            'slot_timeout': 1,
+            'sync_state': SyncState.UTC_DIRECT,
+            'keep_flag': None,
+            'slot_increment': None,
+            'num_slots': None,
+        })
+
+    def test_get_sotdma_comm_state_utc_direct_slot_number(self):
+        msg = "!AIVDM,1,1,,B,403OtVAv>lba;o?Ia`E`4G?02H6k,0*44"
+        decoded = decode(msg)
+        actual = decoded.get_communication_state()
+
+        assert decoded.is_sotdma
+        assert not decoded.is_itdma
+
+        self.assertEqual(actual, {
+            'received_stations': None,
+            'slot_number': 435,
+            'utc_hour': None,
+            'utc_minute': None,
+            'slot_offset': None,
+            'slot_timeout': 6,
+            'sync_state': SyncState.UTC_DIRECT,
+            'keep_flag': None,
+            'slot_increment': None,
+            'num_slots': None,
+        })
+
+    def test_get_sotdma_comm_state_utc_direct_slot_timeout(self):
+        msg = "!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*30"
+        decoded = decode(msg)
+        actual = decoded.get_communication_state()
+
+        assert decoded.is_sotdma
+        assert not decoded.is_itdma
+
+        self.assertEqual(actual, {
+            'received_stations': None,
+            'slot_number': 624,
+            'utc_hour': None,
+            'utc_minute': None,
+            'slot_offset': None,
+            'slot_timeout': 2,
+            'sync_state': SyncState.UTC_DIRECT,
+            'keep_flag': None,
+            'slot_increment': None,
+            'num_slots': None,
+        })
+
+    def test_get_comm_state_type_18_itdma_base_indirect(self):
+        msg = '!AIVDM,1,1,,A,B5NJ;PP005l4ot5Isbl03wsUkP06,0*76'
+        decoded = decode(msg)
+
+        assert decoded.communication_state_raw == 393222
+        assert decoded.is_itdma
+        assert not decoded.is_sotdma
+
+        comm_state = decoded.get_communication_state()
+
+        assert isinstance(comm_state, dict)
+        assert comm_state['received_stations'] is None
+        assert comm_state['slot_number'] is None
+        assert comm_state['utc_hour'] is None
+        assert comm_state['utc_minute'] is None
+        assert comm_state['slot_offset'] is None
+        assert comm_state['slot_timeout'] is None
+        assert comm_state['sync_state'] == SyncState.BASE_INDIRECT
+        assert comm_state['keep_flag'] == 0
+        assert comm_state['slot_increment'] == 0
+        assert comm_state['num_slots'] == 3
+
+    def test_get_comm_state_type_18_sotdma_utc_direct(self):
+        msg = '!AIVDM,1,1,,A,B69A5U@3wk?8mP=18D3Q3wSRPD00,0*5C'
+        decoded = decode(msg)
+
+        assert decoded.communication_state_raw == 81920
+        assert not decoded.is_itdma
+        assert decoded.is_sotdma
+
+        comm_state = decoded.get_communication_state()
+
+        assert isinstance(comm_state, dict)
+        assert comm_state['received_stations'] == 0
+        assert comm_state['slot_number'] is None
+        assert comm_state['utc_hour'] is None
+        assert comm_state['utc_minute'] is None
+        assert comm_state['slot_offset'] is None
+        assert comm_state['slot_timeout'] == 5
+        assert comm_state['sync_state'] == SyncState.UTC_DIRECT
+        assert comm_state['keep_flag'] is None
+        assert comm_state['slot_increment'] is None
+        assert comm_state['num_slots'] is None
+
+    def test_get_comm_state_type_18_sotdma_base_inidrect(self):
+        msg = '!AIVDM,1,1,,A,B69Gk3h071tpI02lT2ek?wg61P06,0*1F'
+        decoded = decode(msg)
+
+        assert decoded.communication_state_raw == 393222
+        assert not decoded.is_itdma
+        assert decoded.is_sotdma
+
+        comm_state = decoded.get_communication_state()
+
+        assert isinstance(comm_state, dict)
+        assert comm_state['received_stations'] is None
+        assert comm_state['slot_number'] is None
+        assert comm_state['utc_hour'] is None
+        assert comm_state['utc_minute'] is None
+        assert comm_state['slot_offset'] == 6
+        assert comm_state['slot_timeout'] == 0
+        assert comm_state['sync_state'] == SyncState.BASE_INDIRECT
+        assert comm_state['keep_flag'] is None
+        assert comm_state['slot_increment'] is None
+        assert comm_state['num_slots'] is None

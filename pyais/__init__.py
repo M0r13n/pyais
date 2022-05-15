@@ -4,7 +4,7 @@ from pyais.encode import encode_dict, encode_msg, ais_to_nmea_0183
 from pyais.decode import decode
 
 __license__ = 'MIT'
-__version__ = '2.1.1'
+__version__ = '2.1.2'
 __author__ = 'Leon Morten Richter'
 
 __all__ = (

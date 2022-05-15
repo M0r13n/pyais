@@ -11,7 +11,7 @@ from pyais.constants import TalkerID, NavigationStatus, ManeuverIndicator, EpfdT
     TransmitMode, StationIntervals
 from pyais.exceptions import InvalidNMEAMessageException, UnknownMessageException, UnknownPartNoException, \
     InvalidDataTypeException
-from pyais.util import decode_into_bit_array, compute_checksum, int_to_bin, str_to_bin, \
+from pyais.util import decode_into_bit_array, compute_checksum, get_itdma_comm_state, get_sotdma_comm_state, int_to_bin, str_to_bin, \
     encode_ascii_6, from_bytes, from_bytes_signed, decode_bin_as_ascii6, get_int, chk_to_int, coerce_val, \
     bits2bytes, bytes2bits, b64encode_str
 
@@ -549,8 +549,62 @@ def from_turn(turn: typing.Optional[typing.Union[int, float]]) -> int:
     return int(math.copysign(round(4.733 * math.sqrt(abs(turn))), turn))
 
 
+class CommunicationStateMixin:
+    """
+    Mixin class to access Communication State values by applicable messages.
+
+    You may refer to 3.3.7.2.1 of:
+    https://www.itu.int/dms_pubrec/itu-r/rec/m/R-REC-M.1371-1-200108-S!!PDF-E.pdf
+    """
+
+    radio: int  # Type hint to make mypy happy
+
+    MAX_COMM_STATE_VALUE = 0x7ffff
+
+    def get_communication_state(self) -> Dict[str, typing.Optional[int]]:
+        result: Dict[str, typing.Optional[int]] = {
+            'received_stations': None,
+            'slot_number': None,
+            'utc_hour': None,
+            'utc_minute': None,
+            'slot_offset': None,
+            'slot_timeout': None,
+            'sync_state': None,
+            'keep_flag': None,
+            'slot_increment': None,
+            'num_slots': None,
+        }
+
+        if self.is_sotdma:
+            result.update(get_sotdma_comm_state(self.communication_state_raw))
+        else:
+            result.update(get_itdma_comm_state(self.communication_state_raw))
+
+        return result
+
+    @property
+    def is_sotdma(self) -> bool:
+        """The radio status field has it's 20th bit (MSB) set to 0 or has less than 20 bits"""
+        return self.radio <= self.MAX_COMM_STATE_VALUE
+
+    @property
+    def is_itdma(self) -> bool:
+        """The radio status field has it's 20th bit (MSB) set to 1"""
+        return self.radio > self.MAX_COMM_STATE_VALUE
+
+    @property
+    def communication_state_raw(self) -> int:
+        """Get the raw radio status except 20th bit - if present"""
+        try:
+            return self.radio & self.MAX_COMM_STATE_VALUE
+        except AttributeError as err:
+            raise ValueError(
+                'Communication State is only available for messages with radio field'
+            ) from err
+
+
 @attr.s(slots=True)
-class MessageType1(Payload):
+class MessageType1(Payload, CommunicationStateMixin):
     """
     AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
@@ -591,7 +645,7 @@ class MessageType3(MessageType1):
 
 
 @attr.s(slots=True)
-class MessageType4(Payload):
+class MessageType4(Payload, CommunicationStateMixin):
     """
     AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_4_base_station_report
@@ -698,7 +752,7 @@ class MessageType8(Payload):
 
 
 @attr.s(slots=True)
-class MessageType9(Payload):
+class MessageType9(Payload, CommunicationStateMixin):
     """
     Standard SAR Aircraft Position Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_9_standard_sar_aircraft_position_report
@@ -843,7 +897,7 @@ class MessageType17(Payload):
 
 
 @attr.s(slots=True)
-class MessageType18(Payload):
+class MessageType18(Payload, CommunicationStateMixin):
     """
     Standard Class B CS Position Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_18_standard_class_b_cs_position_report
@@ -1247,7 +1301,7 @@ class MessageType25(Payload):
 
 
 @attr.s(slots=True)
-class MessageType26AddressedStructured(Payload):
+class MessageType26AddressedStructured(Payload, CommunicationStateMixin):
     msg_type = bit_field(6, int, default=26, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
@@ -1262,7 +1316,7 @@ class MessageType26AddressedStructured(Payload):
 
 
 @attr.s(slots=True)
-class MessageType26BroadcastStructured(Payload):
+class MessageType26BroadcastStructured(Payload, CommunicationStateMixin):
     msg_type = bit_field(6, int, default=26, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
@@ -1276,7 +1330,7 @@ class MessageType26BroadcastStructured(Payload):
 
 
 @attr.s(slots=True)
-class MessageType26AddressedUnstructured(Payload):
+class MessageType26AddressedUnstructured(Payload, CommunicationStateMixin):
     msg_type = bit_field(6, int, default=26, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
@@ -1291,7 +1345,7 @@ class MessageType26AddressedUnstructured(Payload):
 
 
 @attr.s(slots=True)
-class MessageType26BroadcastUnstructured(Payload):
+class MessageType26BroadcastUnstructured(Payload, CommunicationStateMixin):
     msg_type = bit_field(6, int, default=26, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
