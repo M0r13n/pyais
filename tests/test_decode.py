@@ -1398,3 +1398,42 @@ class TestAIS(unittest.TestCase):
         assert comm_state['keep_flag'] is None
         assert comm_state['slot_increment'] is None
         assert comm_state['num_slots'] is None
+
+    def test_static_data_report(self):
+        msg_a = b'!ANVDM,1,1,,B,H5NuKGTUCBD8SaUG4:omol0hC33t,0*54'
+        decoded_a = decode(msg_a)
+
+        self.assertEqual(decoded_a.msg_type, 24)
+        self.assertEqual(decoded_a.repeat, 0)
+        self.assertEqual(decoded_a.mmsi, 368008030)
+        self.assertEqual(decoded_a.partno, 1)
+        self.assertEqual(decoded_a.ship_type, ShipType.PleasureCraft)
+        self.assertEqual(decoded_a.vendorid, 'SRT')
+        self.assertEqual(decoded_a.callsign, 'WDJ7574')
+        self.assertEqual(decoded_a.to_bow, 6)
+        self.assertEqual(decoded_a.to_stern, 19)
+        self.assertEqual(decoded_a.to_port, 3)
+        self.assertEqual(decoded_a.to_starboard, 3)
+
+        msg_b = b'!ANVDM,1,1,,A,H5NuKGTUCBD8SaUG4:omol0hC33t,0*57'
+        decoded_b = decode(msg_b)
+
+        self.assertEqual(decoded_a, decoded_b)
+
+    def test_special_position_report(self):
+        msg = b'!ANVDM,1,1,,A,35O5WS1000r9FSHF@jBoLCACp000,0*42'
+        decoded = decode(msg)
+
+        self.assertEqual(decoded.msg_type, 3)
+        self.assertEqual(decoded.repeat, 0)
+        self.assertEqual(decoded.mmsi, 368142220)
+        self.assertEqual(decoded.status, NavigationStatus.AtAnchor)
+        self.assertEqual(decoded.turn, 0)
+        self.assertEqual(decoded.speed, 0)
+        self.assertEqual(decoded.accuracy, 1)
+        self.assertEqual(decoded.lon, -81.84302)
+        self.assertEqual(decoded.lat, 38.906152)
+        self.assertEqual(decoded.course, 190.5)
+        self.assertEqual(decoded.heading, 104)
+        self.assertEqual(decoded.second, 41)
+        self.assertEqual(decoded.raim, 0)
