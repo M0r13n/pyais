@@ -52,8 +52,8 @@ def ais_to_nmea_0183(payload: str, ais_talker_id: str, radio_channel: str, fill_
     """
     messages = []
     max_len = 61
-    seq_id = ''
     frag_cnt = math.ceil(len(payload) / max_len)
+    seq_id = '0' if frag_cnt > 1 else ''
 
     if len(ais_talker_id) != 5:
         raise ValueError("AIS talker is must have exactly 6 characters. E.g. AIVDO")
