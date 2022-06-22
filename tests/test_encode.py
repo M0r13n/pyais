@@ -655,9 +655,9 @@ def test_encode_type_15():
 def test_encode_type_14():
     data = {'mmsi': '351809000', 'repeat': 0, 'text': 'RCVD YR TEST MSG', 'type': 14}
     encoded = encode_dict(data)
-    assert encoded[0] == "!AIVDO,3,1,,A,>5?Per18=HB1U:1@E=B0m<L00000000000000000000000000000000000000,0*51"
-    assert encoded[1] == "!AIVDO,3,2,,A,0000000000000000000000000000000000000000000000000000000000000,0*17"
-    assert encoded[2] == "!AIVDO,3,3,,A,0000000000000000000000000000000000000000000000,2*26"
+    assert encoded[0] == "!AIVDO,3,1,0,A,>5?Per18=HB1U:1@E=B0m<L00000000000000000000000000000000000000,0*63"
+    assert encoded[1] == "!AIVDO,3,2,0,A,0000000000000000000000000000000000000000000000000000000000000,0*25"
+    assert encoded[2] == "!AIVDO,3,3,0,A,0000000000000000000000000000000000000000000000,2*16"
 
 
 def test_encode_type_13():
@@ -689,9 +689,9 @@ def test_encode_type_12():
         'type': 12
     }
     encoded = encode_dict(data)
-    assert encoded[0] == "!AIVDO,3,1,,A,<42Lati0W:Ov=C7P6B?=Pjoihhjhqq0000000000000000000000000000000,0*29"
-    assert encoded[1] == "!AIVDO,3,2,,A,0000000000000000000000000000000000000000000000000000000000000,0*15"
-    assert encoded[2] == "!AIVDO,3,3,,A,0000000000000000000000000000000000000000000000,0*24"
+    assert encoded[0] == "!AIVDO,3,1,0,A,<42Lati0W:Ov=C7P6B?=Pjoihhjhqq0000000000000000000000000000000,0*19"
+    assert encoded[1] == "!AIVDO,3,2,0,A,0000000000000000000000000000000000000000000000000000000000000,0*25"
+    assert encoded[2] == "!AIVDO,3,3,0,A,0000000000000000000000000000000000000000000000,0*14"
 
 
 def test_encode_type_11():
@@ -765,7 +765,7 @@ def tes_encode_type_8_multi():
         "type": 8
     }
     encoded = encode_dict(data)
-    assert encoded == ['!AIVDO,2,1,,A,8=?eN>0000:C=4B1KTTsgLoUelGetEo0FoWr8jo=?045TNv5Tge6sAUl4MKWo,0*5F', '!AIVDO,2,2,,A,vhOL9NIPln:BsP0=BLOiiCbE7;SKsSJfALeATapHfdm6Tl,2*79']
+    assert encoded == ['!AIVDO,2,1,0,A,8=?eN>0000:C=4B1KTTsgLoUelGetEo0FoWr8jo=?045TNv5Tge6sAUl4MKWo,0*5F', '!AIVDO,2,2,0,A,vhOL9NIPln:BsP0=BLOiiCbE7;SKsSJfALeATapHfdm6Tl,2*79']
 
 
 def test_encode_type_7():
@@ -871,8 +871,8 @@ def test_encode_type_5_issue_59():
 
     encoded_part_1 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[0]
     encoded_part_2 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[1]
-    assert encoded_part_1 == "!AIVDM,2,1,,B,55?MbV02;H;s<HtKP00EHE:0@T4@Dl0000000000L961O5Gf0P3QEp6ClRh00,0*77"
-    assert encoded_part_2 == "!AIVDM,2,2,,B,0000000000,2*27"
+    assert encoded_part_1 == "!AIVDM,2,1,0,B,55?MbV02;H;s<HtKP00EHE:0@T4@Dl0000000000L961O5Gf0P3QEp6ClRh00,0*45"
+    assert encoded_part_2 == "!AIVDM,2,2,0,B,0000000000,2*17"
 
 
 def test_encode_type_5():
@@ -904,8 +904,8 @@ def test_encode_type_5():
 
     encoded_part_1 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[0]
     encoded_part_2 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[1]  #
-    assert encoded_part_1 == "!AIVDM,2,1,,B,55?MbV02;H;s<HtKP00EHE:0@T4@Dl0000000000L961O5Gf0NSQEp6ClRh00,0*09"
-    assert encoded_part_2 == "!AIVDM,2,2,,B,0000000000,2*27"
+    assert encoded_part_1 == "!AIVDM,2,1,0,B,55?MbV02;H;s<HtKP00EHE:0@T4@Dl0000000000L961O5Gf0NSQEp6ClRh00,0*3B"
+    assert encoded_part_2 == "!AIVDM,2,2,0,B,0000000000,2*17"
 
 
 def test_encode_type_5_default():
@@ -915,8 +915,8 @@ def test_encode_type_5_default():
     data = {'mmsi': 123456789, 'type': 5}
     encoded_part_1 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[0]
     encoded_part_2 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[1]
-    assert encoded_part_1 == "!AIVDM,2,1,,B,51mg=5@000000000000000000000000000000000000000000000000000000,0*62"
-    assert encoded_part_2 == "!AIVDM,2,2,,B,0000000000,2*27"
+    assert encoded_part_1 == "!AIVDM,2,1,0,B,51mg=5@000000000000000000000000000000000000000000000000000000,0*50"
+    assert encoded_part_2 == "!AIVDM,2,2,0,B,0000000000,2*17"
 
 
 def test_encode_msg_type2():
@@ -1014,8 +1014,8 @@ def test_lon_too_large():
 def test_ship_name_too_lon():
     msg = MessageType5.create(mmsi="123", shipname="Titanic Titanic Titanic")
     encoded = encode_msg(msg)
-    assert encoded[0] == "!AIVDO,2,1,,A,50000Nh000000000001@U@4pT>1@U@4pT>1@U@40000000000000000000000,0*56"
-    assert encoded[1] == "!AIVDO,2,2,,A,0000000000,2*26"
+    assert encoded[0] == "!AIVDO,2,1,0,A,50000Nh000000000001@U@4pT>1@U@4pT>1@U@40000000000000000000000,0*64"
+    assert encoded[1] == "!AIVDO,2,2,0,A,0000000000,2*16"
 
 
 def test_int_to_bytes():
