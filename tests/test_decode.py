@@ -1240,35 +1240,29 @@ class TestAIS(unittest.TestCase):
     def test_rot_encode_yields_expected_values(self):
         encoded = encode_dict({'msg_type': 1, 'mmsi': 123, 'turn': 25.0})[0]
         assert encoded == "!AIVDO,1,1,,A,10000Nh600000000000000000000,0*05"
-        assert decode(encoded).turn == 25.0
 
         encoded = encode_dict({'msg_type': 1, 'mmsi': 123, 'turn': -16.0})[0]
         assert encoded == "!AIVDO,1,1,,A,10000Nhs@0000000000000000000,0*30"
-        assert decode(encoded).turn == -16.0
 
         encoded = encode_dict({'msg_type': 1, 'mmsi': 123, 'turn': 4.0})[0]
         assert encoded == "!AIVDO,1,1,,A,10000Nh2@0000000000000000000,0*71"
-        assert decode(encoded).turn == 4.0
 
         encoded = encode_dict({'msg_type': 1, 'mmsi': 123, 'turn': -4.0})[0]
         assert encoded == "!AIVDO,1,1,,A,10000Nhuh0000000000000000000,0*1E"
-        assert decode(encoded).turn == -4.0
 
         encoded = encode_dict({'msg_type': 1, 'mmsi': 123, 'turn': -121.0})[0]
         assert encoded == "!AIVDO,1,1,,A,10000Nhk00000000000000000000,0*58"
-        assert decode(encoded).turn == -121.0
 
         encoded = encode_dict({'msg_type': 1, 'mmsi': 123, 'turn': 64.0})[0]
         assert encoded == "!AIVDO,1,1,,A,10000Nh9P0000000000000000000,0*6A"
-        assert decode(encoded).turn == 64.0
 
     def test_rot_decode_yields_expected_values(self):
         assert decode(b"!AIVDM,1,1,,A,14QIG<5620KF@Gl:L9DI4o8N0P00,0*28").turn == 25.0
-        assert decode(b"!AIVDM,1,1,,B,13u><=gsQj0mQW:Q1<wRL28P0@:4,0*32").turn == -16.0
-        assert decode(b"!AIVDM,1,1,,A,14SSRt021O0?bK@MO7H6QUA600Rg,0*12").turn == 4.0
-        assert decode(b"!AIVDM,1,1,,2,13aB:Hhuh0PHjEFNKJg@11sH08J=,0*1E").turn == -4.0
-        assert decode(b"!AIVDM,1,1,,A,16:VFv0k0I`KQPpFATG4SgvT40:v,0*7B").turn == -121.0
-        assert decode(b"!AIVDM,1,1,,B,16:D3F0:15`5ogh<O?bk>1Dd2L1<,0*0B").turn == 64.0
+        assert decode(b"!AIVDM,1,1,,B,13u><=gsQj0mQW:Q1<wRL28P0@:4,0*32").turn == -14.0
+        assert decode(b"!AIVDM,1,1,,A,14SSRt021O0?bK@MO7H6QUA600Rg,0*12").turn == 2.0
+        assert decode(b"!AIVDM,1,1,,2,13aB:Hhuh0PHjEFNKJg@11sH08J=,0*1E").turn == -3.0
+        assert decode(b"!AIVDM,1,1,,A,16:VFv0k0I`KQPpFATG4SgvT40:v,0*7B").turn == -120.0
+        assert decode(b"!AIVDM,1,1,,B,16:D3F0:15`5ogh<O?bk>1Dd2L1<,0*0B").turn == 71.0
 
     def test_get_sotdma_comm_state_utc_direct(self):
         msg = "!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23"
