@@ -21,7 +21,10 @@ clean:
 	rm coverage.xml
 	rm .coverage
 
-test: run_tests flake type-check
+ensure-no-print:
+	grep -r --exclude main.py --exclude '*.pyc' -i 'print' ./pyais && (echo "Debug print statement found"; exit 1)|| true
+
+test: run_tests flake type-check ensure-no-print
 
 install:
 	pip install wheel

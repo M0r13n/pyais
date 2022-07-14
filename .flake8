@@ -4,4 +4,4 @@ ignore = E501
 show_source = True
 statistics = True
 count = True
-exclude = .direnv,.git,__pycache__,venv
+exclude = .direnv,.git,__pycache__,venv,.eggs

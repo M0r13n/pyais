@@ -540,7 +540,6 @@ def to_turn(turn: typing.Union[int, float]) -> typing.Optional[float]:
     elif abs(turn) == 127 or abs(turn) == 128:
         return None
     else:
-        print(turn, math.copysign(int((turn / 4.733) ** 2), turn))
         return math.copysign(int((turn / 4.733) ** 2), turn)
 
 
