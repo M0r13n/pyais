@@ -160,6 +160,7 @@ class NMEAMessage(object):
         'payload',
         'fill_bits',
         'checksum',
+        'is_valid',
         'bit_array'
     )
 
@@ -217,6 +218,9 @@ class NMEAMessage(object):
         self.bit_array: bitarray = decode_into_bit_array(self.payload, self.fill_bits)
         self.ais_id: int = get_int(self.bit_array, 0, 6)
 
+        # Set the checksum valid field
+        self.is_valid = self.checksum == compute_checksum(self.raw)
+
     def __str__(self) -> str:
         return str(self.raw)
 
@@ -247,6 +251,7 @@ class NMEAMessage(object):
             'fill_bits': self.fill_bits,  # int
             'checksum': self.checksum,  # int
             'bit_array': self.bit_array.to01(),  # str
+            'is_valid': self.is_valid,  # bool
         }
 
     def decode_and_merge(self, enum_as_int: bool = False) -> Dict[str, Any]:
@@ -283,6 +288,7 @@ class NMEAMessage(object):
         raw = b''
         data = b''
         bit_array = bitarray()
+        is_valid = True
 
         for i, msg in enumerate(sorted(messages, key=lambda m: m.frag_num)):
             if i > 0:
@@ -290,15 +296,13 @@ class NMEAMessage(object):
             raw += msg.raw
             data += msg.payload
             bit_array += msg.bit_array
+            is_valid &= msg.is_valid
 
         messages[0].raw = raw
         messages[0].payload = data
         messages[0].bit_array = bit_array
+        messages[0].is_valid = is_valid
         return messages[0]
-
-    @property
-    def is_valid(self) -> bool:
-        return self.checksum == compute_checksum(self.raw)
 
     @property
     def is_single(self) -> bool:

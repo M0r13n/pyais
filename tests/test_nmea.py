@@ -1,7 +1,7 @@
 import unittest
-from pprint import pprint
 
 from bitarray import bitarray
+from pyais.decode import _assemble_messages
 
 from pyais.exceptions import InvalidNMEAMessageException
 from pyais.messages import NMEAMessage
@@ -131,7 +131,6 @@ class TestNMEA(unittest.TestCase):
         )
 
         actual = msg.asdict()
-        pprint(actual)
         self.assertEqual(expected, actual)
         self.assertEqual(1, actual["ais_id"])
         self.assertEqual("!AIVDM,1,1,,A,15Mj23P000G?q7fK>g:o7@1:0L3S,0*1B", actual["raw"])
@@ -196,3 +195,38 @@ class TestNMEA(unittest.TestCase):
         self.assertEqual(chk_to_int(b""), (0, -1))
         with self.assertRaises(ValueError):
             self.assertEqual(chk_to_int(b"*1B"), (0, 24))
+
+    def test_that_a_valid_checksum_is_correctly_identified(self):
+        raw = b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05"
+        msg = NMEAMessage(raw)
+        self.assertTrue(msg.is_valid)
+
+    def test_that_an_invalid_checksum_is_correctly_identified(self):
+        raw = b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*04"
+        msg = NMEAMessage(raw)
+        self.assertFalse(msg.is_valid)
+
+    def test_that_a_valid_checksum_is_correctly_identified_for_multi_part_msgs(self):
+        sentences = [
+            b"!AIVDM,2,1,4,A,55O0W7`00001L@gCWGA2uItLth@DqtL5@F22220j1h742t0Ht0000000,0*08",
+            b"!AIVDM,2,2,4,A,000000000000000,2*20",
+        ]
+        msg = _assemble_messages(*sentences)
+        self.assertTrue(msg.is_valid)
+
+    def test_that_an_invalid_checksum_is_correctly_identified_for_multi_part_msgs(self):
+        # The first sentence has an invalid checksum
+        sentences = [
+            b"!AIVDM,2,1,4,A,55O0W7`00001L@gCWGA2uItLth@DqtL5@F22220j1h742t0Ht0000000,0*09",
+            b"!AIVDM,2,2,4,A,000000000000000,2*20",
+        ]
+        msg = _assemble_messages(*sentences)
+        self.assertFalse(msg.is_valid)
+
+        # The second sentence has an invalid checksum
+        sentences = [
+            b"!AIVDM,2,1,4,A,55O0W7`00001L@gCWGA2uItLth@DqtL5@F22220j1h742t0Ht0000000,0*08",
+            b"!AIVDM,2,2,4,A,000000000000000,2*21",
+        ]
+        msg = _assemble_messages(*sentences)
+        self.assertFalse(msg.is_valid)

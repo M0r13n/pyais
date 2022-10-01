@@ -7,6 +7,10 @@ class InvalidNMEAMessageException(AISBaseException):
     pass
 
 
+class InvalidNMEAChecksum(AISBaseException):
+    """Invalid Checksum for the NMEA message"""
+
+
 class UnknownMessageException(AISBaseException):
     """Message not supported yet"""
     pass

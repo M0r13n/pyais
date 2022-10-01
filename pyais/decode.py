@@ -1,16 +1,23 @@
 import typing
 
-from pyais.exceptions import TooManyMessagesException, MissingMultipartMessageException
+from pyais.exceptions import (
+    TooManyMessagesException,
+    MissingMultipartMessageException,
+    InvalidNMEAChecksum
+)
 from pyais.messages import NMEAMessage, ANY_MESSAGE
 
 
-def _assemble_messages(*args: bytes) -> NMEAMessage:
+def _assemble_messages(*args: bytes, error_if_checksum_invalid: bool = False) -> NMEAMessage:
     # Convert bytes into NMEAMessage and remember fragment_count and fragment_numbers
     temp: typing.List[NMEAMessage] = []
     frags: typing.List[int] = []
     frag_cnt: int = 1
     for msg in args:
         nmea = NMEAMessage(msg)
+        if error_if_checksum_invalid and not nmea.is_valid:
+            raise InvalidNMEAChecksum(f'The checksum is invalid for message "{nmea.raw!r}"')
+
         temp.append(nmea)
         frags.append(nmea.frag_num)
         frag_cnt = nmea.fragment_count
@@ -29,7 +36,7 @@ def _assemble_messages(*args: bytes) -> NMEAMessage:
     return final
 
 
-def decode(*args: typing.Union[str, bytes]) -> ANY_MESSAGE:
+def decode(*args: typing.Union[str, bytes], error_if_checksum_invalid: bool = False) -> ANY_MESSAGE:
     parts = tuple(msg.encode('utf-8') if isinstance(msg, str) else msg for msg in args)
-    nmea = _assemble_messages(*parts)
+    nmea = _assemble_messages(*parts, error_if_checksum_invalid=error_if_checksum_invalid)
     return nmea.decode()
