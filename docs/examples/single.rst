@@ -4,6 +4,9 @@ Decode a single AIS message
 
 You can decode AIVDM/AIVDO messages, as long as they are valid NMEA 0183 messages.
 
+Please note that invalid checksums are ignored. If you want to raise an error for
+invalid checksums set `error_if_checksum_invalid=True`.
+
 References
 ----------
 
@@ -76,3 +79,16 @@ Decode a stream of messages (e.g. a list or generator)::
     ]
     for msg in IterMessages(fake_stream):
         print(msg.decode())
+
+Note
+--------
+This library is often used for data analysis. This means that a researcher
+analyzes large amounts of AIS messages. Such message streams might contain
+thousands of messages with invalid checksums. Its up to the researcher to
+decide whether he/she wants to include such messages in his/her analysis.
+Raising an exception for every invalid checksum would both cause a
+performance degradation because handling of such exceptions is expensive
+and make it impossible to include such messages into the analysis.
+
+If you want to raise an error if the checksum of a message is invalid set
+the key word argument `error_if_checksum_invalid` to True.

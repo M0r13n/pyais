@@ -12,7 +12,7 @@ from pyais.constants import (EpfdType, ManeuverIndicator, NavAid,
                              NavigationStatus, ShipType, StationType, SyncState,
                              TransmitMode)
 from pyais.decode import decode
-from pyais.exceptions import UnknownMessageException
+from pyais.exceptions import InvalidNMEAChecksum, UnknownMessageException
 from pyais.messages import (MSG_CLASS, MessageType5, MessageType6,
                             MessageType18, MessageType22Addressed,
                             MessageType22Broadcast, MessageType24PartA,
@@ -1433,3 +1433,18 @@ class TestAIS(unittest.TestCase):
         self.assertEqual(decoded.heading, 104)
         self.assertEqual(decoded.second, 41)
         self.assertEqual(decoded.raim, 0)
+
+    def test_decode_does_not_raise_an_error_if_error_if_checksum_invalid_is_false(self):
+        raw = b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*FF"
+        msg = decode(raw, error_if_checksum_invalid=False)
+        self.assertIsNotNone(msg,)
+
+    def test_decode_does_not_raise_an_error_by_default(self):
+        raw = b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*FF"
+        msg = decode(raw)
+        self.assertIsNotNone(msg)
+
+    def test_decode_does_raise_an_error_if_error_if_checksum_invalid_is_true(self):
+        raw = b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*FF"
+        with self.assertRaises(InvalidNMEAChecksum):
+            _ = decode(raw, error_if_checksum_invalid=True)
