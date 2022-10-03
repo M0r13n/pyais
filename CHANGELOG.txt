@@ -2,6 +2,18 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 2.2.1 03 Oct 2022
+-------------------------------------------------------------------------------
+* Closes https://github.com/M0r13n/pyais/issues/81  
+  * ensure that the NMEA sentence length does not exceed 82 characters
+-------------------------------------------------------------------------------
+ Version 2.2.0 02 Oct 2022
+-------------------------------------------------------------------------------
+* Closes https://github.com/M0r13n/pyais/issues/82
+  * introduces optional error_if_checksum_invalid keyword (default=False)
+  * adds the possibility to raise an exception if the checksum is invalid
+
+-------------------------------------------------------------------------------
  Version 2.1.2 14 May 2022
 -------------------------------------------------------------------------------
 * Closes https://github.com/M0r13n/pyais/issues/17
