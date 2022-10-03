@@ -36,7 +36,8 @@ def data_to_payload(ais_type: int, data: DATA_DICT) -> Payload:
 def ais_to_nmea_0183(payload: str, ais_talker_id: str, radio_channel: str, fill_bits: int) -> AIS_SENTENCES:
     """
     Splits the AIS payload into sentences, ASCII encodes the payload, creates
-    and sends the relevant NMEA 0183 sentences.
+    and sends the relevant NMEA 0183 sentences. Messages have a maximum length
+    of 82 characters, including the $ or ! starting character and the ending <LF>.
 
     HINT:
         This method takes care of splitting large payloads (larger than 60 characters)
@@ -51,7 +52,7 @@ def ais_to_nmea_0183(payload: str, ais_talker_id: str, radio_channel: str, fill_
     @return:                A list of relevant AIS sentences.
     """
     messages = []
-    max_len = 61
+    max_len = 60
     frag_cnt = math.ceil(len(payload) / max_len)
     seq_id = '0' if frag_cnt > 1 else ''
 

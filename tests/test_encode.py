@@ -654,10 +654,14 @@ def test_encode_type_15():
 
 def test_encode_type_14():
     data = {'mmsi': '351809000', 'repeat': 0, 'text': 'RCVD YR TEST MSG', 'type': 14}
-    encoded = encode_dict(data)
-    assert encoded[0] == "!AIVDO,3,1,0,A,>5?Per18=HB1U:1@E=B0m<L00000000000000000000000000000000000000,0*63"
-    assert encoded[1] == "!AIVDO,3,2,0,A,0000000000000000000000000000000000000000000000000000000000000,0*25"
-    assert encoded[2] == "!AIVDO,3,3,0,A,0000000000000000000000000000000000000000000000,2*16"
+    actual = encode_dict(data)
+    expected = [
+        '!AIVDO,3,1,0,A,>5?Per18=HB1U:1@E=B0m<L0000000000000000000000000000000000000,0*53',
+        '!AIVDO,3,2,0,A,000000000000000000000000000000000000000000000000000000000000,0*15',
+        '!AIVDO,3,3,0,A,000000000000000000000000000000000000000000000000,2*16'
+    ]
+
+    assert expected == actual
 
 
 def test_encode_type_13():
@@ -688,10 +692,14 @@ def test_encode_type_12():
         'text': 'MSG FROM 271002099',
         'type': 12
     }
-    encoded = encode_dict(data)
-    assert encoded[0] == "!AIVDO,3,1,0,A,<42Lati0W:Ov=C7P6B?=Pjoihhjhqq0000000000000000000000000000000,0*19"
-    assert encoded[1] == "!AIVDO,3,2,0,A,0000000000000000000000000000000000000000000000000000000000000,0*25"
-    assert encoded[2] == "!AIVDO,3,3,0,A,0000000000000000000000000000000000000000000000,0*14"
+    actual = encode_dict(data)
+    expected = [
+        '!AIVDO,3,1,0,A,<42Lati0W:Ov=C7P6B?=Pjoihhjhqq000000000000000000000000000000,0*29',
+        '!AIVDO,3,2,0,A,000000000000000000000000000000000000000000000000000000000000,0*15',
+        '!AIVDO,3,3,0,A,000000000000000000000000000000000000000000000000,0*14'
+    ]
+
+    assert expected == actual
 
 
 def test_encode_type_11():
@@ -869,10 +877,12 @@ def test_encode_type_5_issue_59():
         'type': 5
     }
 
-    encoded_part_1 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[0]
-    encoded_part_2 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[1]
-    assert encoded_part_1 == "!AIVDM,2,1,0,B,55?MbV02;H;s<HtKP00EHE:0@T4@Dl0000000000L961O5Gf0P3QEp6ClRh00,0*45"
-    assert encoded_part_2 == "!AIVDM,2,2,0,B,0000000000,2*17"
+    actual = encode_dict(data, radio_channel="B", talker_id="AIVDM")
+    expected = [
+        '!AIVDM,2,1,0,B,55?MbV02;H;s<HtKP00EHE:0@T4@Dl0000000000L961O5Gf0P3QEp6ClRh0,0*75',
+        '!AIVDM,2,2,0,B,00000000000,2*27'
+    ]
+    assert actual == expected
 
 
 def test_encode_type_5():
@@ -902,10 +912,13 @@ def test_encode_type_5():
         'type': 5
     }
 
-    encoded_part_1 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[0]
-    encoded_part_2 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[1]  #
-    assert encoded_part_1 == "!AIVDM,2,1,0,B,55?MbV02;H;s<HtKP00EHE:0@T4@Dl0000000000L961O5Gf0NSQEp6ClRh00,0*3B"
-    assert encoded_part_2 == "!AIVDM,2,2,0,B,0000000000,2*17"
+    actual = encode_dict(data, radio_channel="B", talker_id="AIVDM")
+    expected = [
+        '!AIVDM,2,1,0,B,55?MbV02;H;s<HtKP00EHE:0@T4@Dl0000000000L961O5Gf0NSQEp6ClRh0,0*0B',
+        '!AIVDM,2,2,0,B,00000000000,2*27'
+    ]
+
+    assert actual == expected
 
 
 def test_encode_type_5_default():
@@ -913,10 +926,13 @@ def test_encode_type_5_default():
     Verified using http://ais.tbsalling.dk/.
     """
     data = {'mmsi': 123456789, 'type': 5}
-    encoded_part_1 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[0]
-    encoded_part_2 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[1]
-    assert encoded_part_1 == "!AIVDM,2,1,0,B,51mg=5@000000000000000000000000000000000000000000000000000000,0*50"
-    assert encoded_part_2 == "!AIVDM,2,2,0,B,0000000000,2*17"
+    actual = encode_dict(data, radio_channel="B", talker_id="AIVDM")
+    expected = [
+        '!AIVDM,2,1,0,B,51mg=5@00000000000000000000000000000000000000000000000000000,0*60',
+        '!AIVDM,2,2,0,B,00000000000,2*27'
+    ]
+
+    assert actual == expected
 
 
 def test_encode_msg_type2():
@@ -1013,9 +1029,14 @@ def test_lon_too_large():
 
 def test_ship_name_too_lon():
     msg = MessageType5.create(mmsi="123", shipname="Titanic Titanic Titanic")
-    encoded = encode_msg(msg)
-    assert encoded[0] == "!AIVDO,2,1,0,A,50000Nh000000000001@U@4pT>1@U@4pT>1@U@40000000000000000000000,0*64"
-    assert encoded[1] == "!AIVDO,2,2,0,A,0000000000,2*16"
+    actual = encode_msg(msg)
+
+    expected = [
+        '!AIVDO,2,1,0,A,50000Nh000000000001@U@4pT>1@U@4pT>1@U@4000000000000000000000,0*54',
+        '!AIVDO,2,2,0,A,00000000000,2*26'
+    ]
+
+    assert actual == expected
 
 
 def test_int_to_bytes():
@@ -1054,3 +1075,20 @@ def test_encode_ascii_6_bit():
     bit_arr = decode_into_bit_array(ascii6.encode())
     assert bit_arr.to01() == input_val
     assert decode_bin_as_ascii6(bit_arr) == "HELLO WORLD!"
+
+
+def test_encode_does_not_exceed_nmea_sentence_length_limit():
+    data = {
+        'type': 5, 'repeat': 0, 'mmsi': '259725000', 'ais_version': 1,
+        'imo': 9103128, 'callsign': 'LAXP4', 'shipname': 'STAR HANSA',
+        'shiptype': 70, 'to_bow': 177, 'to_stern': 22, 'to_port': 17,
+        'to_starboard': 14, 'epfd': 1, 'month': 5, 'day': 20, 'hour': 6,
+        'minute': 0, 'draught': 7.4, 'destination': 'US BAL', 'dte': 0
+    }
+
+    encoded = encode_dict(data)
+    encoded = [e + '\r\n' for e in encoded]
+
+    assert len(encoded) == 2
+    assert len(encoded[0]) == 82
+    assert len(encoded[1]) == 33
