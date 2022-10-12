@@ -982,7 +982,7 @@ def test_encode_type_1_default():
     """
     data = {'mmsi': 123456789, 'type': 1}
     encoded = encode_dict(data)[0]
-    assert encoded == "!AIVDO,1,1,,A,11mg=5@000000000000000000000,0*56"
+    assert encoded == "!AIVDO,1,1,,A,11mg=5@P00000000000000000000,0*36"
 
 
 def test_encode_type_1():
@@ -1017,14 +1017,19 @@ def test_encode_type_1():
 def test_mmsi_too_long():
     msg = MessageType1.create(mmsi=1 << 35)
     encoded = encode_msg(msg)
-    assert encoded[0] == "!AIVDO,1,1,,A,1?wwwwh000000000000000000000,0*72"
+    decoded = decode(encoded[0])
+
+    assert encoded[0] == "!AIVDO,1,1,,A,1?wwwwhP00000000000000000000,0*12"
+    assert decoded.mmsi == 1073741823
 
 
 def test_lon_too_large():
     msg = MessageType1.create(mmsi="123", lon=1 << 30)
     encoded = encode_msg(msg)
-    print(encoded)
-    assert encoded[0] == "!AIVDO,1,1,,A,10000Nh000Owwwv0000000000000,0*7D"
+    decoded = decode(encoded[0])
+
+    assert encoded[0] == "!AIVDO,1,1,,A,10000NhP00Owwwv0000000000000,0*1D"
+    assert decoded.lon == -2e-06
 
 
 def test_ship_name_too_lon():

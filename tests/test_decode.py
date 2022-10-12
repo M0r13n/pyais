@@ -10,21 +10,22 @@ from pyais import NMEAMessage, encode_dict
 from pyais.ais_types import AISType
 from pyais.constants import (EpfdType, ManeuverIndicator, NavAid,
                              NavigationStatus, ShipType, StationType, SyncState,
-                             TransmitMode)
+                             TransmitMode, TurnRate)
 from pyais.decode import decode
 from pyais.exceptions import InvalidNMEAChecksum, UnknownMessageException
-from pyais.messages import (MSG_CLASS, MessageType5, MessageType6,
-                            MessageType18, MessageType22Addressed,
-                            MessageType22Broadcast, MessageType24PartA,
-                            MessageType24PartB,
-                            MessageType25AddressedStructured,
-                            MessageType25AddressedUnstructured,
-                            MessageType25BroadcastStructured,
-                            MessageType25BroadcastUnstructured,
-                            MessageType26AddressedStructured,
-                            MessageType26BroadcastStructured,
-                            MessageType26BroadcastUnstructured, from_turn,
-                            to_turn)
+from pyais.messages import (
+    MSG_CLASS, MessageType5, MessageType6,
+    MessageType18, MessageType22Addressed,
+    MessageType22Broadcast, MessageType24PartA,
+    MessageType24PartB,
+    MessageType25AddressedStructured,
+    MessageType25AddressedUnstructured,
+    MessageType25BroadcastStructured,
+    MessageType25BroadcastUnstructured,
+    MessageType26AddressedStructured,
+    MessageType26BroadcastStructured,
+    MessageType26BroadcastUnstructured
+)
 from pyais.stream import ByteStream
 from pyais.util import b64encode_str, bits2bytes, bytes2bits
 
@@ -61,7 +62,7 @@ class TestAIS(unittest.TestCase):
     "repeat": 0,
     "mmsi": 367533950,
     "status": 0,
-    "turn": null,
+    "turn": -128.0,
     "speed": 0.0,
     "accuracy": true,
     "lon": -122.408232,
@@ -120,7 +121,7 @@ class TestAIS(unittest.TestCase):
         assert msg['mmsi'] == 367533950
         assert msg['repeat'] == 0
         assert msg['status'] == NavigationStatus.UnderWayUsingEngine
-        assert msg['turn'] is None
+        assert msg['turn'] == TurnRate.NO_TI_DEFAULT
         assert msg['speed'] == 0
         assert msg['accuracy'] == 1
         assert round(msg['lat'], 4) == 37.8084
@@ -152,7 +153,7 @@ class TestAIS(unittest.TestCase):
 
         assert content['repeat'] == 2
         assert content['mmsi'] == 211512520
-        assert content['turn'] is None
+        assert content['turn'] == TurnRate.NO_TI_DEFAULT
         assert content['speed'] == 0.3
         assert round(content['lat'], 4) == 53.5427
         assert round(content['lon'], 4) == 9.9794
@@ -1232,13 +1233,6 @@ class TestAIS(unittest.TestCase):
         assert data['data'] == '6y8Rj3/x'
         assert base64.b64decode(data['data']) == b'\xeb/\x11\x8f\x7f\xf1'
 
-    def test_turn_is_none_for_127_or_128(self):
-        self.assertIsNone(to_turn(127), None)
-        self.assertIsNone(to_turn(-127), None)
-        self.assertIsNone(to_turn(128), None)
-
-        self.assertEqual(0, from_turn(None))
-
     def test_rot_encode_yields_expected_values(self):
         encoded = encode_dict({'msg_type': 1, 'mmsi': 123, 'turn': 25.0})[0]
         assert encoded == "!AIVDO,1,1,,A,10000Nh600000000000000000000,0*05"
@@ -1448,3 +1442,12 @@ class TestAIS(unittest.TestCase):
         raw = b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*FF"
         with self.assertRaises(InvalidNMEAChecksum):
             _ = decode(raw, error_if_checksum_invalid=True)
+
+    def test_that_the_payload_does_not_change_when_encoding_decoding(self):
+        """Refer to https://github.com/M0r13n/pyais/issues/86"""
+        nmea = NMEAMessage(b'!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23')
+        ais = nmea.decode()
+        orig_bits = nmea.bit_array.to01()
+        actual_bits = ais.to_bitarray().to01()
+
+        self.assertEqual(orig_bits, actual_bits)
