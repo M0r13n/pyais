@@ -8,7 +8,7 @@ import attr
 from bitarray import bitarray
 
 from pyais.constants import TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
-    TransmitMode, StationIntervals
+    TransmitMode, StationIntervals, TurnRate
 from pyais.exceptions import InvalidNMEAMessageException, UnknownMessageException, UnknownPartNoException, \
     InvalidDataTypeException
 from pyais.util import decode_into_bit_array, compute_checksum, get_itdma_comm_state, get_sotdma_comm_state, int_to_bin, str_to_bin, \
@@ -233,6 +233,9 @@ class NMEAMessage(object):
         else:
             raise TypeError(f"Index must be str, not {type(item).__name__}")
 
+    def __hash__(self) -> int:
+        return hash(self.raw)
+
     def asdict(self) -> Dict[str, Any]:
         """
         Convert the class to dict.
@@ -367,7 +370,7 @@ class Payload(abc.ABC):
 
     def to_bitarray(self) -> bitarray:
         """
-        Convert a payload to binary.
+        Convert all attributes of a given Payload/Message to binary.
         """
         out = bitarray()
         for field in self.fields():
@@ -538,18 +541,23 @@ def from_mmsi(v: typing.Union[str, int]) -> int:
     return int(v)
 
 
-def to_turn(turn: typing.Union[int, float]) -> typing.Optional[float]:
+def to_turn(turn: typing.Union[int, float]) -> typing.Union[float, int, TurnRate]:
     if not turn:
         return 0.0
-    elif abs(turn) == 127 or abs(turn) == 128:
-        return None
-    else:
-        return math.copysign(int((turn / 4.733) ** 2), turn)
+    elif abs(turn) == 127:
+        return TurnRate(int(turn))
+    elif abs(turn) == 128:
+        return TurnRate.NO_TI_DEFAULT
+
+    return math.copysign(int((turn / 4.733) ** 2), turn)
 
 
-def from_turn(turn: typing.Optional[typing.Union[int, float]]) -> int:
-    if turn is None:
+def from_turn(turn: typing.Optional[typing.Union[int, float, TurnRate]]) -> int:
+    if not turn:
         return 0
+    elif abs(turn) == 127 or abs(turn) == 128:
+        return int(turn)
+
     return int(math.copysign(round(4.733 * math.sqrt(abs(turn))), turn))
 
 
@@ -617,7 +625,7 @@ class MessageType1(Payload, CommunicationStateMixin):
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
     status = bit_field(4, int, default=0, converter=NavigationStatus.from_value, signed=False)
-    turn = bit_field(8, float, default=0, signed=True, to_converter=to_turn, from_converter=from_turn)
+    turn = bit_field(8, float, default=TurnRate.NO_TI_DEFAULT, signed=True, to_converter=to_turn, from_converter=from_turn)
     speed = bit_field(10, float, from_converter=from_speed, to_converter=to_speed, default=0, signed=False)
     accuracy = bit_field(1, bool, default=0, signed=False)
     lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, default=0, signed=True)

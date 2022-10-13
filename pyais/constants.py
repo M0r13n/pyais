@@ -9,6 +9,16 @@ ANSI_RED = '\x1b[31m'
 ANSI_RESET = '\x1b[0m'
 
 
+class TurnRate(IntEnum):
+    # Source: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
+    # turning right at more than 5deg/30s (No TI available)
+    NO_TI_RIGHT = 127
+    # turning left at more than 5deg/30s (No TI available)
+    NO_TI_LEFT = -127
+    # 80 hex) indicates no turn information available (default)
+    NO_TI_DEFAULT = -128
+
+
 class TalkerID(str, Enum):
     """ Enum of all  NMEA talker IDs.
     See: https://gpsd.gitlab.io/gpsd/AIVDM.html#_talker_ids"""
