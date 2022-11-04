@@ -8,6 +8,7 @@ from typing import Any, Generator, Hashable, TYPE_CHECKING, Union, Dict
 from bitarray import bitarray
 
 from pyais.constants import SyncState
+from pyais.exceptions import NonPrintableCharacterException
 
 if TYPE_CHECKING:
     BaseDict = OrderedDict[Hashable, Any]
@@ -30,8 +31,8 @@ def decode_into_bit_array(data: bytes, fill_bits: int = 0) -> bitarray:
     bit_arr = bitarray()
     length = len(data)
     for i, c in enumerate(data):
-        if c < 0x30 or c > 0x77 or 0x57 < c < 0x6:
-            raise ValueError(f"Invalid character: {chr(c)}")
+        if not 0x20 <= c <= 0x7e:
+            raise NonPrintableCharacterException(f"Non printable character: '{hex(c)}'")
 
         # Convert 8 bit binary to 6 bit binary
         c -= 0x30 if (c < 0x60) else 0x38
