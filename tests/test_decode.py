@@ -12,7 +12,7 @@ from pyais.constants import (EpfdType, ManeuverIndicator, NavAid,
                              NavigationStatus, ShipType, StationType, SyncState,
                              TransmitMode, TurnRate)
 from pyais.decode import decode
-from pyais.exceptions import InvalidNMEAChecksum, UnknownMessageException
+from pyais.exceptions import InvalidNMEAChecksum, UnknownMessageException, NonPrintableCharacterException
 from pyais.messages import (
     MSG_CLASS, MessageType5, MessageType6,
     MessageType18, MessageType22Addressed,
@@ -27,7 +27,7 @@ from pyais.messages import (
     MessageType26BroadcastUnstructured
 )
 from pyais.stream import ByteStream
-from pyais.util import b64encode_str, bits2bytes, bytes2bits
+from pyais.util import b64encode_str, bits2bytes, bytes2bits, decode_into_bit_array
 
 
 def ensure_type_for_msg_dict(msg_dict: typing.Dict[str, typing.Any]) -> None:
@@ -1451,3 +1451,19 @@ class TestAIS(unittest.TestCase):
         actual_bits = ais.to_bitarray().to01()
 
         self.assertEqual(orig_bits, actual_bits)
+
+    def test_issue_88(self):
+        """There was a decoding bug when the NMEA payload contains special characters"""
+        raw = b"!AIVDM,1,1,,B,3815;`100!PhmnPPwL=3OmUd0Dg:,0*45"
+        nmea = NMEAMessage(raw)
+        ais = nmea.decode()
+        self.assertIsNotNone(ais)
+
+    def test_decode_into_bit_array_with_non_printable_characters(self):
+        payload = b'3815;`100!Phmn\x1fPPwL=3OmUd0Dg:'
+        with self.assertRaises(NonPrintableCharacterException):
+            _ = decode_into_bit_array(payload)
+
+        payload = b'3815;`100!Phmn\x7fPPwL=3OmUd0Dg:'
+        with self.assertRaises(NonPrintableCharacterException):
+            _ = decode_into_bit_array(payload)

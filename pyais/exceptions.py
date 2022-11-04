@@ -30,3 +30,7 @@ class UnknownPartNoException(AISBaseException):
 
 class InvalidDataTypeException(AISBaseException):
     """An Unknown data type was passed to an encoding/decoding function"""
+
+
+class NonPrintableCharacterException(AISBaseException):
+    """A non printable ASCII character (0x20 (space) to 0x7e (~)) can not be decoded"""
