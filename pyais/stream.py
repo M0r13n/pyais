@@ -1,11 +1,9 @@
 import typing
 from abc import ABC, abstractmethod
 from socket import AF_INET, SOCK_DGRAM, SOCK_STREAM, socket
-from typing import (
-    BinaryIO, Generator, Generic, Iterable, List, TypeVar, cast
-)
+from typing import BinaryIO, Generator, Generic, Iterable, List, TypeVar, cast
 
-from pyais.exceptions import InvalidNMEAMessageException
+from pyais.exceptions import InvalidNMEAMessageException, NonPrintableCharacterException
 from pyais.messages import NMEAMessage
 
 F = TypeVar("F", BinaryIO, socket, None)
@@ -52,12 +50,12 @@ class AssembleMessages(ABC):
 
             try:
                 msg: NMEAMessage = NMEAMessage(line)
-            except InvalidNMEAMessageException:
+            except (InvalidNMEAMessageException, NonPrintableCharacterException):
                 # Be gentle and just skip invalid messages
                 continue
 
             if msg.is_single:
-                yield msg
+                yield msg 
             else:
                 # Instead of None use -1 as a seq_id
                 seq_id = msg.seq_id
