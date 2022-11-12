@@ -55,7 +55,7 @@ class AssembleMessages(ABC):
                 continue
 
             if msg.is_single:
-                yield msg 
+                yield msg
             else:
                 # Instead of None use -1 as a seq_id
                 seq_id = msg.seq_id
