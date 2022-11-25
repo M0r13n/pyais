@@ -1,14 +1,16 @@
+import logging
 import typing
+
 from abc import ABC, abstractmethod
 from socket import AF_INET, SOCK_DGRAM, SOCK_STREAM, socket
-from typing import (
-    BinaryIO, Generator, Generic, Iterable, List, TypeVar, cast
-)
+from typing import BinaryIO, Generator, Generic, Iterable, List, TypeVar, cast
 
 from pyais.exceptions import InvalidNMEAMessageException
-from pyais.messages import NMEAMessage
+from pyais.messages import NMEAMessage, PGHPMessage
+
 
 F = TypeVar("F", BinaryIO, socket, None)
+Message = typing.Union[NMEAMessage, PGHPMessage]
 DOLLAR_SIGN = ord("$")
 EXCLAMATION_POINT = ord("!")
 
@@ -19,7 +21,11 @@ def should_parse(byte_str: bytes) -> bool:
     approach to check (or guess) if byte string is a valid nmea_message.
     """
     # The byte sequence is not empty and starts with a $ or a ! and has 6 ','
-    return len(byte_str) > 0 and byte_str[0] in (DOLLAR_SIGN, EXCLAMATION_POINT) and byte_str.count(b",") == 6
+    return (
+        len(byte_str) > 0
+        and byte_str[0] in (DOLLAR_SIGN, EXCLAMATION_POINT)
+        and byte_str.count(b",") in (6, 13)
+    )
 
 
 class AssembleMessages(ABC):
@@ -45,40 +51,61 @@ class AssembleMessages(ABC):
         return next(iter(self))
 
     def _assemble_messages(self) -> Generator[NMEAMessage, None, None]:
-        buffer: typing.Dict[typing.Tuple[int, str], typing.List[typing.Optional[NMEAMessage]]] = {}
+        buffer: typing.Dict[
+            typing.Tuple[int, str], typing.List[typing.Optional[NMEAMessage]]
+        ] = {}
+
+        last_meta = None
 
         messages = self._iter_messages()
         for line in messages:
-
             try:
-                msg: NMEAMessage = NMEAMessage(line)
+                msg: Message = NMEAMessage(line)
             except InvalidNMEAMessageException:
-                # Be gentle and just skip invalid messages
-                continue
+                try:
+                    msg: Message = PGHPMessage(line)
+                except:
+                    logging.exception('Whatever')
+                    # Be gentle and just skip invalid messages
+                    continue
 
-            if msg.is_single:
+            if msg.is_single and not msg.is_meta:
+                if last_meta:
+                     msg.meta = {'t': last_meta.t}
+                     last_meta = None
                 yield msg
             else:
-                # Instead of None use -1 as a seq_id
-                seq_id = msg.seq_id
-                if seq_id is None:
-                    seq_id = -1
+                if msg.is_multi:
+                    # Instead of None use -1 as a seq_id
+                    seq_id = msg.seq_id
+                    if seq_id is None:
+                        seq_id = -1
 
-                # seq_id and channel make a unique stream
-                slot = (seq_id, msg.channel)
+                    # seq_id and channel make a unique stream
+                    slot = (seq_id, msg.channel)
 
-                if slot not in buffer:
-                    # Create a new array in the buffer that has enough space for all fragments
-                    buffer[slot] = [None, ] * max(msg.fragment_count, 0xff)
+                    if slot not in buffer:
+                        # Create a new array in the buffer that has enough space for all fragments
+                        buffer[slot] = [
+                            None,
+                        ] * max(msg.fragment_count, 0xFF)
 
-                buffer[slot][msg.frag_num - 1] = msg
-                msg_parts = buffer[slot][0:msg.fragment_count]
+                    buffer[slot][msg.frag_num - 1] = msg
+                    msg_parts = buffer[slot][0 : msg.fragment_count]
 
-                # Check if all fragments are found
-                not_none_parts = [m for m in msg_parts if m is not None]
-                if len(not_none_parts) == msg.fragment_count:
-                    yield NMEAMessage.assemble_from_iterable(not_none_parts)
-                    del buffer[slot]
+                    # Check if all fragments are found
+                    not_none_parts = [m for m in msg_parts if m is not None]
+                    if len(not_none_parts) == msg.fragment_count:
+                        multi_msg = NMEAMessage.assemble_from_iterable(not_none_parts)
+                        if last_meta:
+                            multi_msg.meta = {'t': last_meta.t}
+                            last_meta = None
+                        yield multi_msg
+                        del buffer[slot]
+                elif msg.is_meta:
+                    last_meta = msg
+                else:
+                    raise ValueError('message is not multi  or meta')
 
     @abstractmethod
     def _iter_messages(self) -> Generator[bytes, None, None]:
@@ -86,19 +113,26 @@ class AssembleMessages(ABC):
 
 
 class IterMessages(AssembleMessages):
-
     def __init__(self, messages: Iterable[bytes]):
         # If the user passes a single byte string make it into a list
         if isinstance(messages, bytes):
-            messages = [messages, ]
+            messages = [
+                messages,
+            ]
         self.messages: Iterable[bytes] = messages
 
     @classmethod
-    def from_strings(cls, messages: Iterable[str], ignore_encoding_errors: bool = False,
-                     encoding: str = "utf-8") -> "IterMessages":
+    def from_strings(
+        cls,
+        messages: Iterable[str],
+        ignore_encoding_errors: bool = False,
+        encoding: str = "utf-8",
+    ) -> "IterMessages":
         # If the users passes a single message as string, make it a list
         if isinstance(messages, str):
-            messages = [messages, ]
+            messages = [
+                messages,
+            ]
 
         encoded: List[bytes] = []
         for message in messages:
@@ -118,7 +152,6 @@ class IterMessages(AssembleMessages):
 
 
 class Stream(AssembleMessages, Generic[F], ABC):
-
     def __init__(self, fobj: F) -> None:
         """
         Create a new Stream-like object.
@@ -189,7 +222,7 @@ class SocketStream(Stream[socket]):
         return b""
 
     def read(self) -> Generator[bytes, None, None]:
-        partial: bytes = b''
+        partial: bytes = b""
         while True:
             body = self.recv()
 
@@ -197,7 +230,7 @@ class SocketStream(Stream[socket]):
             if not body:
                 return None
 
-            lines = body.split(b'\r\n')
+            lines = body.split(b"\r\n")
 
             line = partial + lines[0]
             if line:
@@ -209,7 +242,6 @@ class SocketStream(Stream[socket]):
 
 
 class UDPReceiver(SocketStream):
-
     def __init__(self, host: str, port: int) -> None:
         sock: socket = socket(AF_INET, SOCK_DGRAM)
         sock.bind((host, port))
@@ -221,9 +253,9 @@ class UDPReceiver(SocketStream):
 
 class TCPConnection(SocketStream):
     """
-     Read AIS data from a remote TCP server
-     https://en.wikipedia.org/wiki/NMEA_0183
-     """
+    Read AIS data from a remote TCP server
+    https://en.wikipedia.org/wiki/NMEA_0183
+    """
 
     def recv(self) -> bytes:
         return self._fobj.recv(self.BUF_SIZE)
