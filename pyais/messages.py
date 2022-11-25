@@ -2,20 +2,50 @@ import abc
 import json
 import math
 import typing
+import datetime
 from typing import Any, Dict, Optional, Sequence, Union
 
 import attr
 from bitarray import bitarray
 
-from pyais.constants import TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
-    TransmitMode, StationIntervals
-from pyais.exceptions import InvalidNMEAMessageException, UnknownMessageException, UnknownPartNoException, \
-    InvalidDataTypeException
-from pyais.util import decode_into_bit_array, compute_checksum, get_itdma_comm_state, get_sotdma_comm_state, int_to_bin, str_to_bin, \
-    encode_ascii_6, from_bytes, from_bytes_signed, decode_bin_as_ascii6, get_int, chk_to_int, coerce_val, \
-    bits2bytes, bytes2bits, b64encode_str
+from pyais.constants import (
+    TalkerID,
+    NavigationStatus,
+    ManeuverIndicator,
+    EpfdType,
+    ShipType,
+    NavAid,
+    StationType,
+    TransmitMode,
+    StationIntervals,
+)
+from pyais.exceptions import (
+    InvalidNMEAMessageException,
+    UnknownMessageException,
+    UnknownPartNoException,
+    InvalidDataTypeException,
+)
+from pyais.util import (
+    decode_into_bit_array,
+    compute_checksum,
+    get_itdma_comm_state,
+    get_sotdma_comm_state,
+    int_to_bin,
+    str_to_bin,
+    encode_ascii_6,
+    from_bytes,
+    from_bytes_signed,
+    decode_bin_as_ascii6,
+    get_int,
+    chk_to_int,
+    coerce_val,
+    bits2bytes,
+    bytes2bits,
+    b64encode_str,
+)
 
 NMEA_VALUE = typing.Union[str, float, int, bool, bytes]
+
 
 
 def validate_message(msg: bytes) -> None:
@@ -39,24 +69,16 @@ def validate_message(msg: bytes) -> None:
 
     # The only allowed blank value may be the message ID
     if not values[0]:
-        raise InvalidNMEAMessageException(
-            "The NMEA message type is empty!"
-        )
+        raise InvalidNMEAMessageException("The NMEA message type is empty!")
 
     if not values[1]:
-        raise InvalidNMEAMessageException(
-            "Number of sentences is empty!"
-        )
+        raise InvalidNMEAMessageException("Number of sentences is empty!")
 
     if not values[2]:
-        raise InvalidNMEAMessageException(
-            "Sentence number is empty!"
-        )
+        raise InvalidNMEAMessageException("Sentence number is empty!")
 
     if not values[5]:
-        raise InvalidNMEAMessageException(
-            "The NMEA message body (payload) is empty."
-        )
+        raise InvalidNMEAMessageException("The NMEA message body (payload) is empty.")
 
     if not values[6]:
         raise InvalidNMEAMessageException(
@@ -65,31 +87,27 @@ def validate_message(msg: bytes) -> None:
 
     try:
         sentence_num = int(values[1])
-        if sentence_num > 0xff:
+        if sentence_num > 0xFF:
             raise InvalidNMEAMessageException(
                 "Number of sentences exceeds limit of 9 total sentences."
             )
     except ValueError:
-        raise InvalidNMEAMessageException(
-            "Invalid sentence number. No Number."
-        )
+        raise InvalidNMEAMessageException("Invalid sentence number. No Number.")
 
     if values[2]:
         try:
             sentence_num = int(values[2])
-            if sentence_num > 0xff:
+            if sentence_num > 0xFF:
                 raise InvalidNMEAMessageException(
                     " Sentence number exceeds limit of 9 total sentences."
                 )
         except ValueError:
-            raise InvalidNMEAMessageException(
-                "Invalid Sentence number. No Number."
-            )
+            raise InvalidNMEAMessageException("Invalid Sentence number. No Number.")
 
     if values[3]:
         try:
             sentence_num = int(values[3])
-            if sentence_num > 0xff:
+            if sentence_num > 0xFF:
                 raise InvalidNMEAMessageException(
                     "Number of sequential message ID exceeds limit of 9 total sentences."
                 )
@@ -105,12 +123,15 @@ def validate_message(msg: bytes) -> None:
         )
 
 
-def bit_field(width: int, d_type: typing.Type[typing.Any],
-              from_converter: typing.Optional[typing.Callable[[typing.Any], typing.Any]] = None,
-              to_converter: typing.Optional[typing.Callable[[typing.Any], typing.Any]] = None,
-              default: typing.Optional[typing.Any] = None,
-              signed: bool = False,
-              **kwargs: typing.Any) -> typing.Any:
+def bit_field(
+    width: int,
+    d_type: typing.Type[typing.Any],
+    from_converter: typing.Optional[typing.Callable[[typing.Any], typing.Any]] = None,
+    to_converter: typing.Optional[typing.Callable[[typing.Any], typing.Any]] = None,
+    default: typing.Optional[typing.Any] = None,
+    signed: bool = False,
+    **kwargs: typing.Any,
+) -> typing.Any:
     """
     Simple wrapper around the attr.ib interface to be used in conjunction with the Payload class.
 
@@ -124,18 +145,27 @@ def bit_field(width: int, d_type: typing.Type[typing.Any],
     """
     return attr.ib(
         metadata={
-            'width': width,
-            'd_type': d_type,
-            'from_converter': from_converter,
-            'to_converter': to_converter,
-            'signed': signed,
-            'default': default,
+            "width": width,
+            "d_type": d_type,
+            "from_converter": from_converter,
+            "to_converter": to_converter,
+            "signed": signed,
+            "default": default,
         },
-        **kwargs
+        **kwargs,
     )
 
 
-ENUM_FIELDS = {'status', 'maneuver', 'epfd', 'ship_type', 'aid_type', 'station_type', 'txrx', 'interval'}
+ENUM_FIELDS = {
+    "status",
+    "maneuver",
+    "epfd",
+    "ship_type",
+    "aid_type",
+    "station_type",
+    "txrx",
+    "interval",
+}
 
 
 class JSONEncoder(json.JSONEncoder):
@@ -147,20 +177,76 @@ class JSONEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
+class PGHPMessage(object):
+    def __init__(self, raw: bytes) -> None:
+        self.raw: bytes = raw
+        self.validate_message(raw)
+        values = self.raw.split(b',')
+        [year, month, day, hour, minute, second, millisecond] = values[2:9]
+        t = datetime.datetime(
+            year=int(year),
+            month=int(month),
+            day=int(day),
+            hour=int(hour),
+            minute=int(minute),
+            second=int(second),
+            microsecond=int(millisecond) * 1000
+        )
+        # MMSI country code where the message originates from
+        country = values[9]
+        # The MMSI number of the region
+        region = values[10]
+        # MMSI number of the site transponder
+        pss = values[11]
+        # buffered data from a BSC will be designated with 0, online data with 1
+        online_data = values[12]
+        # checksum value of the NMEA sentence
+
+        cc = values[13].split(b'*')[0]
+        # checksum value as described in IEC 61162-1/
+        hh = values[13].split(b'*')[1]
+
+
+        self.t = t
+        self.values = values
+
+
+
+    @staticmethod
+    def validate_message(raw):
+        values = raw.split(b',')
+        assert len(values) == 14, "expected message of length 14"
+        assert len(values[13].split(b'*')), "expected checksum of length 2, split by * in last element"
+
+
+    @property
+    def is_single(self):
+        return True
+
+    @property
+    def is_meta(self):
+        return True
+
+    @property
+    def is_multi(self) -> bool:
+        return not self.is_single
+
+
 class NMEAMessage(object):
     __slots__ = (
-        'ais_id',
-        'raw',
-        'talker',
-        'type',
-        'frag_cnt',
-        'frag_num',
-        'seq_id',
-        'channel',
-        'payload',
-        'fill_bits',
-        'checksum',
-        'bit_array'
+        "ais_id",
+        "raw",
+        "talker",
+        "type",
+        "frag_cnt",
+        "frag_num",
+        "seq_id",
+        "channel",
+        "payload",
+        "fill_bits",
+        "checksum",
+        "bit_array",
+        "meta"
     )
 
     def __init__(self, raw: bytes) -> None:
@@ -186,15 +272,15 @@ class NMEAMessage(object):
             message_id,
             channel,
             payload,
-            checksum
+            checksum,
         ) = values
 
         # The talker is identified by the next 2 characters
-        talker: str = head[1:3].decode('ascii')
+        talker: str = head[1:3].decode("ascii")
         self.talker: TalkerID = TalkerID(talker)
 
         # The type of message is then identified by the next 3 characters
-        self.type: str = head[3:].decode('ascii')
+        self.type: str = head[3:].decode("ascii")
 
         # Total number of fragments
         self.frag_cnt: int = int(message_fragments)
@@ -203,7 +289,7 @@ class NMEAMessage(object):
         # Optional message index for multiline messages
         self.seq_id: Optional[int] = int(message_id) if message_id else None
         # Channel (A or B)
-        self.channel: str = channel.decode('ascii')
+        self.channel: str = channel.decode("ascii")
         # Decoded message payload as byte string
         self.payload: bytes = payload
 
@@ -216,6 +302,8 @@ class NMEAMessage(object):
         # Finally decode bytes into bits
         self.bit_array: bitarray = decode_into_bit_array(self.payload, self.fill_bits)
         self.ais_id: int = get_int(self.bit_array, 0, 6)
+
+        self.meta = None
 
     def __str__(self) -> str:
         return str(self.raw)
@@ -235,18 +323,20 @@ class NMEAMessage(object):
         @return: A dictionary that holds all fields, defined in __slots__
         """
         return {
-            'ais_id': self.ais_id,  # int
-            'raw': self.raw.decode('ascii'),  # str
-            'talker': self.talker.value,  # str
-            'type': self.type,  # str
-            'frag_cnt': self.frag_cnt,  # int
-            'frag_num': self.frag_num,  # int
-            'seq_id': self.seq_id,  # None or int
-            'channel': self.channel,  # str
-            'payload': self.payload.decode('ascii'),  # str
-            'fill_bits': self.fill_bits,  # int
-            'checksum': self.checksum,  # int
-            'bit_array': self.bit_array.to01(),  # str
+            "ais_id": self.ais_id,  # int
+            "raw": self.raw.decode("ascii"),  # str
+            "talker": self.talker.value,  # str
+            "type": self.type,  # str
+            "frag_cnt": self.frag_cnt,  # int
+            "frag_num": self.frag_num,  # int
+            "seq_id": self.seq_id,  # None or int
+            "channel": self.channel,  # str
+            "payload": self.payload.decode("ascii"),  # str
+            "fill_bits": self.fill_bits,  # int
+            "checksum": self.checksum,  # int
+            "bit_array": self.bit_array.to01(),# str
+            # This field can be set by a message that encapsulates this message
+            "meta": self.meta # obj?
         }
 
     def decode_and_merge(self, enum_as_int: bool = False) -> Dict[str, Any]:
@@ -257,17 +347,19 @@ class NMEAMessage(object):
         @return: A dictionary that holds all fields, defined in __slots__ + the decoded msg
         """
         rlt = self.asdict()
-        del rlt['bit_array']
+        del rlt["bit_array"]
         decoded = self.decode()
         rlt.update(decoded.asdict(enum_as_int))
         return rlt
 
     def __eq__(self, other: object) -> bool:
-        return all([getattr(self, attr) == getattr(other, attr) for attr in self.__slots__])
+        return all(
+            [getattr(self, attr) == getattr(other, attr) for attr in self.__slots__]
+        )
 
     @classmethod
     def from_string(cls, nmea_str: str) -> "NMEAMessage":
-        return cls(nmea_str.encode('utf-8'))
+        return cls(nmea_str.encode("utf-8"))
 
     @classmethod
     def from_bytes(cls, nmea_byte_str: bytes) -> "NMEAMessage":
@@ -280,13 +372,13 @@ class NMEAMessage(object):
         :param messages: Sequence of NMEA messages
         :return: Single message
         """
-        raw = b''
-        data = b''
+        raw = b""
+        data = b""
         bit_array = bitarray()
 
         for i, msg in enumerate(sorted(messages, key=lambda m: m.frag_num)):
             if i > 0:
-                raw += b'\n'
+                raw += b"\n"
             raw += msg.raw
             data += msg.payload
             bit_array += msg.bit_array
@@ -305,6 +397,10 @@ class NMEAMessage(object):
         return not self.seq_id and self.frag_num == self.frag_cnt == 1
 
     @property
+    def is_meta(self) -> bool:
+        return False
+
+    @property
     def is_multi(self) -> bool:
         return not self.is_single
 
@@ -321,9 +417,14 @@ class NMEAMessage(object):
         MessageType18(msg_type=18, ...)
         """
         try:
-            return MSG_CLASS[self.ais_id].from_bitarray(self.bit_array)
+            decoded = MSG_CLASS[self.ais_id].from_bitarray(self.bit_array)
+            if self.meta is not None:
+                decoded.meta = self.meta
+            return decoded
         except KeyError as e:
-            raise UnknownMessageException(f"The message {self} is not supported!") from e
+            raise UnknownMessageException(
+                f"The message {self} is not supported!"
+            ) from e
 
 
 @attr.s(slots=True)
@@ -345,12 +446,14 @@ class Payload(abc.ABC):
         if val is None:
             return val
 
-        d_type = field.metadata['d_type']
+        d_type = field.metadata["d_type"]
 
         try:
             coerced_val = coerce_val(val, d_type)
         except ValueError as err:
-            raise ValueError(f"Could not coerce value for field '{field.name}'") from err
+            raise ValueError(
+                f"Could not coerce value for field '{field.name}'"
+            ) from err
 
         return coerced_val
 
@@ -367,10 +470,10 @@ class Payload(abc.ABC):
         """
         out = bitarray()
         for field in self.fields():
-            width = field.metadata['width']
-            d_type = field.metadata['d_type']
-            converter = field.metadata['from_converter']
-            signed = field.metadata['signed']
+            width = field.metadata["width"]
+            d_type = field.metadata["d_type"]
+            converter = field.metadata["from_converter"]
+            signed = field.metadata["signed"]
 
             val = getattr(self, field.name)
             if val is None:
@@ -386,7 +489,7 @@ class Payload(abc.ABC):
             elif d_type == str:
                 bits = str_to_bin(val, width)
             elif d_type == bytes:
-                bits = bytes2bits(val, default=bitarray('0' * width))
+                bits = bytes2bits(val, default=bitarray("0" * width))
             else:
                 raise InvalidDataTypeException(d_type)
 
@@ -422,7 +525,7 @@ class Payload(abc.ABC):
                 args[key] = val
             except KeyError:
                 # Check if a default value was provided
-                default = field.metadata['default']
+                default = field.metadata["default"]
                 if default is not None:
                     args[key] = default
         return cls(**args)  # type:ignore
@@ -441,18 +544,18 @@ class Payload(abc.ABC):
                 kwargs[field.name] = None
                 continue
 
-            width = field.metadata['width']
-            d_type = field.metadata['d_type']
-            converter = field.metadata['to_converter']
+            width = field.metadata["width"]
+            d_type = field.metadata["d_type"]
+            converter = field.metadata["to_converter"]
 
             end = min(len(bit_arr), cur + width)
-            bits = bit_arr[cur: end]
+            bits = bit_arr[cur:end]
 
             val: typing.Any
             # Get the correct data type and decoding function
             if d_type in (int, bool, float):
                 shift = (8 - ((end - cur) % 8)) % 8
-                if field.metadata['signed']:
+                if field.metadata["signed"]:
                     val = from_bytes_signed(bits) >> shift
                 else:
                     val = from_bytes(bits) >> shift
@@ -473,7 +576,9 @@ class Payload(abc.ABC):
 
         return cls(**kwargs)  # type:ignore
 
-    def asdict(self, enum_as_int: bool = False) -> typing.Dict[str, typing.Optional[NMEA_VALUE]]:
+    def asdict(
+        self, enum_as_int: bool = False
+    ) -> typing.Dict[str, typing.Optional[NMEA_VALUE]]:
         """
         Convert the message to a dictionary.
         @param enum_as_int: If set to True all Enum values will be returned as raw ints.
@@ -497,6 +602,7 @@ class Payload(abc.ABC):
 #
 # Conversion functions
 #
+
 
 def from_speed(v: typing.Union[int, float]) -> float:
     return v * 10.0
@@ -548,6 +654,9 @@ def from_turn(turn: typing.Optional[typing.Union[int, float]]) -> int:
         return 0
     return int(math.copysign(round(4.733 * math.sqrt(abs(turn))), turn))
 
+class MetaMixin:
+    def __init__(self, *args, **kwargs):
+        self.meta = None
 
 class CommunicationStateMixin:
     """
@@ -559,20 +668,20 @@ class CommunicationStateMixin:
 
     radio: int  # Type hint to make mypy happy
 
-    MAX_COMM_STATE_VALUE = 0x7ffff
+    MAX_COMM_STATE_VALUE = 0x7FFFF
 
     def get_communication_state(self) -> Dict[str, typing.Optional[int]]:
         result: Dict[str, typing.Optional[int]] = {
-            'received_stations': None,
-            'slot_number': None,
-            'utc_hour': None,
-            'utc_minute': None,
-            'slot_offset': None,
-            'slot_timeout': None,
-            'sync_state': None,
-            'keep_flag': None,
-            'slot_increment': None,
-            'num_slots': None,
+            "received_stations": None,
+            "slot_number": None,
+            "utc_hour": None,
+            "utc_minute": None,
+            "slot_offset": None,
+            "slot_timeout": None,
+            "sync_state": None,
+            "keep_flag": None,
+            "slot_increment": None,
+            "num_slots": None,
         }
 
         if self.is_sotdma:
@@ -599,31 +708,72 @@ class CommunicationStateMixin:
             return self.radio & self.MAX_COMM_STATE_VALUE
         except AttributeError as err:
             raise ValueError(
-                'Communication State is only available for messages with radio field'
+                "Communication State is only available for messages with radio field"
             ) from err
 
 
+
+
 @attr.s(slots=True)
-class MessageType1(Payload, CommunicationStateMixin):
+class MessageType1(Payload, CommunicationStateMixin, MetaMixin):
     """
     AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
     """
+
     msg_type = bit_field(6, int, default=1, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
-    status = bit_field(4, int, default=0, converter=NavigationStatus.from_value, signed=False)
-    turn = bit_field(8, float, default=0, signed=True, to_converter=to_turn, from_converter=from_turn)
-    speed = bit_field(10, float, from_converter=from_speed, to_converter=to_speed, default=0, signed=False)
+    status = bit_field(
+        4, int, default=0, converter=NavigationStatus.from_value, signed=False
+    )
+    turn = bit_field(
+        8, float, default=0, signed=True, to_converter=to_turn, from_converter=from_turn
+    )
+    speed = bit_field(
+        10,
+        float,
+        from_converter=from_speed,
+        to_converter=to_speed,
+        default=0,
+        signed=False,
+    )
     accuracy = bit_field(1, bool, default=0, signed=False)
-    lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, default=0, signed=True)
-    lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, default=0, signed=True)
-    course = bit_field(12, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    lon = bit_field(
+        28,
+        float,
+        from_converter=from_lat_lon,
+        to_converter=to_lat_lon,
+        default=0,
+        signed=True,
+    )
+    lat = bit_field(
+        27,
+        float,
+        from_converter=from_lat_lon,
+        to_converter=to_lat_lon,
+        default=0,
+        signed=True,
+    )
+    course = bit_field(
+        12,
+        float,
+        from_converter=from_10th,
+        to_converter=to_10th,
+        default=0,
+        signed=False,
+    )
     heading = bit_field(9, int, default=0, signed=False)
     second = bit_field(6, int, default=0, signed=False)
-    maneuver = bit_field(2, int, default=0, from_converter=ManeuverIndicator.from_value,
-                         to_converter=ManeuverIndicator.from_value, signed=False)
-    spare_1 = bit_field(3, bytes, default=b'')
+    maneuver = bit_field(
+        2,
+        int,
+        default=0,
+        from_converter=ManeuverIndicator.from_value,
+        to_converter=ManeuverIndicator.from_value,
+        signed=False,
+    )
+    spare_1 = bit_field(3, bytes, default=b"")
     raim = bit_field(1, bool, default=0)
     radio = bit_field(19, int, default=0, signed=False)
 
@@ -633,6 +783,7 @@ class MessageType2(MessageType1):
     AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
     """
+
     msg_type = bit_field(6, int, default=2)
 
 
@@ -641,15 +792,17 @@ class MessageType3(MessageType1):
     AIS Vessel position report using ITDMA (Incremental Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
     """
+
     msg_type = bit_field(6, int, default=3)
 
 
 @attr.s(slots=True)
-class MessageType4(Payload, CommunicationStateMixin):
+class MessageType4(Payload, CommunicationStateMixin, MetaMixin):
     """
     AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_4_base_station_report
     """
+
     msg_type = bit_field(6, int, default=4, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
@@ -660,72 +813,114 @@ class MessageType4(Payload, CommunicationStateMixin):
     minute = bit_field(6, int, default=0, signed=False)
     second = bit_field(6, int, default=0, signed=False)
     accuracy = bit_field(1, bool, default=0, signed=False)
-    lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
-    lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
-    epfd = bit_field(4, int, default=0, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value,
-                     signed=False)
-    spare_1 = bit_field(10, bytes, default=b'')
+    lon = bit_field(
+        28,
+        float,
+        from_converter=from_lat_lon,
+        to_converter=to_lat_lon,
+        signed=True,
+        default=0,
+    )
+    lat = bit_field(
+        27,
+        float,
+        from_converter=from_lat_lon,
+        to_converter=to_lat_lon,
+        signed=True,
+        default=0,
+    )
+    epfd = bit_field(
+        4,
+        int,
+        default=0,
+        from_converter=EpfdType.from_value,
+        to_converter=EpfdType.from_value,
+        signed=False,
+    )
+    spare_1 = bit_field(10, bytes, default=b"")
     raim = bit_field(1, bool, default=0)
     radio = bit_field(19, int, default=0, signed=False)
 
 
 @attr.s(slots=True)
-class MessageType5(Payload):
+class MessageType5(Payload, MetaMixin):
     """
     Static and Voyage Related Data
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_5_static_and_voyage_related_data
     """
+
     msg_type = bit_field(6, int, default=5, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
     ais_version = bit_field(2, int, default=0, signed=False)
     imo = bit_field(30, int, default=0, signed=False)
-    callsign = bit_field(42, str, default='')
-    shipname = bit_field(120, str, default='')
-    ship_type = bit_field(8, int, default=0, from_converter=ShipType.from_value, to_converter=ShipType.from_value)
+    callsign = bit_field(42, str, default="")
+    shipname = bit_field(120, str, default="")
+    ship_type = bit_field(
+        8,
+        int,
+        default=0,
+        from_converter=ShipType.from_value,
+        to_converter=ShipType.from_value,
+    )
     to_bow = bit_field(9, int, default=0, signed=False)
     to_stern = bit_field(9, int, default=0, signed=False)
     to_port = bit_field(6, int, default=0, signed=False)
     to_starboard = bit_field(6, int, default=0, signed=False)
-    epfd = bit_field(4, int, default=0, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value)
+    epfd = bit_field(
+        4,
+        int,
+        default=0,
+        from_converter=EpfdType.from_value,
+        to_converter=EpfdType.from_value,
+    )
     month = bit_field(4, int, default=0, signed=False)
     day = bit_field(5, int, default=0, signed=False)
     hour = bit_field(5, int, default=0, signed=False)
     minute = bit_field(6, int, default=0, signed=False)
-    draught = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
-    destination = bit_field(120, str, default='')
+    draught = bit_field(
+        8,
+        float,
+        from_converter=from_10th,
+        to_converter=to_10th,
+        default=0,
+        signed=False,
+    )
+    destination = bit_field(120, str, default="")
     dte = bit_field(1, bool, default=0, signed=False)
-    spare_1 = bit_field(1, bytes, default=b'')
+    spare_1 = bit_field(1, bytes, default=b"")
 
 
 @attr.s(slots=True)
-class MessageType6(Payload):
+class MessageType6(Payload, MetaMixin):
     """
     Binary Addresses Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_4_base_station_report
     """
+
     msg_type = bit_field(6, int, default=6)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
     seqno = bit_field(2, int, default=0, signed=False)
     dest_mmsi = bit_field(30, int, from_converter=from_mmsi)
     retransmit = bit_field(1, bool, default=False, signed=False)
-    spare_1 = bit_field(1, bytes, default=b'')
+    spare_1 = bit_field(1, bytes, default=b"")
     dac = bit_field(10, int, default=0, signed=False)
     fid = bit_field(6, int, default=0, signed=False)
-    data = bit_field(920, bytes, default=b'')
+    data = bit_field(920, bytes, default=b"")
 
 
 @attr.s(slots=True)
-class MessageType7(Payload):
+class MessageType7(Payload, MetaMixin):
     """
     Binary Acknowledge
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_7_binary_acknowledge
     """
+
     msg_type = bit_field(6, int, default=7, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
-    spare_1 = bit_field(2, bytes, default=b'')
+    spare_1 = bit_field(2, bytes, default=b"")
     mmsi1 = bit_field(30, int, default=0, from_converter=from_mmsi)
     mmsiseq1 = bit_field(2, int, default=0, signed=False)
     mmsi2 = bit_field(30, int, default=0, from_converter=from_mmsi)
@@ -737,26 +932,28 @@ class MessageType7(Payload):
 
 
 @attr.s(slots=True)
-class MessageType8(Payload):
+class MessageType8(Payload, MetaMixin):
     """
     Binary Acknowledge
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_8_binary_broadcast_message
     """
+
     msg_type = bit_field(6, int, default=8, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
-    spare_1 = bit_field(2, bytes, default=b'')
+    spare_1 = bit_field(2, bytes, default=b"")
     dac = bit_field(10, int, default=0, signed=False)
     fid = bit_field(6, int, default=0, signed=False)
-    data = bit_field(952, bytes, default=b'')
+    data = bit_field(952, bytes, default=b"")
 
 
 @attr.s(slots=True)
-class MessageType9(Payload, CommunicationStateMixin):
+class MessageType9(Payload, CommunicationStateMixin, MetaMixin):
     """
     Standard SAR Aircraft Position Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_9_standard_sar_aircraft_position_report
     """
+
     msg_type = bit_field(6, int, default=9, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
@@ -765,31 +962,53 @@ class MessageType9(Payload, CommunicationStateMixin):
     # speed over ground is in knots, not deciknots
     speed = bit_field(10, float, default=0, signed=False)
     accuracy = bit_field(1, bool, default=0, signed=False)
-    lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
-    lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
-    course = bit_field(12, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    lon = bit_field(
+        28,
+        float,
+        from_converter=from_lat_lon,
+        to_converter=to_lat_lon,
+        signed=True,
+        default=0,
+    )
+    lat = bit_field(
+        27,
+        float,
+        from_converter=from_lat_lon,
+        to_converter=to_lat_lon,
+        signed=True,
+        default=0,
+    )
+    course = bit_field(
+        12,
+        float,
+        from_converter=from_10th,
+        to_converter=to_10th,
+        default=0,
+        signed=False,
+    )
     second = bit_field(6, int, default=0, signed=False)
 
     reserved_1 = bit_field(8, int, default=0)
     dte = bit_field(1, bool, default=0)
-    spare_1 = bit_field(3, bytes, default=b'')
+    spare_1 = bit_field(3, bytes, default=b"")
     assigned = bit_field(1, bool, default=0)
     raim = bit_field(1, bool, default=0)
     radio = bit_field(20, int, default=0, signed=False)
 
 
 @attr.s(slots=True)
-class MessageType10(Payload):
+class MessageType10(Payload, MetaMixin):
     """
     UTC/Date Inquiry
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_10_utc_date_inquiry
     """
+
     msg_type = bit_field(6, int, default=10, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
-    spare_1 = bit_field(2, bytes, default=b'')
+    spare_1 = bit_field(2, bytes, default=b"")
     dest_mmsi = bit_field(30, int, from_converter=from_mmsi)
-    spare_2 = bit_field(2, bytes, default=b'')
+    spare_2 = bit_field(2, bytes, default=b"")
 
 
 class MessageType11(MessageType4):
@@ -797,78 +1016,84 @@ class MessageType11(MessageType4):
     UTC/Date Response
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_11_utc_date_response
     """
+
     msg_type = bit_field(6, int, default=11, signed=False)
 
 
 @attr.s(slots=True)
-class MessageType12(Payload):
+class MessageType12(Payload, MetaMixin):
     """
     Addressed Safety-Related Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_12_addressed_safety_related_message
     """
+
     msg_type = bit_field(6, int, default=12, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
     seqno = bit_field(2, int, default=0, signed=False)
     dest_mmsi = bit_field(30, int, from_converter=from_mmsi)
     retransmit = bit_field(1, bool, default=False, signed=False)
-    spare_1 = bit_field(1, bytes, default=b'')
-    text = bit_field(936, str, default='')
+    spare_1 = bit_field(1, bytes, default=b"")
+    text = bit_field(936, str, default="")
 
 
 class MessageType13(MessageType7):
     """
     Identical to type 7
     """
+
     msg_type = bit_field(6, int, default=13, signed=False)
 
 
 @attr.s(slots=True)
-class MessageType14(Payload):
+class MessageType14(Payload, MetaMixin):
     """
     Safety-Related Broadcast Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_14_safety_related_broadcast_message
     """
+
     msg_type = bit_field(6, int, default=14, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
-    spare_1 = bit_field(2, bytes, default=b'')
-    text = bit_field(968, str, default='')
+    spare_1 = bit_field(2, bytes, default=b"")
+    text = bit_field(968, str, default="")
 
 
 @attr.s(slots=True)
-class MessageType15(Payload):
+class MessageType15(Payload, MetaMixin):
     """
     Interrogation
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_15_interrogation
     """
+
     msg_type = bit_field(6, int, default=15, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
-    spare_1 = bit_field(2, bytes, default=b'')
+    spare_1 = bit_field(2, bytes, default=b"")
     mmsi1 = bit_field(30, int, default=0, from_converter=from_mmsi)
     type1_1 = bit_field(6, int, default=0, signed=False)
     offset1_1 = bit_field(12, int, default=0, signed=False)
-    spare_2 = bit_field(2, bytes, default=b'')
+    spare_2 = bit_field(2, bytes, default=b"")
     type1_2 = bit_field(6, int, default=0, signed=False)
     offset1_2 = bit_field(12, int, default=0, signed=False)
-    spare_3 = bit_field(2, bytes, default=b'')
+    spare_3 = bit_field(2, bytes, default=b"")
     mmsi2 = bit_field(30, int, default=0, from_converter=from_mmsi)
     type2_1 = bit_field(6, int, default=0, signed=False)
     offset2_1 = bit_field(12, int, default=0, signed=False)
-    spare_4 = bit_field(2, bytes, default=b'')
+    spare_4 = bit_field(2, bytes, default=b"")
 
 
 @attr.s(slots=True)
-class MessageType16(Payload):
+class MessageType16(Payload, MetaMixin):
     """
     Assignment Mode Command
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_16_assignment_mode_command
     """
+
     msg_type = bit_field(6, int, default=16, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
-    spare_1 = bit_field(2, bytes, default=b'')
+    spare_1 = bit_field(2, bytes, default=b"")
 
     mmsi1 = bit_field(30, int, default=0, from_converter=from_mmsi)
     offset1 = bit_field(12, int, default=0, signed=False)
@@ -880,38 +1105,72 @@ class MessageType16(Payload):
 
 
 @attr.s(slots=True)
-class MessageType17(Payload):
+class MessageType17(Payload, MetaMixin):
     """
     DGNSS Broadcast Binary Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_17_dgnss_broadcast_binary_message
     """
+
     msg_type = bit_field(6, int, default=17, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
-    spare_1 = bit_field(2, bytes, default=b'')
+    spare_1 = bit_field(2, bytes, default=b"")
     # Note that latitude and longitude are in units of a tenth of a minute
-    lon = bit_field(18, float, from_converter=from_10th, to_converter=to_10th, default=0)
-    lat = bit_field(17, float, from_converter=from_10th, to_converter=to_10th, default=0)
-    spare_2 = bit_field(5, bytes, default=b'')
-    data = bit_field(736, bytes, default=b'')
+    lon = bit_field(
+        18, float, from_converter=from_10th, to_converter=to_10th, default=0
+    )
+    lat = bit_field(
+        17, float, from_converter=from_10th, to_converter=to_10th, default=0
+    )
+    spare_2 = bit_field(5, bytes, default=b"")
+    data = bit_field(736, bytes, default=b"")
 
 
 @attr.s(slots=True)
-class MessageType18(Payload, CommunicationStateMixin):
+class MessageType18(Payload, CommunicationStateMixin, MetaMixin):
     """
     Standard Class B CS Position Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_18_standard_class_b_cs_position_report
     """
+
     msg_type = bit_field(6, int, default=18, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
 
     reserved_1 = bit_field(8, int, default=0, signed=False)
-    speed = bit_field(10, float, from_converter=from_speed, to_converter=to_speed, default=0, signed=False)
+    speed = bit_field(
+        10,
+        float,
+        from_converter=from_speed,
+        to_converter=to_speed,
+        default=0,
+        signed=False,
+    )
     accuracy = bit_field(1, bool, default=0, signed=False)
-    lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
-    lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
-    course = bit_field(12, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    lon = bit_field(
+        28,
+        float,
+        from_converter=from_lat_lon,
+        to_converter=to_lat_lon,
+        signed=True,
+        default=0,
+    )
+    lat = bit_field(
+        27,
+        float,
+        from_converter=from_lat_lon,
+        to_converter=to_lat_lon,
+        signed=True,
+        default=0,
+    )
+    course = bit_field(
+        12,
+        float,
+        from_converter=from_10th,
+        to_converter=to_10th,
+        default=0,
+        signed=False,
+    )
     heading = bit_field(9, int, default=0, signed=False)
     second = bit_field(6, int, default=0, signed=False)
     reserved_2 = bit_field(2, int, default=0, signed=False)
@@ -926,48 +1185,90 @@ class MessageType18(Payload, CommunicationStateMixin):
 
 
 @attr.s(slots=True)
-class MessageType19(Payload):
+class MessageType19(Payload, MetaMixin):
     """
     Extended Class B CS Position Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_19_extended_class_b_cs_position_report
     """
+
     msg_type = bit_field(6, int, default=19, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
     reserved_1 = bit_field(8, int, default=0)
 
-    speed = bit_field(10, float, from_converter=from_speed, to_converter=to_speed, default=0, signed=False)
+    speed = bit_field(
+        10,
+        float,
+        from_converter=from_speed,
+        to_converter=to_speed,
+        default=0,
+        signed=False,
+    )
     accuracy = bit_field(1, bool, default=0, signed=False)
-    lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
-    lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
-    course = bit_field(12, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    lon = bit_field(
+        28,
+        float,
+        from_converter=from_lat_lon,
+        to_converter=to_lat_lon,
+        signed=True,
+        default=0,
+    )
+    lat = bit_field(
+        27,
+        float,
+        from_converter=from_lat_lon,
+        to_converter=to_lat_lon,
+        signed=True,
+        default=0,
+    )
+    course = bit_field(
+        12,
+        float,
+        from_converter=from_10th,
+        to_converter=to_10th,
+        default=0,
+        signed=False,
+    )
     heading = bit_field(9, int, default=0, signed=False)
     second = bit_field(6, int, default=0, signed=False)
     reserved_2 = bit_field(4, int, default=0, signed=False)
-    shipname = bit_field(120, str, default='')
-    ship_type = bit_field(8, int, default=0, from_converter=ShipType.from_value, to_converter=ShipType.from_value,
-                          signed=False)
+    shipname = bit_field(120, str, default="")
+    ship_type = bit_field(
+        8,
+        int,
+        default=0,
+        from_converter=ShipType.from_value,
+        to_converter=ShipType.from_value,
+        signed=False,
+    )
     to_bow = bit_field(9, int, default=0, signed=False)
     to_stern = bit_field(9, int, default=0, signed=False)
     to_port = bit_field(6, int, default=0, signed=False)
     to_starboard = bit_field(6, int, default=0, signed=False)
-    epfd = bit_field(4, int, default=0, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value)
+    epfd = bit_field(
+        4,
+        int,
+        default=0,
+        from_converter=EpfdType.from_value,
+        to_converter=EpfdType.from_value,
+    )
     raim = bit_field(1, bool, default=0)
     dte = bit_field(1, bool, default=0)
     assigned = bit_field(1, bool, default=0, signed=False)
-    spare_1 = bit_field(4, bytes, default=b'')
+    spare_1 = bit_field(4, bytes, default=b"")
 
 
 @attr.s(slots=True)
-class MessageType20(Payload):
+class MessageType20(Payload, MetaMixin):
     """
     Data Link Management Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_20_data_link_management_message
     """
+
     msg_type = bit_field(6, int, default=20, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
-    spare_1 = bit_field(2, bytes, default=b'')
+    spare_1 = bit_field(2, bytes, default=b"")
 
     offset1 = bit_field(12, int, default=0, signed=False)
     number1 = bit_field(4, int, default=0, signed=False)
@@ -991,48 +1292,76 @@ class MessageType20(Payload):
 
 
 @attr.s(slots=True)
-class MessageType21(Payload):
+class MessageType21(Payload, MetaMixin):
     """
     Aid-to-Navigation Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_21_aid_to_navigation_report
     """
+
     msg_type = bit_field(6, int, default=21, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
 
-    aid_type = bit_field(5, int, default=0, from_converter=NavAid.from_value, to_converter=NavAid.from_value,
-                         signed=False)
-    name = bit_field(120, str, default='')
+    aid_type = bit_field(
+        5,
+        int,
+        default=0,
+        from_converter=NavAid.from_value,
+        to_converter=NavAid.from_value,
+        signed=False,
+    )
+    name = bit_field(120, str, default="")
 
     accuracy = bit_field(1, bool, default=0, signed=False)
-    lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
-    lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
+    lon = bit_field(
+        28,
+        float,
+        from_converter=from_lat_lon,
+        to_converter=to_lat_lon,
+        signed=True,
+        default=0,
+    )
+    lat = bit_field(
+        27,
+        float,
+        from_converter=from_lat_lon,
+        to_converter=to_lat_lon,
+        signed=True,
+        default=0,
+    )
     to_bow = bit_field(9, int, default=0, signed=False)
     to_stern = bit_field(9, int, default=0, signed=False)
     to_port = bit_field(6, int, default=0, signed=False)
     to_starboard = bit_field(6, int, default=0, signed=False)
 
-    epfd = bit_field(4, int, default=0, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value)
+    epfd = bit_field(
+        4,
+        int,
+        default=0,
+        from_converter=EpfdType.from_value,
+        to_converter=EpfdType.from_value,
+    )
     second = bit_field(6, int, default=0, signed=False)
     off_position = bit_field(1, bool, default=0)
     reserved_1 = bit_field(8, int, default=0, signed=False)
     raim = bit_field(1, bool, default=0)
     virtual_aid = bit_field(1, bool, default=0)
     assigned = bit_field(1, bool, default=0)
-    spare_1 = bit_field(1, bytes, default=b'')
-    name_ext = bit_field(88, str, default='')
+    spare_1 = bit_field(1, bytes, default=b"")
+    name_ext = bit_field(88, str, default="")
 
 
 @attr.s(slots=True)
-class MessageType22Addressed(Payload):
+class MessageType22Addressed(Payload, MetaMixin):
     """
     Channel Management
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_22_channel_management
     """
+
     msg_type = bit_field(6, int, default=22, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
-    spare_1 = bit_field(2, bytes, default=b'')
+    spare_1 = bit_field(2, bytes, default=b"")
 
     channel_a = bit_field(12, int, default=0, signed=False)
     channel_b = bit_field(12, int, default=0, signed=False)
@@ -1051,19 +1380,20 @@ class MessageType22Addressed(Payload):
     band_a = bit_field(1, bool, default=0)
     band_b = bit_field(1, bool, default=0)
     zonesize = bit_field(3, int, default=0)
-    spare_2 = bit_field(23, bytes, default=b'')
+    spare_2 = bit_field(23, bytes, default=b"")
 
 
 @attr.s(slots=True)
-class MessageType22Broadcast(Payload):
+class MessageType22Broadcast(Payload, MetaMixin):
     """
     Channel Management
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_22_channel_management
     """
+
     msg_type = bit_field(6, int, default=22, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
-    spare_1 = bit_field(2, bytes, default=b'')
+    spare_1 = bit_field(2, bytes, default=b"")
 
     channel_a = bit_field(12, int, default=0, signed=False)
     channel_b = bit_field(12, int, default=0, signed=False)
@@ -1074,19 +1404,47 @@ class MessageType22Broadcast(Payload):
     # the ne_lon, ne_lat, sw_lon, and sw_lat fields are the
     # corners of a rectangular jurisdiction area over which control parameter
     # ne_lon, ne_lat, sw_lon, and sw_lat fields are in 0.1 minutes
-    ne_lon = bit_field(18, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
-    ne_lat = bit_field(17, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
-    sw_lon = bit_field(18, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
-    sw_lat = bit_field(17, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
+    ne_lon = bit_field(
+        18,
+        float,
+        from_converter=from_10th,
+        to_converter=to_10th,
+        default=0,
+        signed=True,
+    )
+    ne_lat = bit_field(
+        17,
+        float,
+        from_converter=from_10th,
+        to_converter=to_10th,
+        default=0,
+        signed=True,
+    )
+    sw_lon = bit_field(
+        18,
+        float,
+        from_converter=from_10th,
+        to_converter=to_10th,
+        default=0,
+        signed=True,
+    )
+    sw_lat = bit_field(
+        17,
+        float,
+        from_converter=from_10th,
+        to_converter=to_10th,
+        default=0,
+        signed=True,
+    )
 
     addressed = bit_field(1, bool, default=0)
     band_a = bit_field(1, bool, default=0)
     band_b = bit_field(1, bool, default=0)
     zonesize = bit_field(3, int, default=0, signed=False)
-    spare_2 = bit_field(23, bytes, default=b'')
+    spare_2 = bit_field(23, bytes, default=b"")
 
 
-class MessageType22(Payload):
+class MessageType22(Payload, MetaMixin):
     """
     Type 22 messages are different from other messages:
         The encoding differs depending on the `addressed` field. If the message is broadcast
@@ -1098,8 +1456,10 @@ class MessageType22(Payload):
     """
 
     @classmethod
-    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
-        if kwargs.get('addressed', False):
+    def create(
+        cls, **kwargs: typing.Union[str, float, int, bool, bytes]
+    ) -> "ANY_MESSAGE":
+        if kwargs.get("addressed", False):
             return MessageType22Addressed.create(**kwargs)
         else:
             return MessageType22Broadcast.create(**kwargs)
@@ -1113,67 +1473,118 @@ class MessageType22(Payload):
 
 
 @attr.s(slots=True)
-class MessageType23(Payload):
+class MessageType23(Payload, MetaMixin):
     """
     Group Assignment Command
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_23_group_assignment_command
     """
+
     msg_type = bit_field(6, int, default=23, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
-    spare_1 = bit_field(2, bytes, default=b'')
+    spare_1 = bit_field(2, bytes, default=b"")
 
-    ne_lon = bit_field(18, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
-    ne_lat = bit_field(17, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
-    sw_lon = bit_field(18, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
-    sw_lat = bit_field(17, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
+    ne_lon = bit_field(
+        18,
+        float,
+        from_converter=from_10th,
+        to_converter=to_10th,
+        default=0,
+        signed=True,
+    )
+    ne_lat = bit_field(
+        17,
+        float,
+        from_converter=from_10th,
+        to_converter=to_10th,
+        default=0,
+        signed=True,
+    )
+    sw_lon = bit_field(
+        18,
+        float,
+        from_converter=from_10th,
+        to_converter=to_10th,
+        default=0,
+        signed=True,
+    )
+    sw_lat = bit_field(
+        17,
+        float,
+        from_converter=from_10th,
+        to_converter=to_10th,
+        default=0,
+        signed=True,
+    )
 
-    station_type = bit_field(4, int, default=0, from_converter=StationType.from_value,
-                             to_converter=StationType.from_value)
-    ship_type = bit_field(8, int, default=0, from_converter=ShipType.from_value, to_converter=ShipType.from_value)
-    spare_2 = bit_field(22, bytes, default=b'')
+    station_type = bit_field(
+        4,
+        int,
+        default=0,
+        from_converter=StationType.from_value,
+        to_converter=StationType.from_value,
+    )
+    ship_type = bit_field(
+        8,
+        int,
+        default=0,
+        from_converter=ShipType.from_value,
+        to_converter=ShipType.from_value,
+    )
+    spare_2 = bit_field(22, bytes, default=b"")
 
-    txrx = bit_field(2, int, default=0, from_converter=TransmitMode.from_value, to_converter=TransmitMode.from_value,
-                     signed=False)
-    interval = bit_field(4, int, default=0, from_converter=StationIntervals.from_value,
-                         to_converter=StationIntervals.from_value)
+    txrx = bit_field(
+        2,
+        int,
+        default=0,
+        from_converter=TransmitMode.from_value,
+        to_converter=TransmitMode.from_value,
+        signed=False,
+    )
+    interval = bit_field(
+        4,
+        int,
+        default=0,
+        from_converter=StationIntervals.from_value,
+        to_converter=StationIntervals.from_value,
+    )
     quiet = bit_field(4, int, default=0, signed=False)
-    spare_3 = bit_field(6, bytes, default=b'')
+    spare_3 = bit_field(6, bytes, default=b"")
 
 
 @attr.s(slots=True)
-class MessageType24PartA(Payload):
+class MessageType24PartA(Payload, MetaMixin):
     msg_type = bit_field(6, int, default=24, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
 
     partno = bit_field(2, int, default=0, signed=False)
-    shipname = bit_field(120, str, default='')
-    spare_1 = bit_field(8, bytes, default=b'')
+    shipname = bit_field(120, str, default="")
+    spare_1 = bit_field(8, bytes, default=b"")
 
 
 @attr.s(slots=True)
-class MessageType24PartB(Payload):
+class MessageType24PartB(Payload, MetaMixin):
     msg_type = bit_field(6, int, default=24, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
 
     partno = bit_field(2, int, default=0, signed=False)
     ship_type = bit_field(8, int, default=0, signed=False)
-    vendorid = bit_field(18, str, default='', signed=False)
+    vendorid = bit_field(18, str, default="", signed=False)
     model = bit_field(4, int, default=0, signed=False)
     serial = bit_field(20, int, default=0, signed=False)
-    callsign = bit_field(42, str, default='')
+    callsign = bit_field(42, str, default="")
 
     to_bow = bit_field(9, int, default=0, signed=False)
     to_stern = bit_field(9, int, default=0, signed=False)
     to_port = bit_field(6, int, default=0, signed=False)
     to_starboard = bit_field(6, int, default=0, signed=False)
 
-    spare_1 = bit_field(6, bytes, default=b'')
+    spare_1 = bit_field(6, bytes, default=b"")
 
 
-class MessageType24(Payload):
+class MessageType24(Payload, MetaMixin):
     """
     Static Data Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_24_static_data_report
@@ -1185,8 +1596,10 @@ class MessageType24(Payload):
     """
 
     @classmethod
-    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
-        partno: int = int(kwargs.get('partno', 0))
+    def create(
+        cls, **kwargs: typing.Union[str, float, int, bool, bytes]
+    ) -> "ANY_MESSAGE":
+        partno: int = int(kwargs.get("partno", 0))
         if partno == 0:
             return MessageType24PartA.create(**kwargs)
         elif partno == 1:
@@ -1206,7 +1619,7 @@ class MessageType24(Payload):
 
 
 @attr.s(slots=True)
-class MessageType25AddressedStructured(Payload):
+class MessageType25AddressedStructured(Payload, MetaMixin):
     msg_type = bit_field(6, int, default=25, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
@@ -1216,11 +1629,11 @@ class MessageType25AddressedStructured(Payload):
 
     dest_mmsi = bit_field(30, int, default=0, from_converter=from_mmsi, signed=False)
     app_id = bit_field(16, int, default=0, signed=False)
-    data = bit_field(82, bytes, default=b'')
+    data = bit_field(82, bytes, default=b"")
 
 
 @attr.s(slots=True)
-class MessageType25BroadcastStructured(Payload):
+class MessageType25BroadcastStructured(Payload, MetaMixin):
     msg_type = bit_field(6, int, default=25, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
@@ -1229,11 +1642,15 @@ class MessageType25BroadcastStructured(Payload):
     structured = bit_field(1, bool, default=0, signed=False)
 
     app_id = bit_field(16, int, default=0, signed=False)
-    data = bit_field(112, bytes, default=b'', )
+    data = bit_field(
+        112,
+        bytes,
+        default=b"",
+    )
 
 
 @attr.s(slots=True)
-class MessageType25AddressedUnstructured(Payload):
+class MessageType25AddressedUnstructured(Payload, MetaMixin):
     msg_type = bit_field(6, int, default=25, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
@@ -1242,11 +1659,11 @@ class MessageType25AddressedUnstructured(Payload):
     structured = bit_field(1, bool, default=0, signed=False)
 
     dest_mmsi = bit_field(30, int, default=0, from_converter=from_mmsi)
-    data = bit_field(98, bytes, default=b'')
+    data = bit_field(98, bytes, default=b"")
 
 
 @attr.s(slots=True)
-class MessageType25BroadcastUnstructured(Payload):
+class MessageType25BroadcastUnstructured(Payload, MetaMixin):
     msg_type = bit_field(6, int, default=25, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
@@ -1254,10 +1671,10 @@ class MessageType25BroadcastUnstructured(Payload):
     addressed = bit_field(1, bool, default=0, signed=False)
     structured = bit_field(1, bool, default=0, signed=False)
 
-    data = bit_field(128, bytes, default=b'')
+    data = bit_field(128, bytes, default=b"")
 
 
-class MessageType25(Payload):
+class MessageType25(Payload, MetaMixin):
     """
     Single Slot Binary Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_25_single_slot_binary_message
@@ -1268,9 +1685,11 @@ class MessageType25(Payload):
     """
 
     @classmethod
-    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
-        addressed = kwargs.get('addressed', False)
-        structured = kwargs.get('structured', False)
+    def create(
+        cls, **kwargs: typing.Union[str, float, int, bool, bytes]
+    ) -> "ANY_MESSAGE":
+        addressed = kwargs.get("addressed", False)
+        structured = kwargs.get("structured", False)
 
         if addressed:
             if structured:
@@ -1301,7 +1720,7 @@ class MessageType25(Payload):
 
 
 @attr.s(slots=True)
-class MessageType26AddressedStructured(Payload, CommunicationStateMixin):
+class MessageType26AddressedStructured(Payload, CommunicationStateMixin, MetaMixin):
     msg_type = bit_field(6, int, default=26, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
@@ -1311,12 +1730,12 @@ class MessageType26AddressedStructured(Payload, CommunicationStateMixin):
 
     dest_mmsi = bit_field(30, int, default=0, from_converter=from_mmsi)
     app_id = bit_field(16, int, default=0, signed=False)
-    data = bit_field(958, bytes, default=b'')
+    data = bit_field(958, bytes, default=b"")
     radio = bit_field(20, int, default=0, signed=False)
 
 
 @attr.s(slots=True)
-class MessageType26BroadcastStructured(Payload, CommunicationStateMixin):
+class MessageType26BroadcastStructured(Payload, CommunicationStateMixin, MetaMixin):
     msg_type = bit_field(6, int, default=26, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
@@ -1325,12 +1744,12 @@ class MessageType26BroadcastStructured(Payload, CommunicationStateMixin):
     structured = bit_field(1, bool, default=0, signed=False)
 
     app_id = bit_field(16, int, default=0, signed=False)
-    data = bit_field(988, bytes, default=b'')
+    data = bit_field(988, bytes, default=b"")
     radio = bit_field(20, int, default=0, signed=False)
 
 
 @attr.s(slots=True)
-class MessageType26AddressedUnstructured(Payload, CommunicationStateMixin):
+class MessageType26AddressedUnstructured(Payload, CommunicationStateMixin, MetaMixin):
     msg_type = bit_field(6, int, default=26, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
@@ -1340,12 +1759,12 @@ class MessageType26AddressedUnstructured(Payload, CommunicationStateMixin):
 
     dest_mmsi = bit_field(30, int, default=0, from_converter=from_mmsi)
     app_id = bit_field(16, int, default=0, signed=False)
-    data = bit_field(958, bytes, default=b'')
+    data = bit_field(958, bytes, default=b"")
     radio = bit_field(20, int, default=0, signed=False)
 
 
 @attr.s(slots=True)
-class MessageType26BroadcastUnstructured(Payload, CommunicationStateMixin):
+class MessageType26BroadcastUnstructured(Payload, CommunicationStateMixin, MetaMixin):
     msg_type = bit_field(6, int, default=26, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
@@ -1353,11 +1772,11 @@ class MessageType26BroadcastUnstructured(Payload, CommunicationStateMixin):
     addressed = bit_field(1, bool, default=0, signed=False)
     structured = bit_field(1, bool, default=0, signed=False)
 
-    data = bit_field(1004, bytes, default=b'')
+    data = bit_field(1004, bytes, default=b"")
     radio = bit_field(20, int, default=0, signed=False)
 
 
-class MessageType26(Payload):
+class MessageType26(Payload, MetaMixin):
     """
     Multiple Slot Binary Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_26_multiple_slot_binary_message
@@ -1368,9 +1787,11 @@ class MessageType26(Payload):
     """
 
     @classmethod
-    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
-        addressed = kwargs.get('addressed', False)
-        structured = kwargs.get('structured', False)
+    def create(
+        cls, **kwargs: typing.Union[str, float, int, bool, bytes]
+    ) -> "ANY_MESSAGE":
+        addressed = kwargs.get("addressed", False)
+        structured = kwargs.get("structured", False)
 
         if addressed:
             if structured:
@@ -1401,24 +1822,46 @@ class MessageType26(Payload):
 
 
 @attr.s(slots=True)
-class MessageType27(Payload):
+class MessageType27(Payload, MetaMixin):
     """
     Long Range AIS Broadcast message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_27_long_range_ais_broadcast_message
     """
+
     msg_type = bit_field(6, int, default=27, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
 
     accuracy = bit_field(1, bool, default=0, signed=False)
     raim = bit_field(1, bool, default=0, signed=False)
-    status = bit_field(4, int, default=0, from_converter=NavigationStatus, to_converter=NavigationStatus, signed=False)
-    lon = bit_field(18, float, from_converter=from_lat_lon_600, to_converter=to_lat_lon_600, default=0, signed=True)
-    lat = bit_field(17, float, from_converter=from_lat_lon_600, to_converter=to_lat_lon_600, default=0, signed=True)
+    status = bit_field(
+        4,
+        int,
+        default=0,
+        from_converter=NavigationStatus,
+        to_converter=NavigationStatus,
+        signed=False,
+    )
+    lon = bit_field(
+        18,
+        float,
+        from_converter=from_lat_lon_600,
+        to_converter=to_lat_lon_600,
+        default=0,
+        signed=True,
+    )
+    lat = bit_field(
+        17,
+        float,
+        from_converter=from_lat_lon_600,
+        to_converter=to_lat_lon_600,
+        default=0,
+        signed=True,
+    )
     speed = bit_field(6, float, default=0, signed=False)
     course = bit_field(9, float, default=0, signed=False)
     gnss = bit_field(1, bool, default=0, signed=False)
-    spare_1 = bit_field(1, bytes, default=b'')
+    spare_1 = bit_field(1, bytes, default=b"")
 
 
 MSG_CLASS = {
