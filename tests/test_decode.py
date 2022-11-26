@@ -4,7 +4,6 @@ import json
 import textwrap
 import typing
 import unittest
-from pprint import pprint
 
 from pyais import NMEAMessage, encode_dict
 from pyais.ais_types import AISType
@@ -1092,8 +1091,6 @@ class TestAIS(unittest.TestCase):
                 else:
                     types[f_name] = d_type
 
-        pprint(types)
-
     def test_bits2bytes(self):
         self.assertEqual(bits2bytes('00100110'), b'&')
         self.assertEqual(bits2bytes(''), b'')
@@ -1467,3 +1464,17 @@ class TestAIS(unittest.TestCase):
         payload = b'3815;`100!Phmn\x7fPPwL=3OmUd0Dg:'
         with self.assertRaises(NonPrintableCharacterException):
             _ = decode_into_bit_array(payload)
+
+    def test_gh_ais_message_decode(self):
+        a = b"$PGHP,1,2008,5,9,0,0,0,10,338,2,,1,09*17"
+        b = b"!AIVDM,1,1,,B,15NBj>PP1gG>1PVKTDTUJOv00<0M,0*09"
+
+        # This should work
+        decoded = decode(a, b)
+        print(decoded)
+
+        # This should not work as GH messages are only used to encapsulate NMEA messages.
+        # Therefore, these are worthless without a NMEA message to encapsulate.
+        decoded = decode(a,)
+
+        # NMEA.from... should most likely work
