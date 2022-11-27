@@ -69,28 +69,53 @@ class JSONEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-class SentenceFactory:
+class NMEASentenceFactory:
+    """
+    NMEA sentence factory.
+    There are tons of different NMEA sentences.
+    In order to correctly parse each sentence, this factory looks at the tag-block.
+    The first comma-separated fields defines the type of NMEA sentence.
+
+    NOTE: Only a very small subset of all NMEA sentences is currently supported!
+    """
 
     @classmethod
-    def produce(cls, raw: bytes):
+    def _produce(cls, raw: bytes) -> "NMEASentence":
+        # Parse the first comma separated field, the tag block
         fields = raw.split(b",")
         first_field = fields[0]
-        delimiter = first_field[:1]  # TODO: meaningful error
-        type_code = first_field[3:]  # TODO: meaningful error
+        delimiter = first_field[:1]
+        type_code = first_field[3:]
+        type_code = type_code.upper()
 
-        if delimiter == B_EXCLAMATION_MARK:
-            type_code = type_code.upper()
-            if type_code == B_VDM or type_code == B_VDO:
-                return AISSentence(raw)
-        elif delimiter == B_DOLLAR_SIGN:
+        if type_code == B_VDM or type_code == B_VDO:
+            return AISSentence(raw)
+        if delimiter == B_DOLLAR_SIGN:
             if type_code == B_GH:
                 return GatehouseSentence(raw)
 
         raise UnknownMessageException(raw)
 
+    @classmethod
+    def produce(cls, raw: bytes) -> "NMEASentence":
+        """Parse a single bytes string into an NMEA sentence."""
+        if not isinstance(raw, bytes):
+            raise TypeError("message must be bytes")
+
+        if len(raw) == 0:
+            raise InvalidNMEAMessageException("empty bytes")
+
+        raw = raw.strip()
+        return cls._produce(raw)
+
 
 class NMEASentence(object):
-    """Single NMEA Sentence"""
+    """
+    Single NMEA Sentence.
+    An NMEA sentence consists of a start delimiter, followed by a comma-separated
+    sequence of fields, followed by the character '*', the checksum and
+    an end-of-line marker.
+    """
     __slots__ = (
         'ais_id',
         'raw',
@@ -101,7 +126,10 @@ class NMEASentence(object):
         'fill_bits',
         'checksum',
         'is_valid',
+        'meta',
     )
+
+    TYPE = "UNDEFINED"
 
     def __init__(self, raw: bytes) -> None:
         if not isinstance(raw, bytes):
@@ -119,12 +147,12 @@ class NMEASentence(object):
         # The first field of a sentence is called the "tag" and normally consists
         # of a two-letter talker ID followed by a three-letter type code.
         first_field = fields[0]
-        self.delimiter = first_field[:1]  # TODO: meaningful error
-        self.talker_id = first_field[1:3].decode('ascii')  # TODO: meaningful error
-        self.type = first_field[3:].decode('ascii')  # TODO: meaningful error
+        self.delimiter = first_field[:1]
+        self.talker_id = first_field[1:3].decode('ascii')
+        self.type = first_field[3:].decode('ascii')
 
         checksum = fields[-1]
-        fill, check = chk_to_int(checksum)  # TODO only after *
+        fill, check = chk_to_int(checksum)
         # Fill bits (0 to 5)
         self.fill_bits: int = fill
         # Message Checksum (hex value)
@@ -133,6 +161,10 @@ class NMEASentence(object):
         self.is_valid = self.checksum == compute_checksum(self.raw)
 
         self.data_fields = fields[1:-1]
+
+        # Some NMEA messages contain meta data for other messages
+        # E.G PGHP messages (Gatehousing)
+        self.meta: typing.Optional[typing.Any] = None
 
     def __str__(self) -> str:
         return repr(self)
@@ -163,36 +195,41 @@ class NMEASentence(object):
 class GatehouseSentence(NMEASentence):
     TYPE = 'HP'
 
+    _slots__ = (
+        'country',
+        'region',
+        'pss',
+        'online_data',
+        'timestamp',
+    )
+
     def __init__(self, raw: bytes) -> None:
         super().__init__(raw)
 
-        values = self.raw.split(b',')
-        [year, month, day, hour, minute, second, millisecond] = values[2:9]
-        t = datetime.datetime(
-            year=int(year),
-            month=int(month),
-            day=int(day),
-            hour=int(hour),
-            minute=int(minute),
-            second=int(second),
-            microsecond=int(millisecond) * 1000
-        )
-        # MMSI country code where the message originates from
-        self.country = values[9]
-        # The MMSI number of the region
-        self.region = values[10]
-        # MMSI number of the site transponder
-        self.pss = values[11]
-        # buffered data from a BSC will be designated with 0, online data with 1
-        self.online_data = values[12]
-        # checksum value of the NMEA sentence
+        fields = self.data_fields
+        try:
+            [year, month, day, hour, minute, second, millisecond] = fields[1:8]
+            t = datetime.datetime(
+                year=int(year),
+                month=int(month),
+                day=int(day),
+                hour=int(hour),
+                minute=int(minute),
+                second=int(second),
+                microsecond=int(millisecond) * 1000
+            )
+            # MMSI country code where the message originates from
+            self.country = fields[8].decode('ascii')
+            # The MMSI number of the region
+            self.region = fields[9].decode('ascii')
+            # MMSI number of the site transponder
+            self.pss = fields[10].decode('ascii')
+            # buffered data from a BSC will be designated with 0, online data with 1
+            self.online_data = int(fields[11])
+        except Exception as err:
+            raise InvalidNMEAMessageException(raw) from err
 
-        self.cc = values[13].split(b'*')[0]
-        # checksum value as described in IEC 61162-1/
-        self.hh = values[13].split(b'*')[1]
-
-        self.t = t
-        self.values = values
+        self.timestamp = t
 
 
 class AISSentence(NMEASentence):
@@ -228,7 +265,7 @@ class AISSentence(NMEASentence):
                 message_id,
                 channel,
                 payload,
-            ) = self.data_fields
+            ) = self.data_fields[:5]
 
             # Total number of fragments
             self.frag_cnt: int = int(message_fragments)
@@ -300,7 +337,7 @@ class AISSentence(NMEASentence):
         return cls(nmea_byte_str)
 
     @classmethod
-    def assemble_from_iterable(cls, messages: Sequence["NMEAMessage"]) -> "NMEAMessage":
+    def assemble_from_iterable(cls, messages: Sequence["AISSentence"]) -> "AISSentence":
         """
         Assemble a multiline message from a sequence of NMEA messages.
         :param messages: Sequence of NMEA messages

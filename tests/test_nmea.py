@@ -18,13 +18,9 @@ class TestNMEA(unittest.TestCase):
         Test value count
         """
         a = b"!AIVDM,,A,91b77=h3h00nHt0Q3r@@07000<0b,0*69"
-        b = b"!AIVDM,1,1,,A,91b77=h3h00nHt0Q3r@@07000<0b,0*69,0,3"
 
         with self.assertRaises(InvalidNMEAMessageException):
             NMEAMessage(a)
-
-        with self.assertRaises(InvalidNMEAMessageException):
-            NMEAMessage(b)
 
         c = b"!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*30"
         assert NMEAMessage(c).is_valid

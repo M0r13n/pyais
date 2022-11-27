@@ -1,4 +1,5 @@
 import base64
+import datetime
 import itertools
 import json
 import textwrap
@@ -10,10 +11,10 @@ from pyais.ais_types import AISType
 from pyais.constants import (EpfdType, ManeuverIndicator, NavAid,
                              NavigationStatus, ShipType, StationType, SyncState,
                              TransmitMode, TurnRate)
-from pyais.decode import decode
-from pyais.exceptions import InvalidNMEAChecksum, UnknownMessageException, NonPrintableCharacterException
+from pyais.decode import decode, decode_nmea_line
+from pyais.exceptions import InvalidNMEAChecksum, InvalidNMEAMessageException, MissingMultipartMessageException, UnknownMessageException, NonPrintableCharacterException
 from pyais.messages import (
-    MSG_CLASS, MessageType5, MessageType6,
+    MSG_CLASS, AISSentence, GatehouseSentence, MessageType5, MessageType6,
     MessageType18, MessageType22Addressed,
     MessageType22Broadcast, MessageType24PartA,
     MessageType24PartB,
@@ -1469,12 +1470,73 @@ class TestAIS(unittest.TestCase):
         a = b"$PGHP,1,2008,5,9,0,0,0,10,338,2,,1,09*17"
         b = b"!AIVDM,1,1,,B,15NBj>PP1gG>1PVKTDTUJOv00<0M,0*09"
 
-        # This should work
+        # This should work and only return the AIS message
         decoded = decode(a, b)
-        print(decoded)
+        self.assertEqual(decoded.msg_type, 1)
 
-        # This should not work as GH messages are only used to encapsulate NMEA messages.
+        # This should return None as GH messages are only used to encapsulate NMEA messages.
         # Therefore, these are worthless without a NMEA message to encapsulate.
-        decoded = decode(a,)
+        with self.assertRaises(MissingMultipartMessageException):
+            decode(a,)
 
-        # NMEA.from... should most likely work
+    def test_common_invalid_inputs_to_the_decode_function(self):
+        # A user could pass an currently unsupported message
+        with self.assertRaises(UnknownMessageException):
+            decode('$ANABK,,B,8,5,3*17')
+
+        # A user could pass None
+        with self.assertRaises(TypeError):
+            decode(None)
+
+        # A user could pass an NMEA instance, because he misread the documentation
+        with self.assertRaises(TypeError):
+            decode(AISSentence(b"!AIVDM,1,1,,B,15NBj>PP1gG>1PVKTDTUJOv00<0M,0*09"))
+
+        # A user could pass some arbitrary bytes
+        with self.assertRaises(UnknownMessageException):
+            decode(b'AAA')
+
+        with self.assertRaises(UnknownMessageException):
+            decode(b'$AAA')
+
+        with self.assertRaises(UnknownMessageException):
+            decode(b'?!?!')
+
+        with self.assertRaises(InvalidNMEAMessageException):
+            decode(b'$AIVDM,')
+
+        with self.assertRaises(InvalidNMEAMessageException):
+            decode(b'$AIVDM,,,,,,')
+
+        with self.assertRaises(InvalidNMEAMessageException):
+            decode(b'')
+
+    def test_messages_with_proprietary_suffix(self):
+        msg = '!AIVDM,1,1,,B,181:Kjh01ewHFRPDK1s3IRcn06sd,0*08,raishub,1342569600'
+        decoded = decode(msg)
+
+        self.assertEqual(decoded.course, 87.0)
+        self.assertEqual(decoded.msg_type, 1)
+        self.assertEqual(decoded.mmsi, 538090443)
+        self.assertEqual(decoded.speed, 10.9)
+
+    def test_timestamp_message(self):
+        msg = b'$PGHP,1,2004,12,21,23,59,58,999,219,219000001,219000002,1,6D*56'
+        pghp: GatehouseSentence = decode_nmea_line(msg)
+
+        self.assertIsInstance(pghp, GatehouseSentence)
+        self.assertEqual(pghp.country, '219')
+        self.assertEqual(pghp.region, '219000001')
+        self.assertEqual(pghp.pss, '219000002')
+        self.assertEqual(pghp.online_data, 1)
+        self.assertEqual(pghp.timestamp, datetime.datetime(2004, 12, 21, 23, 59, 58, 999000))
+
+    def test_invalid_timestamp_message(self):
+        with self.assertRaises(InvalidNMEAMessageException):
+            decode_nmea_line(b"$PGHP,0,21")
+
+        with self.assertRaises(InvalidNMEAMessageException):
+            decode_nmea_line(b"$PGHP,1,11,11,11,11,11,58,999,219,11,1,6D*56")
+
+        with self.assertRaises(UnknownMessageException):
+            decode_nmea_line(b",n:4,r:35435435435,foo bar 200")

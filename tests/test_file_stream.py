@@ -4,8 +4,8 @@ import unittest
 from unittest.case import skip
 
 from pyais.exceptions import UnknownMessageException
-from pyais.messages import NMEAMessage
-from pyais.stream import FileReaderStream, should_parse, IterMessages
+from pyais.messages import GatehouseSentence, NMEAMessage
+from pyais.stream import FileReaderStream, IterMessages
 
 
 class TestFileReaderStream(unittest.TestCase):
@@ -181,31 +181,25 @@ class TestFileReaderStream(unittest.TestCase):
             for msg in stream:
                 assert msg.decode()
 
-    def test_should_parse(self):
-        self.assertFalse(should_parse(b""))
-        self.assertFalse(should_parse(b"#"))
-        self.assertFalse(should_parse(b"$"))
-        self.assertFalse(should_parse(b"!"))
-        self.assertFalse(should_parse(b"Foo"))
-        self.assertFalse(should_parse(b"!Baz"))
-        self.assertFalse(should_parse(b"$fooBar"))
-        self.assertFalse(should_parse(b"Foo,Bar,Baz,Foo,Bar,Baz"))
-        self.assertFalse(should_parse(b"Foo,Bar,Baz,Foo,Bar,Baz,Foo"))
-        self.assertFalse(should_parse(b"$Foo,Bar,Baz,Foo,Bar,Baz,Foo,"))
-        self.assertFalse(should_parse(b"!Foo,Bar,Baz,Foo,Bar,Baz,Foo,"))
-
-        self.assertTrue(should_parse(b"!,,,,,,"))
-        self.assertTrue(should_parse(b"!AIVDM,1,1,,B,,0*25"))
-        self.assertTrue(should_parse(b"$AIVDM,1,1,,B,,0*25"))
-        self.assertTrue(should_parse(b"$Foo,Bar,Baz,Foo,Bar,Baz,Foo"))
-        self.assertTrue(should_parse(b"!AIVDM,1,1,,B,33K:7p001k1e5@TE?8rTH3BH011@,0*59"))
-        self.assertTrue(should_parse(b"$AIVDM,1,1,,B,33K:7p001k1e5@TE?8rTH3BH011@,0*59"))
-        self.assertTrue(should_parse(b"!AIVDM,2,1,9,B,53nFBv01SJ<thHp6220H4heHTf2222222222221?50:454o<`9QSlUDp,0*09"))
-        self.assertTrue(should_parse(b"$AIVDM,2,1,9,B,53nFBv01SJ<thHp6220H4heHTf2222222222221?50:454o<`9QSlUDp,0*09"))
-
     def test_mixed_content(self):
         """Test that the file reader handles mixed content. That means, that is is able to handle
         text files, that contain both AIS messages and non AIS messages."""
         par_dir = pathlib.Path(__file__).parent.absolute()
         mixed_content_file = par_dir.joinpath("messages.ais")
         self.assertEqual(len(list(iter(FileReaderStream(mixed_content_file)))), 6)
+
+    def test_timestamp_messages(self):
+        par_dir = pathlib.Path(__file__).parent.absolute()
+        nmea_file = par_dir.joinpath("timestamped.ais")
+
+        with FileReaderStream(nmea_file) as stream:
+            for i, msg in enumerate(stream):
+                assert msg.decode()
+                if i == 0:
+                    assert isinstance(msg.meta, GatehouseSentence)
+                    assert str(msg.meta.timestamp) == '2008-05-09 00:00:00.010000'
+                elif i == 2:
+                    assert isinstance(msg.meta, GatehouseSentence)
+                    assert str(msg.meta.timestamp) == '2009-05-09 00:00:00.010000'
+                else:
+                    assert msg.meta is None
