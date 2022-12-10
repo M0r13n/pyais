@@ -28,7 +28,7 @@ class AssembleMessages(ABC):
     """
 
     def __init__(self) -> None:
-        self.meta: typing.Optional[NMEASentence] = None
+        self.wrapper_msg: typing.Optional[NMEASentence] = None
 
     def __enter__(self) -> "AssembleMessages":
         # Enables use of with statement
@@ -44,18 +44,18 @@ class AssembleMessages(ABC):
         """Returns the next decoded NMEA message."""
         return next(iter(self))
 
-    def __set_last_meta(self, meta: NMEASentence) -> None:
-        self.meta = meta
+    def __set_last_wrapper_msg(self, wrapper_msg: NMEASentence) -> None:
+        self.wrapper_msg = wrapper_msg
 
-    def __get_last_meta(self) -> typing.Optional[NMEASentence]:
-        meta = self.meta
-        self.meta = None
-        return meta
+    def __get_last_wrapper_msg(self) -> typing.Optional[NMEASentence]:
+        wrapper_msg = self.wrapper_msg
+        self.wrapper_msg = None
+        return wrapper_msg
 
-    def __insert_meta(self, msg: AISSentence) -> AISSentence:
-        meta = self.__get_last_meta()
-        if meta:
-            msg.meta = meta
+    def __insert_wrapper_msg(self, msg: AISSentence) -> AISSentence:
+        wrapper_msg = self.__get_last_wrapper_msg()
+        if wrapper_msg:
+            msg.wrapper_msg = wrapper_msg
         return msg
 
     def _assemble_messages(self) -> Generator[NMEAMessage, None, None]:
@@ -67,7 +67,7 @@ class AssembleMessages(ABC):
             try:
                 sentence = NMEASentenceFactory.produce(line)
                 if sentence.TYPE == GatehouseSentence.TYPE:
-                    self.__set_last_meta(sentence)
+                    self.__set_last_wrapper_msg(sentence)
                     continue
             except (InvalidNMEAMessageException, NonPrintableCharacterException, UnknownMessageException):
                 # Be gentle and just skip invalid messages
@@ -78,7 +78,7 @@ class AssembleMessages(ABC):
             msg = typing.cast(AISSentence, sentence)
 
             if msg.is_single:
-                yield self.__insert_meta(msg)
+                yield self.__insert_wrapper_msg(msg)
             else:
                 # Instead of None use -1 as a seq_id
                 seq_id = msg.seq_id
@@ -99,7 +99,7 @@ class AssembleMessages(ABC):
                 not_none_parts = [m for m in msg_parts if m is not None]
                 if len(not_none_parts) == msg.fragment_count:
                     msg = NMEAMessage.assemble_from_iterable(not_none_parts)
-                    yield self.__insert_meta(msg)
+                    yield self.__insert_wrapper_msg(msg)
                     del buffer[slot]
 
     @abstractmethod

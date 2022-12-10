@@ -11,9 +11,7 @@ Welcome to Pyais's documentation!
    :caption: Contents:
 
    install
-   usage
    messages
-   communication_state
 
 
 Indices and tables

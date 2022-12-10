@@ -12,6 +12,8 @@ TCP/UDP sockets.
 
 You can find the full documentation on [readthedocs](https://pyais.readthedocs.io/en/latest/).
 
+I also wrote a [blog post about AIS decoding](https://leonrichter.de/posts/pyais/) and this lib.
+
 # Acknowledgements
 
 ![Jetbrains Logo](./docs/jetbrains_logo.svg)
@@ -30,30 +32,6 @@ the [AIS standard](https://en.wikipedia.org/wiki/Automatic_identification_system
 I open to any form of idea to further improve this library. If you have an idea or a feature request - just open an
 issue. :-)
 
-# Migrating from v1 to v2
-
-Version 2.0.0 of pyais had some breaking changes that were needed to improve the lib. While I tried to keep those
-breaking changes to a minimum, there are a few places that got changed.
-
-* `msg.decode()` does not return a `pyais.messages.AISMessage` instance anymore
-  * instead an instance of `pyais.messages.MessageTypeX` is returned, where `X` is the type of the message (1-27)
-* in v1 you called `decoded.content` to get the decoded message as a dictionary - this is now `decoded.asdict()`
-
-### Typical example in v1
-
-```py
-message = NMEAMessage(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
-decoded = message.decode()
-data = decoded.content
-```
-
-### Typical example in v2
-```py
-message = NMEAMessage(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
-decoded = message.decode()
-data = decoded.asdict()
-```
-
 # Installation
 
 The project is available at Pypi:
@@ -64,7 +42,9 @@ $ pip install pyais
 
 # Usage
 
-U Decode a single part AIS message using `decode()`::
+There are many examples in the [examples directory](https://github.com/M0r13n/pyais/tree/master/examples).
+
+Decode a single part AIS message using `decode()`::
 
 ```py
 from pyais import decode
@@ -189,85 +169,43 @@ encoded = encode_msg(payload)
 print(encoded)
 ```
 
-# Commandline utility
+# Under the hood
 
-If you install the library a commandline utility is installed to your PATH. This commandline interface offers access to
-common actions like decoding single messages, reading from files or connection to sockets.
-
-```shell
-$ ais-decode --help
-usage: ais-decode [-h] [-f [IN_FILE]] [-o OUT_FILE] {socket,single} ...
-
-AIS message decoding. 100% pure Python.Supports AIVDM/AIVDO messages. Supports single messages, files and TCP/UDP sockets.rst.
-
-positional arguments:
-  {socket,single}
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -f [IN_FILE], --file [IN_FILE]
-  -o OUT_FILE, --out-file OUT_FILE
-
+```mermaid
+graph LR
+    raw -->|"!AIVDM,1,1,,B,6B?n;be,2*4A"| nmea
+    nmea[NMEASentence] -->|parse NMEA sentence layer| ais[AISSentence]
+    ais -->|decode| final[AISMessage]
 ```
 
-### Decode messages passed as arguments
+Decoding each AIS message is a three step process.
 
-Because there are some special characters in AIS messages, you need to pass the arguments wrapped in single quotes ('').
-Otherwise, you may encounter weird issues with the bash shell.
+At first, the NMEA 0183 physical protocol layer is parsed. The NMEA layer is the outer protocol layer that is used by **many different** sentences/protocols for data transmission. Just like Ethernet can be used as a data link protocol to transfer data between nodes, the NMEA protocol can be used to transmit data between maritime equipment.
 
-```shell
-$ ais-decode single '!AIVDM,1,1,,A,15NPOOPP00o?b=bE`UNv4?w428D;,0*24'
-{'type': 1, 'repeat': 0, 'mmsi': '367533950', 'status': <NavigationStatus.UnderWayUsingEngine: 0>, 'turn': -128, 'speed': 0.0, 'accuracy': True, 'lon': -122.40823166666667, 'lat': 37.808418333333336, 'course': 360.0, 'heading': 511, 'second': 34, 'maneuver': <ManeuverIndicator.NotAvailable: 0>, 'raim': True, 'radio': 34059}
+After the raw message was parsed into a `NMEASentence`, the inner protocol layer is parsed. While there are **tons** of different inner protocols that build upon NMEA, **pyais** currently only supports AIS sentences. Every `AISSentence` holds basic information about the AIS message like:
+
+- the AIS message ID
+- the number of fill bits required for ASCII6 encoding
+- the fragment count and fragment number
+- the actual AIS payload
+- the sequence number
+
+Finally, the AIS payload is decoded based on the AIS ID. There are 27 different types of top level messages that are identified by their AIS ID.
+
+# Gatehouse wrappers
+
+Some AIS messages have so-called Gatehouse wrappers. These encapsulating messages contain extra information, such as time and checksums. Some readers also process these. See some more documentation [here](https://www.iala-aism.org/wiki/iwrap/index.php/GH_AIS_Message_Format).
+
+As an example, see the following, which is followed by a regular `!AIVDM` message
+
+```
+$PGHP,1,2020,12,31,23,59,58,239,0,0,0,1,2C*5B
 ```
 
-### Decode messages from stdin
+Such messages are parsed by **pyais** only when using any of the classes from **pyais.stream**.
+e.g. `FileReaderStream` or `TCPStream`.
 
-The program reads content from STDIN by default. So you can use it like grep:
-
-```shell
-$ cat tests/ais_test_messages | ais-decode
-{'type': 1, 'repeat': 0, 'mmsi': '227006760', 'status': <NavigationStatus.UnderWayUsingEngine: 0>, 'turn': -128, 'speed': 0.0, 'accuracy': False, 'lon': 0.13138, 'lat': 49.47557666666667, 'course': 36.7, 'heading': 511, 'second': 14, 'maneuver': <ManeuverIndicator.NotAvailable: 0>, 'raim': False, 'radio': 22136}
-{'type': 1, 'repeat': 0, 'mmsi': '205448890', 'status': <NavigationStatus.UnderWayUsingEngine: 0>, 'turn': -128, 'speed': 0.0, 'accuracy': True, 'lon': 4.419441666666667, 'lat': 51.237658333333336, 'course': 63.300000000000004, 'heading': 511, 'second': 15, 'maneuver': <ManeuverIndicator.NotAvailable: 0>, 'raim': True, 'radio': 2248}
-{'type': 1, 'repeat': 0, 'mmsi': '000786434', 'status': <NavigationStatus.UnderWayUsingEngine: 0>, 'turn': -128, 'speed': 1.6, 'accuracy': True, 'lon': 5.320033333333333, 'lat': 51.967036666666665, 'course': 112.0, 'heading': 511, 'second': 15, 'maneuver': <ManeuverIndicator.NoSpecialManeuver: 1>, 'raim': False, 'radio': 153208}
-...
-```
-
-It is possible to read from a file by using the `-f` option
-
-```shell
-$ ais-decode -f tests/ais_test_messages 
-{'type': 1, 'repeat': 0, 'mmsi': '227006760', 'status': <NavigationStatus.UnderWayUsingEngine: 0>, 'turn': -128, 'speed': 0.0, 'accuracy': False, 'lon': 0.13138, 'lat': 49.47557666666667, 'course': 36.7, 'heading': 511, 'second': 14, 'maneuver': <ManeuverIndicator.NotAvailable: 0>, 'raim': False, 'radio': 22136}
-{'type': 1, 'repeat': 0, 'mmsi': '205448890', 'status': <NavigationStatus.UnderWayUsingEngine: 0>, 'turn': -128, 'speed': 0.0, 'accuracy': True, 'lon': 4.419441666666667, 'lat': 51.237658333333336, 'course': 63.300000000000004, 'heading': 511, 'second': 15, 'maneuver': <ManeuverIndicator.NotAvailable: 0>, 'raim': True, 'radio': 2248}
-```
-
-### Decode from socket
-
-By default the program will open a UDP socket
-
-```shell
-$ ais-decode socket localhost 12345
-```
-
-but you can also connect to a TCP socket by setting the `-t tcp` parameter.
-
-```shell
-$ ais-decode socket localhost 12345 -t tcp
-```
-
-### Write content to file
-
-By default, the program writes it's output to STDOUT. But you can write to a file by passing the `-o` option. You need
-to add this option before invoking any of the subcommands, due to the way `argparse` parses it's arguments.
-
-```shell
-$ ais-decode -o /tmp/some_file.tmp single '!AIVDM,2,1,1,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*07' '!AIVDM,2,2,1,A,F@V@00000000000,2*35' 
-
-# This is same as redirecting the output to a file
-
-$ ais-decode single '!AIVDM,2,1,1,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*07' '!AIVDM,2,2,1,A,F@V@00000000000,2*35' > /tmp/file
-```
-
-I also wrote a [blog post about AIS decoding](https://leonrichter.de/posts/pyais/) and this lib.
+Such additional information can then be accessed by the `.wrapper_msg` of every `NMEASentence`. This attribute is `None` by default.
 
 # Performance Considerations
 

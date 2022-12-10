@@ -196,10 +196,10 @@ class TestFileReaderStream(unittest.TestCase):
             for i, msg in enumerate(stream):
                 assert msg.decode()
                 if i == 0:
-                    assert isinstance(msg.meta, GatehouseSentence)
-                    assert str(msg.meta.timestamp) == '2008-05-09 00:00:00.010000'
+                    assert isinstance(msg.wrapper_msg, GatehouseSentence)
+                    assert str(msg.wrapper_msg.timestamp) == '2008-05-09 00:00:00.010000'
                 elif i == 2:
-                    assert isinstance(msg.meta, GatehouseSentence)
-                    assert str(msg.meta.timestamp) == '2009-05-09 00:00:00.010000'
+                    assert isinstance(msg.wrapper_msg, GatehouseSentence)
+                    assert str(msg.wrapper_msg.timestamp) == '2009-05-09 00:00:00.010000'
                 else:
-                    assert msg.meta is None
+                    assert msg.wrapper_msg is None

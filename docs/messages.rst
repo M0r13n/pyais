@@ -35,54 +35,50 @@ The lib also includes some handy helper functions to transform bytes to bits and
 NMEA messages
 ----------------
 
-The `NMEAMessage` is the first level of abstraction during parsing/decoding.
-Every message that is decoded, is transformed into a `NMEAMessage`.
+Refer to the examples folder for some typical examples: https://github.com/M0r13n/pyais/tree/master/examples
+
+NMEA messages
+----------------
+
+The `NMEASentence` is the first level of abstraction during parsing/decoding.
+
+Every instance of `NMEASentence` has a fixed set of attributes::
+
+    msg = NMEASentence(b"!AIVDM,1,1,,A,15Mj23P000G?q7fK>g:o7@1:0L3S,0*1B")
+
+    msg.raw                    # => Raw decoded message as :byte:
+    msg.delimiter              # => Start delimiter. Normally $ or ?
+    msg.data_fields            # => NMEA payload. Interpretation varies depending on the NMEA sentence type
+    msg.talker_id              # => two letter talker ID
+    msg.type                   # => three-letter type code.
+    msg.checksum               # => NMEA sentence checksum. 8-bit XOR of all characters
+    msg.is_valid               # => Check if checksum valid
+    msg.wrapper_msg            # => Optional encapsulating message
+
+This class is not meant to be instantiated directly. Instead, an inheriting class 
+should subclass from it. Such a child class then defines the sentence specific logic.
+
+**pyais** currently supports two NMEA sentence types:
+
+- `GatehouseSentence`: wrapper messages that hold additional meta data.
+- `AISSentence`: AIS messages
 
 
-Every instance of `NMEAMessage` has a fixed set of attributes::
+Gatehouse wrappers
+-------------------
 
-    msg = NMEAMessage(b"!AIVDM,1,1,,A,15Mj23P000G?q7fK>g:o7@1:0L3S,0*1B")
+Some AIS messages have so-called Gatehouse wrappers. These encapsulating messages contain extra information, such as time and checksums. Some readers also process these. See some more documentation [here](https://www.iala-aism.org/wiki/iwrap/index.php/GH_AIS_Message_Format).
 
-    msg.ais_id                  # => AIS message type as :int:
-    msg.raw                     # => Raw, decoded message as :byte:
-    msg.talker                  # => Talker ID as :str:
-    msg.type                    # => Message type (VDM, VDO, etc.) :str:
-    msg.message_fragments       # => Number of fragments (some messages need more than one, maximum generally is 9) as :int:
-    msg.fragment_number         # => Sentence number (1 unless it is a multi-sentence message) as :int:
-    msg.message_id              # => Optional (can be None) sequential message ID (for multi-sentence messages) as :int:
-    msg.channel                 # => The AIS channel (A or B) as :str:
-    msg.payload                 # => he encoded AIS data, using AIS-ASCII6 as :bytes:
-    msg.fill_bits               # => unused bits at end of data (0-5) as :int:
-    msg.checksum                # => NMEA CRC1 checksum :int:
-    msg.bit_array               # => Payload as :bitarray:
+As an example, see the following, which is followed by a regular `!AIVDM` message
 
+```
+$PGHP,1,2020,12,31,23,59,58,239,0,0,0,1,2C*5B
+```
 
-Every message can be transformed into a dictionary::
+Such messages are parsed by **pyais** only when using any of the classes from **pyais.stream**.
+e.g. `FileReaderStream` or `TCPStream`.
 
-    msg = NMEAMessage(b"!AIVDM,1,1,,A,15Mj23P000G?q7fK>g:o7@1:0L3S,0*1B")
-
-    msg.asdict() == {'ais_id': 1,
-     'bit_array': '000001000101011101110010000010000011100000000000000000000000010111001111111001000111101110011011001110101111001010110111000111010000000001001010000000011100000011100011',
-     'channel': 'A',
-     'checksum': 27,
-     'fill_bits': 0,
-     'fragment_number': 1,
-     'message_fragments': 1,
-     'message_id': None,
-     'payload': '15Mj23P000G?q7fK>g:o7@1:0L3S',
-     'raw': '!AIVDM,1,1,,A,15Mj23P000G?q7fK>g:o7@1:0L3S,0*1B',
-     'talker': 'AI',
-     'type': 'VDM'}
-
-Multiline messages can be created as follows::
-
-      msg_1_part_0 = b'!AIVDM,2,1,1,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*07'
-      msg_1_part_1 = b'!AIVDM,2,2,1,A,F@V@00000000000,2*35'
-
-      decoded = NMEAMessage.assemble_from_iterable(msg_1_part_0, msg_1_part_1).decode()
-
-You can decode the message by calling `.decode()`. Depending on the Message type a message of Type 1 to 27 is returned.
-
+Such additional information can then be accessed by the `.wrapper_msg` of every `NMEASentence`. This attribute is `None` by default.
 
 
 Message classes

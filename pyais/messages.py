@@ -117,16 +117,15 @@ class NMEASentence(object):
     an end-of-line marker.
     """
     __slots__ = (
-        'ais_id',
         'raw',
         'delimiter',
         'data_fields',
         'talker_id',
         'type',
-        'fill_bits',
         'checksum',
+        'fill_bits',
         'is_valid',
-        'meta',
+        'wrapper_msg',
     )
 
     TYPE = "UNDEFINED"
@@ -164,7 +163,7 @@ class NMEASentence(object):
 
         # Some NMEA messages contain meta data for other messages
         # E.G PGHP messages (Gatehousing)
-        self.meta: typing.Optional[typing.Any] = None
+        self.wrapper_msg: typing.Optional[typing.Any] = None
 
     def __str__(self) -> str:
         return repr(self)
@@ -237,21 +236,13 @@ class AISSentence(NMEASentence):
 
     __slots__ = (
         'ais_id',
-        'raw',
-        'delimiter',
-        'data_fields',
-        'talker_id',
-        'type',
-        'fill_bits',
-        'checksum',
-        'is_valid',
         'frag_cnt',
         'frag_num',
         'seq_id',
-        'channel',
         'payload',
         'bit_array',
         'ais_id',
+        'channel',
     )
 
     def __init__(self, raw: bytes) -> None:
@@ -376,7 +367,7 @@ class AISSentence(NMEASentence):
 
     def decode(self) -> "ANY_MESSAGE":
         """
-        Decode the NMEA message.
+        Decode the AIS message.
         @return: The decoded message class as a superclass of `Payload`.
 
         >>> nmea = NMEAMessage(b"!AIVDO,1,1,,,B>qc:003wk?8mP=18D3Q3wgTiT;T,0*13").decode()
