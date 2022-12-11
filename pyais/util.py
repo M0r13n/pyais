@@ -283,11 +283,21 @@ def chk_to_int(chk_str: bytes) -> typing.Tuple[int, int]:
     if not len(chk_str):
         return 0, -1
 
-    fill_bits: int = int(chr(chk_str[0]))
     try:
-        checksum = int(chk_str[2:], 16)
+        a, b = chk_str.split(b'*')
+    except ValueError:
+        return 0, -1
+
+    try:
+        fill_bits: int = int(a)
+    except ValueError:
+        fill_bits = 0
+
+    try:
+        checksum = int(b, 16)
     except (IndexError, ValueError):
         checksum = -1
+
     return fill_bits, checksum
 
 

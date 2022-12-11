@@ -1,4 +1,5 @@
 import abc
+import datetime
 import json
 import math
 import typing
@@ -17,92 +18,13 @@ from pyais.util import decode_into_bit_array, compute_checksum, get_itdma_comm_s
 
 NMEA_VALUE = typing.Union[str, float, int, bool, bytes]
 
-
-def validate_message(msg: bytes) -> None:
-    """
-    Validates a given message.
-    It checks if the messages complies with the AIS standard.
-    It is based on:
-        1. https://en.wikipedia.org/wiki/Automatic_identification_system
-        2. https://en.wikipedia.org/wiki/NMEA_0183
-
-    If not errors are found, nothing is returned.
-    Otherwise an InvalidNMEAMessageException is raised.
-    """
-    values = msg.split(b",")
-
-    # A message has exactly 7 comma separated values
-    if len(values) != 7:
-        raise InvalidNMEAMessageException(
-            "A NMEA message needs to have exactly 7 comma separated entries."
-        )
-
-    # The only allowed blank value may be the message ID
-    if not values[0]:
-        raise InvalidNMEAMessageException(
-            "The NMEA message type is empty!"
-        )
-
-    if not values[1]:
-        raise InvalidNMEAMessageException(
-            "Number of sentences is empty!"
-        )
-
-    if not values[2]:
-        raise InvalidNMEAMessageException(
-            "Sentence number is empty!"
-        )
-
-    if not values[5]:
-        raise InvalidNMEAMessageException(
-            "The NMEA message body (payload) is empty."
-        )
-
-    if not values[6]:
-        raise InvalidNMEAMessageException(
-            "NMEA checksum (NMEA 0183 Standard CRC16) is empty."
-        )
-
-    try:
-        sentence_num = int(values[1])
-        if sentence_num > 0xff:
-            raise InvalidNMEAMessageException(
-                "Number of sentences exceeds limit of 9 total sentences."
-            )
-    except ValueError:
-        raise InvalidNMEAMessageException(
-            "Invalid sentence number. No Number."
-        )
-
-    if values[2]:
-        try:
-            sentence_num = int(values[2])
-            if sentence_num > 0xff:
-                raise InvalidNMEAMessageException(
-                    " Sentence number exceeds limit of 9 total sentences."
-                )
-        except ValueError:
-            raise InvalidNMEAMessageException(
-                "Invalid Sentence number. No Number."
-            )
-
-    if values[3]:
-        try:
-            sentence_num = int(values[3])
-            if sentence_num > 0xff:
-                raise InvalidNMEAMessageException(
-                    "Number of sequential message ID exceeds limit of 9 total sentences."
-                )
-        except ValueError:
-            raise InvalidNMEAMessageException(
-                "Invalid  sequential message ID. No Number."
-            )
-
-    # It should not have more than 82 chars of payload
-    if len(values[5]) > 82:
-        raise InvalidNMEAMessageException(
-            f"{msg.decode('utf-8')} has more than 82 characters of payload."
-        )
+B_EXCLAMATION_MARK = b"!"
+B_DOLLAR_SIGN = b"$"
+B_VDM = b"VDM"
+B_VDO = b"VDO"
+B_GH = b"HP"
+MAX_FRAG_CNT = 100
+MAX_PAYLOAD_LEN = 200
 
 
 def bit_field(width: int, d_type: typing.Type[typing.Any],
@@ -147,28 +69,70 @@ class JSONEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-class NMEAMessage(object):
+class NMEASentenceFactory:
+    """
+    NMEA sentence factory.
+    There are tons of different NMEA sentences.
+    In order to correctly parse each sentence, this factory looks at the tag-block.
+    The first comma-separated fields defines the type of NMEA sentence.
+
+    NOTE: Only a very small subset of all NMEA sentences is currently supported!
+    """
+
+    @classmethod
+    def _produce(cls, raw: bytes) -> "NMEASentence":
+        # Parse the first comma separated field, the tag block
+        fields = raw.split(b",")
+        first_field = fields[0]
+        delimiter = first_field[:1]
+        type_code = first_field[3:]
+        type_code = type_code.upper()
+
+        if type_code == B_VDM or type_code == B_VDO:
+            return AISSentence(raw)
+        if delimiter == B_DOLLAR_SIGN:
+            if type_code == B_GH:
+                return GatehouseSentence(raw)
+
+        raise UnknownMessageException(raw)
+
+    @classmethod
+    def produce(cls, raw: bytes) -> "NMEASentence":
+        """Parse a single bytes string into an NMEA sentence."""
+        if not isinstance(raw, bytes):
+            raise TypeError("message must be bytes")
+
+        if len(raw) == 0:
+            raise InvalidNMEAMessageException("empty bytes")
+
+        raw = raw.strip()
+        return cls._produce(raw)
+
+
+class NMEASentence(object):
+    """
+    Single NMEA Sentence.
+    An NMEA sentence consists of a start delimiter, followed by a comma-separated
+    sequence of fields, followed by the character '*', the checksum and
+    an end-of-line marker.
+    """
     __slots__ = (
-        'ais_id',
         'raw',
-        'talker',
+        'delimiter',
+        'data_fields',
+        'talker_id',
         'type',
-        'frag_cnt',
-        'frag_num',
-        'seq_id',
-        'channel',
-        'payload',
-        'fill_bits',
         'checksum',
+        'fill_bits',
         'is_valid',
-        'bit_array'
+        'wrapper_msg',
     )
+
+    TYPE = "UNDEFINED"
 
     def __init__(self, raw: bytes) -> None:
         if not isinstance(raw, bytes):
             raise ValueError(f"'NMEAMessage' only accepts bytes, but got '{type(raw)}'")
-
-        validate_message(raw)
 
         # Initial values
         self.checksum: int = -1
@@ -177,52 +141,35 @@ class NMEAMessage(object):
         self.raw: bytes = raw
 
         # An AIS NMEA message consists of seven, comma separated parts
-        values = raw.split(b",")
+        fields = raw.split(b",")
 
-        # Unpack NMEA message parts
-        (
-            head,
-            message_fragments,
-            fragment_number,
-            message_id,
-            channel,
-            payload,
-            checksum
-        ) = values
+        # The first field of a sentence is called the "tag" and normally consists
+        # of a two-letter talker ID followed by a three-letter type code.
+        first_field = fields[0]
+        self.delimiter = first_field[:1]
+        self.talker_id = first_field[1:3].decode('ascii')
+        self.type = first_field[3:].decode('ascii')
 
-        # The talker is identified by the next 2 characters
-        talker: str = head[1:3].decode('ascii')
-        self.talker: TalkerID = TalkerID(talker)
-
-        # The type of message is then identified by the next 3 characters
-        self.type: str = head[3:].decode('ascii')
-
-        # Total number of fragments
-        self.frag_cnt: int = int(message_fragments)
-        # Current fragment index
-        self.frag_num: int = int(fragment_number)
-        # Optional message index for multiline messages
-        self.seq_id: Optional[int] = int(message_id) if message_id else None
-        # Channel (A or B)
-        self.channel: str = channel.decode('ascii')
-        # Decoded message payload as byte string
-        self.payload: bytes = payload
-
+        checksum = fields[-1]
         fill, check = chk_to_int(checksum)
         # Fill bits (0 to 5)
         self.fill_bits: int = fill
         # Message Checksum (hex value)
         self.checksum = check
-
-        # Finally decode bytes into bits
-        self.bit_array: bitarray = decode_into_bit_array(self.payload, self.fill_bits)
-        self.ais_id: int = get_int(self.bit_array, 0, 6)
-
         # Set the checksum valid field
         self.is_valid = self.checksum == compute_checksum(self.raw)
 
+        self.data_fields = fields[1:-1]
+
+        # Some NMEA messages contain meta data for other messages
+        # E.G PGHP messages (Gatehousing)
+        self.wrapper_msg: typing.Optional['GatehouseSentence'] = None
+
     def __str__(self) -> str:
-        return str(self.raw)
+        return repr(self)
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}<{self.raw.decode('ascii')}>"
 
     def __getitem__(self, item: str) -> Union[int, str, bytes, bitarray]:
         if isinstance(item, str):
@@ -233,8 +180,110 @@ class NMEAMessage(object):
         else:
             raise TypeError(f"Index must be str, not {type(item).__name__}")
 
+    def __eq__(self, other: object) -> bool:
+        return all([getattr(self, attr) == getattr(other, attr) for attr in self.__slots__])
+
     def __hash__(self) -> int:
         return hash(self.raw)
+
+    @property
+    def talker(self) -> TalkerID:
+        return TalkerID(self.talker_id)
+
+
+class GatehouseSentence(NMEASentence):
+    TYPE = 'HP'
+
+    _slots__ = (
+        'country',
+        'region',
+        'pss',
+        'online_data',
+        'timestamp',
+    )
+
+    def __init__(self, raw: bytes) -> None:
+        super().__init__(raw)
+
+        fields = self.data_fields
+        try:
+            [year, month, day, hour, minute, second, millisecond] = fields[1:8]
+            t = datetime.datetime(
+                year=int(year),
+                month=int(month),
+                day=int(day),
+                hour=int(hour),
+                minute=int(minute),
+                second=int(second),
+                microsecond=int(millisecond) * 1000
+            )
+            # MMSI country code where the message originates from
+            self.country = fields[8].decode('ascii')
+            # The MMSI number of the region
+            self.region = fields[9].decode('ascii')
+            # MMSI number of the site transponder
+            self.pss = fields[10].decode('ascii')
+            # buffered data from a BSC will be designated with 0, online data with 1
+            self.online_data = int(fields[11])
+        except Exception as err:
+            raise InvalidNMEAMessageException(raw) from err
+
+        self.timestamp = t
+
+
+class AISSentence(NMEASentence):
+    TYPE = 'AIS'
+
+    __slots__ = (
+        'ais_id',
+        'frag_cnt',
+        'frag_num',
+        'seq_id',
+        'payload',
+        'bit_array',
+        'ais_id',
+        'channel',
+    )
+
+    def __init__(self, raw: bytes) -> None:
+        super().__init__(raw)
+
+        try:
+            # Unpack NMEA message parts
+            (
+                message_fragments,
+                fragment_number,
+                message_id,
+                channel,
+                payload,
+            ) = self.data_fields[:5]
+
+            # Total number of fragments
+            self.frag_cnt: int = int(message_fragments)
+            # Current fragment index
+            self.frag_num: int = int(fragment_number)
+            # Optional message index for multiline messages
+            self.seq_id: Optional[int] = int(message_id) if message_id else None
+            # Channel (A or B)
+            self.channel: str = channel.decode('ascii')
+            # Decoded message payload as byte string
+            self.payload: bytes = payload
+
+        except Exception as err:
+            raise InvalidNMEAMessageException(raw) from err
+
+        if not len(payload):
+            raise InvalidNMEAMessageException("Invalid empty payload")
+
+        if len(payload) > MAX_PAYLOAD_LEN:
+            raise InvalidNMEAMessageException("AIS payload too large")
+
+        if self.frag_cnt > MAX_FRAG_CNT or self.frag_num > MAX_FRAG_CNT:
+            raise InvalidNMEAMessageException("Too many fragments")
+
+        # Finally decode bytes into bits
+        self.bit_array: bitarray = decode_into_bit_array(self.payload, self.fill_bits)
+        self.ais_id: int = get_int(self.bit_array, 0, 6)
 
     def asdict(self) -> Dict[str, Any]:
         """
@@ -270,9 +319,6 @@ class NMEAMessage(object):
         rlt.update(decoded.asdict(enum_as_int))
         return rlt
 
-    def __eq__(self, other: object) -> bool:
-        return all([getattr(self, attr) == getattr(other, attr) for attr in self.__slots__])
-
     @classmethod
     def from_string(cls, nmea_str: str) -> "NMEAMessage":
         return cls(nmea_str.encode('utf-8'))
@@ -282,7 +328,7 @@ class NMEAMessage(object):
         return cls(nmea_byte_str)
 
     @classmethod
-    def assemble_from_iterable(cls, messages: Sequence["NMEAMessage"]) -> "NMEAMessage":
+    def assemble_from_iterable(cls, messages: Sequence["AISSentence"]) -> "AISSentence":
         """
         Assemble a multiline message from a sequence of NMEA messages.
         :param messages: Sequence of NMEA messages
@@ -321,7 +367,7 @@ class NMEAMessage(object):
 
     def decode(self) -> "ANY_MESSAGE":
         """
-        Decode the NMEA message.
+        Decode the AIS message.
         @return: The decoded message class as a superclass of `Payload`.
 
         >>> nmea = NMEAMessage(b"!AIVDO,1,1,,,B>qc:003wk?8mP=18D3Q3wgTiT;T,0*13").decode()
@@ -1494,3 +1540,6 @@ ANY_MESSAGE = typing.Union[
     MessageType26,
     MessageType27,
 ]
+
+# This is only there for backwards compatibility
+NMEAMessage = AISSentence

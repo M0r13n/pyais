@@ -1,7 +1,7 @@
 import unittest
 
 from pyais.decode import decode
-from pyais.exceptions import InvalidNMEAMessageException, MissingMultipartMessageException, TooManyMessagesException
+from pyais.exceptions import InvalidNMEAMessageException, MissingMultipartMessageException, TooManyMessagesException, UnknownMessageException
 
 
 class TestDecode(unittest.TestCase):
@@ -25,13 +25,16 @@ class TestDecode(unittest.TestCase):
         self.assertEqual(msg['lon'], 181.0)
 
     def test_str_invalid(self):
-        with self.assertRaises(InvalidNMEAMessageException):
+        with self.assertRaises(UnknownMessageException):
             decode("AIVDM,1,1,,A")
 
     def test_decode_total_garbage(self):
         def should_raise(msg):
-            with self.assertRaises(InvalidNMEAMessageException):
+            try:
                 decode(msg)
+                assert False, "InvalidNMEAMessageException or UnknownMessageException not raised"
+            except (UnknownMessageException, InvalidNMEAMessageException):
+                pass
 
         should_raise("")
         should_raise("1234567890")
@@ -42,11 +45,9 @@ class TestDecode(unittest.TestCase):
         should_raise("!AIVDM,,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")
         should_raise("!AIVDM,1,,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")
         should_raise("!AIVDM,1,1,,A,,0*28")
-        should_raise("!AIVDM,1,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,")
 
         should_raise("!AIVDM,11111111111111,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")
         should_raise("!AIVDM,1,11111111111111111111,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")
-        should_raise("!AIVDM,1,1,111111111,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")
 
         should_raise(f"!AIVDM,1,1,,A,{'A' * 256},0*28")
 
