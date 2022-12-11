@@ -163,7 +163,7 @@ class NMEASentence(object):
 
         # Some NMEA messages contain meta data for other messages
         # E.G PGHP messages (Gatehousing)
-        self.wrapper_msg: typing.Optional[typing.Any] = None
+        self.wrapper_msg: typing.Optional['GatehouseSentence'] = None
 
     def __str__(self) -> str:
         return repr(self)

@@ -2,6 +2,12 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 2.3.0 11 Dec 2022
+-------------------------------------------------------------------------------
+* closes https://github.com/M0r13n/pyais/issues/91
+  * supports Gatehouse wrappers used to add extra information
+* renames `NMEAMessage` to `NMEASentence`
+-------------------------------------------------------------------------------
  Version 2.2.4 11 Nov 2022
 -------------------------------------------------------------------------------
 * ignores `NonPrintableCharacterException` exceptions when using stream readers

@@ -4,7 +4,7 @@ from socket import AF_INET, SOCK_DGRAM, SOCK_STREAM, socket
 from typing import BinaryIO, Generator, Generic, Iterable, List, TypeVar, cast
 
 from pyais.exceptions import InvalidNMEAMessageException, NonPrintableCharacterException, UnknownMessageException
-from pyais.messages import AISSentence, GatehouseSentence, NMEAMessage, NMEASentence, NMEASentenceFactory
+from pyais.messages import AISSentence, GatehouseSentence, NMEAMessage, NMEASentenceFactory
 
 T = TypeVar("T")
 F = TypeVar("F", BinaryIO, socket, None)
@@ -28,7 +28,7 @@ class AssembleMessages(ABC):
     """
 
     def __init__(self) -> None:
-        self.wrapper_msg: typing.Optional[NMEASentence] = None
+        self.wrapper_msg: typing.Optional[GatehouseSentence] = None
 
     def __enter__(self) -> "AssembleMessages":
         # Enables use of with statement
@@ -44,10 +44,10 @@ class AssembleMessages(ABC):
         """Returns the next decoded NMEA message."""
         return next(iter(self))
 
-    def __set_last_wrapper_msg(self, wrapper_msg: NMEASentence) -> None:
+    def __set_last_wrapper_msg(self, wrapper_msg: GatehouseSentence) -> None:
         self.wrapper_msg = wrapper_msg
 
-    def __get_last_wrapper_msg(self) -> typing.Optional[NMEASentence]:
+    def __get_last_wrapper_msg(self) -> typing.Optional[GatehouseSentence]:
         wrapper_msg = self.wrapper_msg
         self.wrapper_msg = None
         return wrapper_msg
@@ -67,6 +67,7 @@ class AssembleMessages(ABC):
             try:
                 sentence = NMEASentenceFactory.produce(line)
                 if sentence.TYPE == GatehouseSentence.TYPE:
+                    sentence = cast(GatehouseSentence, sentence)
                     self.__set_last_wrapper_msg(sentence)
                     continue
             except (InvalidNMEAMessageException, NonPrintableCharacterException, UnknownMessageException):
