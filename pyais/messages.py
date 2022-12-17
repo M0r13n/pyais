@@ -776,7 +776,7 @@ class MessageType6(Payload):
     spare_1 = bit_field(1, bytes, default=b'')
     dac = bit_field(10, int, default=0, signed=False)
     fid = bit_field(6, int, default=0, signed=False)
-    data = bit_field(920, bytes, default=b'', variable_length=True)
+    data = bit_field(920, bytes, default=b'')
 
 
 @attr.s(slots=True)
@@ -811,7 +811,7 @@ class MessageType8(Payload):
     spare_1 = bit_field(2, bytes, default=b'')
     dac = bit_field(10, int, default=0, signed=False)
     fid = bit_field(6, int, default=0, signed=False)
-    data = bit_field(952, bytes, default=b'', variable_length=True)
+    data = bit_field(952, bytes, default=b'')
 
 
 @attr.s(slots=True)
@@ -896,7 +896,7 @@ class MessageType14(Payload):
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
     spare_1 = bit_field(2, bytes, default=b'')
-    text = bit_field(968, str, default='')
+    text = bit_field(968, str, default='', variable_length=True)
 
 
 @attr.s(slots=True)
@@ -956,7 +956,7 @@ class MessageType17(Payload):
     lon = bit_field(18, float, from_converter=from_10th, to_converter=to_10th, default=0)
     lat = bit_field(17, float, from_converter=from_10th, to_converter=to_10th, default=0)
     spare_2 = bit_field(5, bytes, default=b'')
-    data = bit_field(736, bytes, default=b'', variable_length=True)
+    data = bit_field(736, bytes, default=b'')
 
 
 @attr.s(slots=True)
