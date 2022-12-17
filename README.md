@@ -270,5 +270,19 @@ $ make test
 
 Now you are ready to start developing on the project! Don't forget to add tests for every new change or feature!
 
+# Funfacts
 
+## Python3.11 is faster
 
+With Python3.11 significant improvements to the CPython Runtime were made:
+
+- [What's new with Python 3.11](https://docs.python.org/3/whatsnew/3.11.html)
+- [Faster CPython](https://docs.python.org/3/whatsnew/3.11.html#whatsnew311-faster-cpython)
+
+Some results from the internal [performance test](https://github.com/M0r13n/pyais/blob/master/tests/test_file_stream.py#L155):
+
+**3.10:** 
+`Decoding 82758 messages took: 3.233757972717285`
+
+**3.11:**
+`Decoding 82758 messages took: 2.5866270065307617`
