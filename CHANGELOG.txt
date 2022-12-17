@@ -2,6 +2,15 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 2.3.1 17 Dec 2022
+-------------------------------------------------------------------------------
+* closes https://github.com/M0r13n/pyais/issues/94
+  * removed unnecessary padding (`@`) from variable length text/data fields
+  * introduced a new keyword `variable_length` to the `bit_field` method:
+    * boolean value that defaults to `False`
+    * marks fields as variable in length (width)
+    * used by the encoder to decide whether to add trailing `@`s as padding
+-------------------------------------------------------------------------------
  Version 2.3.0 11 Dec 2022
 -------------------------------------------------------------------------------
 * closes https://github.com/M0r13n/pyais/issues/91
