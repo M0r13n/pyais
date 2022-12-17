@@ -211,8 +211,13 @@ def test_str_to_bin():
     assert string == "001000000101001100001100001111"
     assert len(string) == 30
 
-    # Test that trailing @'s are added
+    # By default, no trailing spaces should be added
     string = str_to_bin("Hello", 96).to01()
+    assert string == "001000000101001100001100001111"
+    assert len(string) == 30
+
+    # But trailing spaces can be added
+    string = str_to_bin("Hello", 96, trailing_spaces=True).to01()
     assert string == "001000000101001100001100001111000000000000000000000000000000000000000000000000000000000000000000"
     assert len(string) == 96
 
@@ -682,7 +687,7 @@ def test_encode_type_13():
     assert encoded[0] == "!AIVDO,1,1,,A,739UOj0jFs9R0000000000000000,0*6D"
 
 
-def test_encode_type_12():
+def test_encode_type_12_with_some_text():
     data = {
         'dest_mmsi': '271002111',
         'mmsi': '271002099',
@@ -693,10 +698,78 @@ def test_encode_type_12():
         'type': 12
     }
     actual = encode_dict(data)
+    expected = ['!AIVDO,1,1,,A,<42Lati0W:Ov=C7P6B?=Pjoihhjhqq,0*1B', ]
+
+    assert expected == actual
+
+
+def test_encode_type_12_with_no_text():
+    data = {
+        'dest_mmsi': '271002111',
+        'mmsi': '271002099',
+        'repeat': 0,
+        'retransmit': 1,
+        'seqno': 0,
+        'text': None,
+        'type': 12
+    }
+    actual = encode_dict(data)
+    expected = ['!AIVDO,1,1,,A,<42Lati0W:Ov,0*4A', ]
+
+    assert expected == actual
+
+
+def test_encode_type_12_with_empty_text():
+    data = {
+        'dest_mmsi': '271002111',
+        'mmsi': '271002099',
+        'repeat': 0,
+        'retransmit': 1,
+        'seqno': 0,
+        'text': '',
+        'type': 12
+    }
+    actual = encode_dict(data)
+    expected = ['!AIVDO,1,1,,A,<42Lati0W:Ov,0*4A', ]
+
+    assert expected == actual
+
+
+def test_encode_type_12_with_max_length_text():
+    data = {
+        'dest_mmsi': '271002111',
+        'mmsi': '271002099',
+        'repeat': 0,
+        'retransmit': 1,
+        'seqno': 0,
+        'text': 156 * 'Q',
+        'type': 12
+    }
+    actual = encode_dict(data)
     expected = [
-        '!AIVDO,3,1,0,A,<42Lati0W:Ov=C7P6B?=Pjoihhjhqq000000000000000000000000000000,0*29',
-        '!AIVDO,3,2,0,A,000000000000000000000000000000000000000000000000000000000000,0*15',
-        '!AIVDO,3,3,0,A,000000000000000000000000000000000000000000000000,0*14'
+        '!AIVDO,3,1,0,A,<42Lati0W:OvAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,0*78',
+        '!AIVDO,3,2,0,A,AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,0*15',
+        '!AIVDO,3,3,0,A,AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,0*14'
+    ]
+
+    assert expected == actual
+
+
+def test_encode_type_12_with_longer_than_max_length_length_text():
+    data = {
+        'dest_mmsi': '271002111',
+        'mmsi': '271002099',
+        'repeat': 0,
+        'retransmit': 1,
+        'seqno': 0,
+        'text': 160 * 'Q',
+        'type': 12
+    }
+    actual = encode_dict(data)
+    expected = [
+        '!AIVDO,3,1,0,A,<42Lati0W:OvAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,0*78',
+        '!AIVDO,3,2,0,A,AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,0*15',
+        '!AIVDO,3,3,0,A,AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,0*14'
     ]
 
     assert expected == actual

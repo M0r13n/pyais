@@ -32,6 +32,7 @@ def bit_field(width: int, d_type: typing.Type[typing.Any],
               to_converter: typing.Optional[typing.Callable[[typing.Any], typing.Any]] = None,
               default: typing.Optional[typing.Any] = None,
               signed: bool = False,
+              variable_length: bool = False,
               **kwargs: typing.Any) -> typing.Any:
     """
     Simple wrapper around the attr.ib interface to be used in conjunction with the Payload class.
@@ -42,6 +43,7 @@ def bit_field(width: int, d_type: typing.Type[typing.Any],
     @param to_converter:        Optional converter function called **after** decoding
     @param default:             Optional default value to be used when no value is explicitly passed.
     @param signed:              Set to true if the value is a signed integer
+    @param variable_length:     Set to true, if the field can be shorter than width (e.g. for binary data/text)
     @return:                    An attr.ib field instance.
     """
     return attr.ib(
@@ -52,6 +54,7 @@ def bit_field(width: int, d_type: typing.Type[typing.Any],
             'to_converter': to_converter,
             'signed': signed,
             'default': default,
+            'variable_length': variable_length,
         },
         **kwargs
     )
@@ -424,6 +427,7 @@ class Payload(abc.ABC):
             d_type = field.metadata['d_type']
             converter = field.metadata['from_converter']
             signed = field.metadata['signed']
+            variable_length = field.metadata['variable_length']
 
             val = getattr(self, field.name)
             if val is None:
@@ -437,7 +441,8 @@ class Payload(abc.ABC):
                 val = int(val)
                 bits = int_to_bin(val, width, signed=signed)
             elif d_type == str:
-                bits = str_to_bin(val, width)
+                trailing_spaces = not variable_length
+                bits = str_to_bin(val, width, trailing_spaces=trailing_spaces)
             elif d_type == bytes:
                 bits = bytes2bits(val, default=bitarray('0' * width))
             else:
@@ -771,7 +776,7 @@ class MessageType6(Payload):
     spare_1 = bit_field(1, bytes, default=b'')
     dac = bit_field(10, int, default=0, signed=False)
     fid = bit_field(6, int, default=0, signed=False)
-    data = bit_field(920, bytes, default=b'')
+    data = bit_field(920, bytes, default=b'', variable_length=True)
 
 
 @attr.s(slots=True)
@@ -806,7 +811,7 @@ class MessageType8(Payload):
     spare_1 = bit_field(2, bytes, default=b'')
     dac = bit_field(10, int, default=0, signed=False)
     fid = bit_field(6, int, default=0, signed=False)
-    data = bit_field(952, bytes, default=b'')
+    data = bit_field(952, bytes, default=b'', variable_length=True)
 
 
 @attr.s(slots=True)
@@ -871,7 +876,7 @@ class MessageType12(Payload):
     dest_mmsi = bit_field(30, int, from_converter=from_mmsi)
     retransmit = bit_field(1, bool, default=False, signed=False)
     spare_1 = bit_field(1, bytes, default=b'')
-    text = bit_field(936, str, default='')
+    text = bit_field(936, str, default='', variable_length=True)
 
 
 class MessageType13(MessageType7):
@@ -951,7 +956,7 @@ class MessageType17(Payload):
     lon = bit_field(18, float, from_converter=from_10th, to_converter=to_10th, default=0)
     lat = bit_field(17, float, from_converter=from_10th, to_converter=to_10th, default=0)
     spare_2 = bit_field(5, bytes, default=b'')
-    data = bit_field(736, bytes, default=b'')
+    data = bit_field(736, bytes, default=b'', variable_length=True)
 
 
 @attr.s(slots=True)
