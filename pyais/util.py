@@ -247,12 +247,13 @@ def int_to_bin(val: typing.Union[int, bool], width: int, signed: bool = True) ->
     return bits[8 - mod if mod else 0:]
 
 
-def str_to_bin(val: str, width: int) -> bitarray:
+def str_to_bin(val: str, width: int, trailing_spaces: bool = False) -> bitarray:
     """
     Convert a string value to binary using six-bit ASCII encoding up to `width` chars.
 
-    @param val:     The string to first convert to six-bit ASCII and then to binary.
-    @param width:   The width of the full string. If the string has fewer characters than width, trailing '@' are added.
+    @param val:               The string to first convert to six-bit ASCII and then to binary.
+    @param width:             The width of the full string
+    @param trailing_spaces:   If the string has fewer characters than width, trailing '@' are added
     @return:        The binary representation of value with exactly width bits. Type is bitarray.
     """
     out = bitarray(endian='big')
@@ -261,9 +262,10 @@ def str_to_bin(val: str, width: int) -> bitarray:
     # Therefore, the total number of chars is floor(WIDTH / 6).
     num_chars = int(width / 6)
 
-    # Add trailing '@' if the string is shorter than `width`
-    for _ in range(num_chars - len(val)):
-        val += "@"
+    if trailing_spaces:
+        # Add trailing '@' if the string is shorter than `width`
+        for _ in range(num_chars - len(val)):
+            val += "@"
 
     # Encode AT MOST width characters
     for char in val[:num_chars]:
