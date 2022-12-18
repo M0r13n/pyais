@@ -896,7 +896,7 @@ class MessageType14(Payload):
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
     spare_1 = bit_field(2, bytes, default=b'')
-    text = bit_field(968, str, default='')
+    text = bit_field(968, str, default='', variable_length=True)
 
 
 @attr.s(slots=True)
