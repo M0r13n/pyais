@@ -660,11 +660,7 @@ def test_encode_type_15():
 def test_encode_type_14():
     data = {'mmsi': '351809000', 'repeat': 0, 'text': 'RCVD YR TEST MSG', 'type': 14}
     actual = encode_dict(data)
-    expected = [
-        '!AIVDO,3,1,0,A,>5?Per18=HB1U:1@E=B0m<L0000000000000000000000000000000000000,0*53',
-        '!AIVDO,3,2,0,A,000000000000000000000000000000000000000000000000000000000000,0*15',
-        '!AIVDO,3,3,0,A,000000000000000000000000000000000000000000000000,2*16'
-    ]
+    expected = ['!AIVDO,1,1,,A,>5?Per18=HB1U:1@E=B0m<L,2*53']
 
     assert expected == actual
 
