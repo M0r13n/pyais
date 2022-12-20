@@ -1,5 +1,6 @@
 import abc
 import datetime
+import functools
 import json
 import math
 import typing
@@ -10,9 +11,9 @@ from bitarray import bitarray
 
 from pyais.constants import TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
     TransmitMode, StationIntervals, TurnRate
-from pyais.exceptions import InvalidNMEAMessageException, UnknownMessageException, UnknownPartNoException, \
+from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitializedException, UnknownMessageException, UnknownPartNoException, \
     InvalidDataTypeException
-from pyais.util import decode_into_bit_array, compute_checksum, get_itdma_comm_state, get_sotdma_comm_state, int_to_bin, str_to_bin, \
+from pyais.util import checksum, decode_into_bit_array, compute_checksum, get_itdma_comm_state, get_sotdma_comm_state, int_to_bin, str_to_bin, \
     encode_ascii_6, from_bytes, from_bytes_signed, decode_bin_as_ascii6, get_int, chk_to_int, coerce_val, \
     bits2bytes, bytes2bits, b64encode_str
 
@@ -20,6 +21,8 @@ NMEA_VALUE = typing.Union[str, float, int, bool, bytes]
 
 B_EXCLAMATION_MARK = b"!"
 B_DOLLAR_SIGN = b"$"
+ASTERISK = b"*"
+COMMA = b","
 B_VDM = b"VDM"
 B_VDO = b"VDO"
 B_GH = b"HP"
@@ -76,16 +79,40 @@ class NMEASentenceFactory:
     """
     NMEA sentence factory.
     There are tons of different NMEA sentences.
-    In order to correctly parse each sentence, this factory looks at the tag-block.
+    In order to correctly parse each sentence, this factory looks at the structure of the sentence.
     The first comma-separated fields defines the type of NMEA sentence.
 
     NOTE: Only a very small subset of all NMEA sentences is currently supported!
     """
 
     @classmethod
+    def _pre_process(
+        cls, raw: bytes
+    ) -> typing.Tuple[bytes, typing.Optional[bytes]]:
+        """
+        Preprocess the sentence.
+        If the sentence has no tag block it is returned as is.
+        Otherwise the tag block and NMEA sentence are separated
+        Example with tag block:
+        >>> NMEASentenceFactory._pre_process(b'\\s:2573535,c:1671533231*08\\!BSVDM,2,2,8,B,00000000000,2*36')
+        (b'!BSVDM,2,2,8,B,00000000000,2*36', b's:2573535,c:1671533231*08')
+
+        """
+        raw = raw.strip()
+
+        if raw[0] == ord(b'\\'):
+            ix_start = 0
+            ix_end = raw[1:].find(b'\\') + 1
+            tag_block = raw[ix_start + 1:ix_end]
+
+            return raw[ix_end + 1:], tag_block
+
+        return raw, None
+
+    @classmethod
     def _produce(cls, raw: bytes) -> "NMEASentence":
-        # Parse the first comma separated field, the tag block
-        fields = raw.split(b",")
+        # Parse the first comma separated field
+        fields = raw.split(COMMA)
         first_field = fields[0]
         delimiter = first_field[:1]
         type_code = first_field[3:]
@@ -108,8 +135,144 @@ class NMEASentenceFactory:
         if len(raw) == 0:
             raise InvalidNMEAMessageException("empty bytes")
 
-        raw = raw.strip()
-        return cls._produce(raw)
+        raw_sentence, tb = cls._pre_process(raw)
+        sentence = cls._produce(raw_sentence)
+        if tb:
+
+            sentence.tag_block = TagBlock(tb)
+        return sentence
+
+
+def error_if_uninitialized(func: typing.Callable[['TagBlock'], typing.Any]) -> typing.Callable[['TagBlock'], typing.Any]:
+    @functools.wraps(func)
+    def wrapper(tb: 'TagBlock') -> typing.Any:
+        if not tb.initialized:
+            raise TagBlockNotInitializedException(
+                'tag block not initialized. you need to call .init() first'
+            )
+        return func(tb)
+    return wrapper
+
+
+class TagBlock:
+
+    __slots__ = (
+        'raw',
+        'initialized',
+        '_is_valid',
+        '_actual_checksum',
+        '_expected_checksum',
+        '_receiver_timestamp',
+        '_source_station',
+        '_destination_station',
+        '_line_count',
+        '_relative_time',
+        '_text',
+    )
+
+    def __init__(self, raw: bytes) -> None:
+        self.raw = raw
+        self.initialized = False
+        self._is_valid = False
+        self._actual_checksum = -1
+        self._expected_checksum = -1
+        self._receiver_timestamp: typing.Optional[str] = None
+        self._destination_station: typing.Optional[str] = None
+        self._line_count: typing.Optional[str] = None
+        self._source_station: typing.Optional[str] = None
+        self._relative_time: typing.Optional[str] = None
+        self._text: typing.Optional[str] = None
+
+    @property
+    @error_if_uninitialized
+    def receiver_timestamp(self) -> typing.Optional[str]:
+        return self._receiver_timestamp
+
+    @property
+    @error_if_uninitialized
+    def destination_station(self) -> typing.Optional[str]:
+        return self._destination_station
+
+    @property
+    @error_if_uninitialized
+    def line_count(self) -> typing.Optional[str]:
+        return self._line_count
+
+    @property
+    @error_if_uninitialized
+    def source_station(self) -> typing.Optional[str]:
+        return self._source_station
+
+    @property
+    @error_if_uninitialized
+    def relative_time(self) -> typing.Optional[str]:
+        return self._relative_time
+
+    @property
+    @error_if_uninitialized
+    def text(self) -> typing.Optional[str]:
+        return self._text
+
+    @property
+    @error_if_uninitialized
+    def is_valid(self) -> bool:
+        return self._is_valid
+
+    @property
+    @error_if_uninitialized
+    def actual_checksum(self) -> int:
+        return self._actual_checksum
+
+    @property
+    @error_if_uninitialized
+    def expected_checksum(self) -> int:
+        return self._expected_checksum
+
+    def init(self) -> None:
+        payload, check = self.raw.split(ASTERISK)
+
+        self._actual_checksum = checksum(payload)
+        self._expected_checksum = int(check, 16)
+        self._is_valid = self._actual_checksum == self._expected_checksum
+
+        fields = payload.split(COMMA)
+        self.__parse_fields(fields)
+        self.initialized = True
+
+    def __parse_fields(self, fields: typing.List[bytes]) -> None:
+        for field in fields:
+            decoded = field.decode()
+            spec, val = decoded.split(':')
+
+            if spec == 'c':
+                self._receiver_timestamp = val
+            elif spec == 'd':
+                self._destination_station = val
+            elif spec == 'n':
+                self._line_count = val
+            elif spec == 'r':
+                self._relative_time = val
+            elif spec == 's':
+                self._source_station = val
+            elif spec == 't':
+                self._text = val
+            else:
+                pass
+
+    def __repr__(self) -> str:
+        return f"TagBlock<{self.raw.decode()}>"
+
+    @error_if_uninitialized
+    def asdict(self) -> typing.Dict[str, typing.Any]:
+        return {
+            'raw': self.raw,
+            'receiver_timestamp': self.receiver_timestamp,
+            'source_station': self.source_station,
+            'destination_station': self.destination_station,
+            'line_count': self.line_count,
+            'relative_time': self.relative_time,
+            'text': self.text,
+        }
 
 
 class NMEASentence(object):
@@ -129,6 +292,7 @@ class NMEASentence(object):
         'fill_bits',
         'is_valid',
         'wrapper_msg',
+        'tag_block',
     )
 
     TYPE = "UNDEFINED"
@@ -143,7 +307,7 @@ class NMEASentence(object):
         # Store raw data
         self.raw: bytes = raw
 
-        # An AIS NMEA message consists of seven, comma separated parts
+        # A NMEA message consists of comma separated parts
         fields = raw.split(b",")
 
         # The first field of a sentence is called the "tag" and normally consists
@@ -167,6 +331,11 @@ class NMEASentence(object):
         # Some NMEA messages contain meta data for other messages
         # E.G PGHP messages (Gatehousing)
         self.wrapper_msg: typing.Optional['GatehouseSentence'] = None
+
+        # Some NMEA messages may contain a leading tag block
+        # NOTE:     I couldn't find any good documentation for these fields.
+        #           Therefore, TagBlocks are lazily evaluated (need to call tag_block.init() first)
+        self.tag_block: typing.Optional['TagBlock'] = None
 
     def __str__(self) -> str:
         return repr(self)
