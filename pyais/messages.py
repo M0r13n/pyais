@@ -673,7 +673,7 @@ class Payload(abc.ABC):
                 # All fields that did not fit into the bit array are None
                 kwargs[field.name] = None
                 continue
-            
+
             width = field.metadata['width']
             d_type = field.metadata['d_type']
             converter = field.metadata['to_converter']
