@@ -1,5 +1,5 @@
 import typing
-from enum import IntEnum, Enum
+from enum import Enum, IntEnum
 
 # Keywords
 UNDEFINED = 'Undefined'
@@ -9,7 +9,7 @@ ANSI_RED = '\x1b[31m'
 ANSI_RESET = '\x1b[0m'
 
 
-class TurnRate(IntEnum):
+class TurnRate(float, Enum):
     # Source: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
     # turning right at more than 5deg/30s (No TI available)
     NO_TI_RIGHT = 127

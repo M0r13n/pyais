@@ -55,6 +55,8 @@ class TestAIS(unittest.TestCase):
     The latter sometimes is a bit weird and therefore I used aislib to verify my results.
     """
 
+    maxDiff = None
+
     def test_to_json(self):
         json_dump = decode(b"!AIVDM,1,1,,A,15NPOOPP00o?b=bE`UNv4?w428D;,0*24").to_json()
         text = textwrap.dedent("""{

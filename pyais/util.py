@@ -28,8 +28,9 @@ def decode_into_bit_array(data: bytes, fill_bits: int = 0) -> bitarray:
     :param fill_bits:   Number of trailing fill bits to be ignored
     :return:
     """
-    bit_arr = bitarray()
+    bit_str = ''
     length = len(data)
+
     for i, c in enumerate(data):
         if not 0x20 <= c <= 0x7e:
             raise NonPrintableCharacterException(f"Non printable character: '{hex(c)}'")
@@ -41,10 +42,11 @@ def decode_into_bit_array(data: bytes, fill_bits: int = 0) -> bitarray:
         if i == length - 1 and fill_bits:
             # The last part be shorter than 6 bits and contain fill bits
             c = c >> fill_bits
-            bit_arr += bitarray(f'{c:b}'.zfill(6 - fill_bits))
+            bit_str += f'{c:b}'.zfill(6 - fill_bits)
         else:
-            bit_arr += bitarray(f'{c:06b}')
+            bit_str += f'{c:06b}'
 
+    bit_arr = bitarray(bit_str)
     return bit_arr
 
 
