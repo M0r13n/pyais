@@ -26,6 +26,7 @@ COMMA = b","
 B_VDM = b"VDM"
 B_VDO = b"VDO"
 B_GH = b"HP"
+TAG_BLOCK_START = b'\\'
 MAX_FRAG_CNT = 100
 MAX_PAYLOAD_LEN = 200
 
@@ -100,9 +101,9 @@ class NMEASentenceFactory:
         """
         raw = raw.strip()
 
-        if raw[0] == ord(b'\\'):
+        if raw[0] == ord(TAG_BLOCK_START):
             ix_start = 0
-            ix_end = raw[1:].find(b'\\') + 1
+            ix_end = raw[1:].find(TAG_BLOCK_START) + 1
             tag_block = raw[ix_start + 1:ix_end]
 
             return raw[ix_end + 1:], tag_block

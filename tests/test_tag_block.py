@@ -8,6 +8,32 @@ from pyais.stream import IterMessages
 
 class TagBlockTestCase(unittest.TestCase):
 
+    def test_tag_block_with_line_count(self):
+        raw = b'\\n:3140,s:FooBar,c:1428451253*1C\\!BSVDM,1,1,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*06'
+        msg = NMEASentenceFactory.produce(raw)
+        tb = msg.tag_block
+        tb.init()
+
+        self.assertEqual(tb.receiver_timestamp, '1428451253')
+        self.assertEqual(tb.source_station, 'FooBar')
+        self.assertEqual(tb.destination_station, None)
+        self.assertEqual(tb.line_count, '3140')
+        self.assertEqual(tb.relative_time, None)
+        self.assertEqual(tb.text, None)
+
+    def test_tag_block_with_multiple_unknown_fields(self):
+        raw = b'\\s:rORBCOMM000,q:u,c:1426032001,T:2015-03-11 00.00.01*58\\!BSVDM,1,1,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*06'
+        msg = NMEASentenceFactory.produce(raw)
+        tb = msg.tag_block
+        tb.init()
+
+        self.assertEqual(tb.receiver_timestamp, '1426032001')
+        self.assertEqual(tb.source_station, 'rORBCOMM000')
+        self.assertEqual(tb.destination_station, None)
+        self.assertEqual(tb.line_count, None)
+        self.assertEqual(tb.relative_time, None)
+        self.assertEqual(tb.text, None)
+
     def test_multiple_messages(self):
         text = textwrap.dedent("""
         \\s:2573535,c:1671533231*08\\!BSVDM,2,2,8,B,00000000000,2*36

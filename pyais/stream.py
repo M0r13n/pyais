@@ -10,6 +10,7 @@ T = TypeVar("T")
 F = TypeVar("F", BinaryIO, socket, None)
 DOLLAR_SIGN = ord("$")
 EXCLAMATION_POINT = ord("!")
+BACKSLASH = ord("\\")
 
 
 def should_parse(byte_str: bytes) -> bool:
@@ -17,8 +18,8 @@ def should_parse(byte_str: bytes) -> bool:
     This method does **NOT** validate the message, but uses a heuristic
     approach to check (or guess) if byte string is a valid nmea_message.
     """
-    # The byte sequence is not empty and starts with a $ or a !
-    return len(byte_str) > 0 and byte_str[0] in (DOLLAR_SIGN, EXCLAMATION_POINT)
+    # The byte sequence is not empty and starts with a $ or a ! or \
+    return len(byte_str) > 0 and byte_str[0] in (DOLLAR_SIGN, EXCLAMATION_POINT, BACKSLASH)
 
 
 class AssembleMessages(ABC):

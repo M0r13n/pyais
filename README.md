@@ -117,6 +117,20 @@ for msg in IterMessages(fake_stream):
     print(msg.decode())
 ```
 
+## Live feed
+
+The [Norwegian Coastal Administration](https://kystverket.no/navigasjonstjenester/ais/tilgang-pa-ais-data/) offers real-time AIS data.
+This live feed can be accessed via TCP/IP without prior registration.
+The AIS data is freely available under the [norwegian license for public data](https://data.norge.no/nlod/no/1.0):
+
+Data can be read from a TCP/IP socket and is encoded according to IEC 62320-1:
+
+- IP:   153.44.253.27
+- Port: 5631
+
+Refer to the [examples/live_stream.py](./examples/live_stream.py) for a practical example on how to read & decode AIS data from a TCP/IP socket.
+This is useful for debugging or for getting used to pyais.
+
 ## Encode
 
 It is also possible to encode messages.
@@ -191,6 +205,78 @@ After the raw message was parsed into a `NMEASentence`, the inner protocol layer
 - the sequence number
 
 Finally, the AIS payload is decoded based on the AIS ID. There are 27 different types of top level messages that are identified by their AIS ID.
+
+# Tag block
+
+Some messages may look strange at first. Typical AIS messages look roughly like this:
+
+```txt
+!AIVDM,1,1,,A,16:=?;0P00`SstvFnFbeGH6L088h,0*44
+!AIVDM,1,1,,A,16`l:v8P0W8Vw>fDVB0t8OvJ0H;9,0*0A
+!AIVDM,1,1,,A,169a:nP01g`hm4pB7:E0;@0L088i,0*5E
+```
+
+But sometimes such messages look something like this:
+
+```
+\s:2573135,c:1671620143*0B\!AIVDM,1,1,,A,16:=?;0P00`SstvFnFbeGH6L088h,0*44
+\s:2573238,c:1671620143*0B\!AIVDM,1,1,,A,16`l:v8P0W8Vw>fDVB0t8OvJ0H;9,0*0A
+\s:2573243,c:1671620143*0B\!AIVDM,1,1,,A,169a:nP01g`hm4pB7:E0;@0L088i,0*5E
+```
+
+These three messages are the same messages as above - only with a prefix, the **so called tag block.**
+Tag blocks are essential key-value pairs that are wrapped between `\`s.
+Every valid NMEA sentence may have **one of the these tag blocks**.
+Tag blocks are used to hold extra information and somewhat similar to [Gatehouse messages](#gatehouse-wrappers).
+
+A **tag block** consists of any number of comma-separated key-value pairs, followed by a checksum:
+
+- `s:2573135,c:1671620143*0B` -> `s:2573135` & `c:1671620143` & `0*B`
+
+The checksum is the same as for all NMEA messages.
+Regarding the key value pairs:
+
+- each key is a single letter
+- each letter represents a field:
+  - **c**: Receiver timestamp in Unix epoch (e.g. `1671620143`)
+  - **d**: Destination station (e.g. `FooBar`)
+  - **n**: Line count (e.g. `123`)
+  - **r**: Relative time
+  - **s**: Source station (e.g. `APIDSSRC1`)
+  - **t**: Text (e.g.g `Hello World!`)
+
+Some things to keep in mind when working with **tag blocks** and **pyais**:
+
+- tag blocks are optional (a message may or may not have a tag block)
+- tag blocks are lazily decoded by pyais to save resources (need to call `tb.init()`)
+- only some fields are supported by pyais (c,d,n,r,s,t)
+  - unknown fields are simply omitted
+
+## How to work with tag blocks
+
+```py
+from pyais.stream import IterMessages
+
+
+text = """
+\s:2573135,c:1671620143*0B\!AIVDM,1,1,,A,16:=?;0P00`SstvFnFbeGH6L088h,0*44
+\s:2573238,c:1671620143*0B\!AIVDM,1,1,,A,16`l:v8P0W8Vw>fDVB0t8OvJ0H;9,0*0A
+\s:2573243,c:1671620143*0B\!AIVDM,1,1,,A,169a:nP01g`hm4pB7:E0;@0L088i,0*5E
+"""
+
+messages = [line.encode() for line in text.split() if line]
+
+with IterMessages(messages) as s:
+    for msg in s:
+        if msg.tag_block is not None:
+            # Not every message has a tag block
+            # Therefore, check if the tag block is not None
+            # Also, it is required to call `.init()`, because tag blocks are lazily parsed
+            msg.tag_block.init()
+            # Print the tag block data as a dictionary
+            print(msg.tag_block.asdict())
+        print(msg.decode())
+```
 
 # Gatehouse wrappers
 
