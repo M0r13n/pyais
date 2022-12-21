@@ -34,3 +34,7 @@ class InvalidDataTypeException(AISBaseException):
 
 class NonPrintableCharacterException(AISBaseException):
     """A non printable ASCII character (0x20 (space) to 0x7e (~)) can not be decoded"""
+
+
+class TagBlockNotInitializedException(Exception):
+    """The TagBlock is not initialized"""

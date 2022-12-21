@@ -97,6 +97,18 @@ def get_int(data: bitarray, ix_low: int, ix_high: int, signed: bool = False) -> 
     return i >> shift
 
 
+def checksum(sentence: bytes) -> int:
+    """
+    Compute the NMEA checksum for a payload.
+    :param sentence: The sentence to compute the checksum for. MUST BE bytes.
+
+    >>> checksum(b's:2573535,c:1671533231')
+    8
+    """
+    checksum = reduce(xor, sentence)
+    return checksum
+
+
 def compute_checksum(msg: Union[str, bytes]) -> int:
     """
     Compute the checksum of a given message.
