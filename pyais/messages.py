@@ -573,6 +573,10 @@ class Payload(abc.ABC):
 
         d_type = field.metadata['d_type']
 
+        if type(val) == d_type:
+            # The value is already of the correct type -> nothing to do
+            return val
+
         try:
             coerced_val = coerce_val(val, d_type)
         except ValueError as err:
@@ -659,12 +663,13 @@ class Payload(abc.ABC):
     def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
         cur: int = 0
         end: int = 0
+        length: int = len(bit_arr)
         kwargs: typing.Dict[str, typing.Any] = {}
 
         # Iterate over the bits until the last bit of the bitarray or all fields are fully decoded
         for field in cls.fields():
 
-            if end >= len(bit_arr):
+            if end >= length:
                 # All fields that did not fit into the bit array are None
                 kwargs[field.name] = None
                 continue
@@ -673,18 +678,23 @@ class Payload(abc.ABC):
             d_type = field.metadata['d_type']
             converter = field.metadata['to_converter']
 
-            end = min(len(bit_arr), cur + width)
+            end = min(length, cur + width)
             bits = bit_arr[cur: end]
 
             val: typing.Any
             # Get the correct data type and decoding function
-            if d_type in (int, bool, float):
+            if d_type == int or d_type == bool or d_type == float:
                 shift = (8 - ((end - cur) % 8)) % 8
                 if field.metadata['signed']:
                     val = from_bytes_signed(bits) >> shift
                 else:
                     val = from_bytes(bits) >> shift
-                val = d_type(val)
+
+                if d_type == float:
+                    val = float(val)
+                elif d_type == bool:
+                    val = bool(val)
+
             elif d_type == str:
                 val = decode_bin_as_ascii6(bits)
             elif d_type == bytes:
@@ -693,10 +703,7 @@ class Payload(abc.ABC):
                 raise InvalidDataTypeException(d_type)
 
             val = converter(val) if converter is not None else val
-
-            val = cls.__force_type(field, val)
             kwargs[field.name] = val
-
             cur = end
 
         return cls(**kwargs)  # type:ignore
@@ -762,11 +769,11 @@ def from_mmsi(v: typing.Union[str, int]) -> int:
     return int(v)
 
 
-def to_turn(turn: typing.Union[int, float]) -> typing.Union[float, int, TurnRate]:
+def to_turn(turn: typing.Union[int, float]) -> typing.Union[float, TurnRate]:
     if not turn:
         return 0.0
     elif abs(turn) == 127:
-        return TurnRate(int(turn))
+        return TurnRate(turn)
     elif abs(turn) == 128:
         return TurnRate.NO_TI_DEFAULT
 
