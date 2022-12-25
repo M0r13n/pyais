@@ -1,4 +1,5 @@
 import os
+import sys
 import pathlib
 import subprocess
 import unittest
@@ -11,11 +12,12 @@ class TestExamples(unittest.TestCase):
 
     def test_run_every_file(self):
         i = -1
+        exe = sys.executable
         for i, file in enumerate(pathlib.Path(__file__).parent.parent.joinpath('examples').glob('*.py')):
             if 'tcp' not in str(file) and 'udp' not in str(file) and 'live' not in str(file):
                 env = os.environ
                 env['PYTHONPATH'] = f':{pathlib.Path(__file__).parent.parent.absolute()}'
-                assert subprocess.check_call(f'python3 {file}'.split(), env=env, shell=False) == 0
+                assert subprocess.check_call(f'{exe} {file}'.split(), env=env, shell=False) == 0
 
         # Delete the file that was created by one of the tests
         csv_file = pathlib.Path("decoded_message.csv")
