@@ -23,14 +23,24 @@ the [free Jetbrains Open Source sponsorship](https://www.jetbrains.com/?from=pya
 
 # General
 
-This module contains functions to decode and parse Automatic Identification System (AIS) serial messages. For detailed
-information about AIS refer to
-the [AIS standard](https://en.wikipedia.org/wiki/Automatic_identification_system#Message_format).
+AIS (Automatic Identification System) is a communication system that allows ships to automatically exchange information such as vessel identification, position, course, and speed. This information is transmitted via VHF radio and can be received by other ships and coastal stations, allowing them to accurately determine the location and movement of nearby vessels. AIS is often used for collision avoidance, traffic management, and search and rescue operations. AIS messages are often transmitted via NMEA 0183. 
 
-# Features/Improvements
+NMEA (National Marine Electronics Association) is an organization that develops and maintains standards for the interface of marine electronic equipment. NMEA 0183 is a standard for communicating marine instrument data between equipment on a boat. It defines the electrical interface and data protocol for sending data between marine instruments such as GPS, sonar, and autopilot.
 
-I open to any form of idea to further improve this library. If you have an idea or a feature request - just open an
-issue. :-)
+Here is an example of an AIS sentence:
+
+`!AIVDM,1,1,,B,15MwkT1P37G?fl0EJbR0OwT0@MS,0*4E`
+
+This AIS sentence is known as a "Position Report" message and is used to transmit information about a vessel's position, course, and speed. AIS messages are transmitted in digital format and consist of a series of comma-separated fields that contain different types of data. Here is a breakdown of each field in this particular sentence:
+
+- **!AIVDM**: This field indicates that the sentence is an AIS message in the "VDM" (VDO Message) format.
+- **1,1**: These fields indicate the total number of sentences in the message and the current sentence number, respectively. In this case, the message consists of a single sentence.
+- : This field is left blank. This field can contain the sequence number.
+- **B**: This field indicates the communication channel being used to transmit the message. In this case, the channel is "B".
+- **15MwkT1P37G?fl0EJbR0OwT0@MS**: This field contains the payload of the message, which is encoded using a variant of ASCII known as "Six-bit ASCII". The payload contains information such as the vessel's identification, position, course, and speed.
+    0*4E: This field is a checksum that is used to verify the integrity of the sentence.
+
+**pyais** is a Python modul to encode and decode AIS messages.
 
 # Installation
 
