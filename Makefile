@@ -22,7 +22,7 @@ clean:
 	rm .coverage
 
 ensure-no-print:
-	grep -r --exclude main.py --exclude '*.pyc' -i 'print' ./pyais && (echo "Debug print statement found"; exit 1)|| true
+	grep -r --exclude main.py --exclude '*.pyc' -i 'print(' ./pyais && (echo "Debug print statement found"; exit 1)||true
 
 test: run_tests flake type-check ensure-no-print
 
