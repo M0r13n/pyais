@@ -3,7 +3,6 @@
 import typing
 import time
 import dataclasses
-from heapq import heapify, heappush, heappop, nlargest
 from pyais.messages import ANY_MESSAGE, AISSentence
 
 
@@ -74,15 +73,12 @@ class AISTracker:
 
     def __init__(self, ttl_in_seconds: typing.Optional[int] = 600) -> None:
         self.tracks: typing.Dict[int, AISTrack] = {}  # { mmsi: AISTrack(), ...}
-        self.timestamps: typing.List[typing.Tuple[float, int]] = []  # [(ts, mmsi), ...]
         self.ttl_in_seconds: typing.Optional[int] = ttl_in_seconds  # in seconds or None
 
     def __enter__(self) -> "AISTracker":
         return self
 
     def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
-        del self.tracks
-        del self.timestamps
         return None
 
     def update(self, msg: AISSentence, ts_epoch_ms: typing.Optional[float] = None) -> None:
@@ -98,8 +94,14 @@ class AISTracker:
             return None
 
     def n_latest_tracks(self, n: int) -> typing.List[AISTrack]:
-        n_latest = nlargest(n, self.timestamps)
-        result = [self.tracks[x[1]] for x in n_latest]
+        n_latest = []
+        n = min(n, len(self.tracks))
+        for i, mmsi in enumerate(reversed(self.tracks.keys())):
+            if n <= i:
+                break
+            n_latest.append(mmsi)
+
+        result = [self.tracks[mmsi] for mmsi in n_latest]
         return result
 
     def insert_or_update(self, mmsi: int, track: AISTrack) -> None:
@@ -111,16 +113,11 @@ class AISTracker:
 
     def insert_track(self, mmsi: int, new: AISTrack) -> None:
         self.tracks[mmsi] = new
-        heappush(self.timestamps, (new.last_updated, mmsi))
         self.cleanup()
 
     def update_track(self, mmsi: int, new: AISTrack) -> None:
         old = self.tracks[mmsi]
         old = update_track(old, new)
-        for i, ts in enumerate(self.timestamps):  # O(N)
-            if mmsi == ts[1]:
-                self.timestamps[i] = (old.last_updated, mmsi)
-                heapify(self.timestamps)
         self.cleanup()
 
     def cleanup(self) -> None:
@@ -129,10 +126,13 @@ class AISTracker:
             return
 
         t = now()
-        while self.timestamps:
-            ts, mmsi = self.timestamps[0]
-            if (t - ts) < self.ttl_in_seconds:
+        to_be_deleted = set()
+        # dictionary iteration order is guaranteed to be in order of insertion.
+        for mmsi, track in self.tracks.items():
+            if (t - track.last_updated) < self.ttl_in_seconds:
                 break
             # ttl is over. delete it.
-            heappop(self.timestamps)
+            to_be_deleted.add(mmsi)
+
+        for mmsi in to_be_deleted:
             del self.tracks[mmsi]
