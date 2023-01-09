@@ -15,7 +15,7 @@ def now() -> float:
     return time.time()
 
 
-@dataclasses.dataclass(eq=True, order=True, slots=True)
+@dataclasses.dataclass(eq=True, order=True)
 class AISTrack:
     """Each track holds some consolidated information about a vessel.
     Each vessel is uniquely identified by its MMSI. Tracks typically hold
