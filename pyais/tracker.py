@@ -4,6 +4,7 @@ necessary because several messages can give different information
 about a ship. In addition, the data changes constantly (position, speed).
 Each track (or vessel) is solely identified by its MMSI.
 """
+from enum import Enum
 import typing
 import time
 import dataclasses
@@ -13,6 +14,30 @@ from pyais.messages import ANY_MESSAGE, AISSentence
 def now() -> float:
     """Current time as UNIX time (milliseconds)"""
     return time.time()
+
+
+class AISTrackEvent(Enum):
+    CREATED = 'created'
+    UPDATED = 'updated'
+    DELETED = 'deleted'
+
+
+class AISUpdateBroker:
+    """This class propagates updates to subscribers via callbacks."""
+
+    def __init__(self) -> None:
+        self._callbacks: typing.List[typing.Tuple[AISTrackEvent, typing.Any]]= []
+
+    def attach(self, event, callback ) -> None:
+        """Attach a new subscriber"""
+        if callback not in self._callbacks:
+            self._callbacks.append((event, callback))
+
+    def propagate(self, track: 'AISTrack', event: AISTrackEvent) -> None:
+        """Propagate a track event"""
+        for destination, callback in self._callbacks:
+            if event == destination:
+                callback(track)
 
 
 @dataclasses.dataclass(eq=True, order=True)
@@ -94,6 +119,7 @@ class AISTracker:
         self._tracks: typing.Dict[int, AISTrack] = {}  # { mmsi: AISTrack(), ...}
         self.ttl_in_seconds: typing.Optional[int] = ttl_in_seconds  # in seconds or None
         self.oldest_timestamp: typing.Optional[float] = None
+        self._broker = AISUpdateBroker()
 
     def __enter__(self) -> "AISTracker":
         return self
@@ -111,6 +137,9 @@ class AISTracker:
     def tracks(self) -> typing.List[AISTrack]:
         """Returns a list of all known tracks."""
         return list(self._tracks.values())
+
+    def register_subscriber(self, event, callback):
+        self._broker.attach(event, callback)
 
     def update(self, msg: AISSentence, ts_epoch_ms: typing.Optional[float] = None) -> None:
         """Updates a track. If the track does not yet exist, a new track is created.
@@ -135,6 +164,7 @@ class AISTracker:
             mmsi = int(mmsi)
             track = self._tracks[mmsi]
             del self._tracks[mmsi]
+            self._broker.propagate(track, AISTrackEvent.DELETED)
             return track
         except KeyError:
             return None
@@ -164,6 +194,7 @@ class AISTracker:
     def insert_track(self, mmsi: int, new: AISTrack) -> None:
         """Creates a new track records in memory"""
         self._tracks[mmsi] = new
+        self._broker.propagate(new, AISTrackEvent.CREATED)
 
     def update_track(self, mmsi: int, new: AISTrack) -> None:
         """Updates an existing track in memory"""
@@ -172,6 +203,7 @@ class AISTracker:
             raise ValueError('cannot update track with older message')
         updated = update_track(old, new)
         self._tracks[mmsi] = updated
+        self._broker.propagate(updated, AISTrackEvent.UPDATED)
 
     def cleanup(self) -> None:
         """Delete all records whose last update is older than ttl."""
@@ -194,4 +226,4 @@ class AISTracker:
             to_be_deleted.add(track.mmsi)
 
         for mmsi in to_be_deleted:
-            del self._tracks[mmsi]
+            self.pop_track(mmsi)
