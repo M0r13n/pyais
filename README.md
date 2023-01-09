@@ -303,6 +303,37 @@ e.g. `FileReaderStream` or `TCPStream`.
 
 Such additional information can then be accessed by the `.wrapper_msg` of every `NMEASentence`. This attribute is `None` by default.
 
+# AIS tracker
+
+**pyais** comes with the the ability to collect and maintain the state of individual vessels over time.
+This is necessary because several messages can give different information about a ship.
+In addition, the data changes constantly (e.g. position, speed and course).
+
+Thus the information split across multiple different AIS messages needs to be collected, consolidated and aggregated as a single track.
+This functionality is handled by the `AISTracker` class.
+
+**NOTE:** Each track (or vessel) is solely identified by its MMSI.
+
+```py
+import pathlib
+
+from pyais import AISTracker
+from pyais.stream import FileReaderStream
+
+filename = pathlib.Path(__file__).parent.joinpath('sample.ais')
+
+with AISTracker() as tracker:
+    for msg in FileReaderStream(str(filename)):
+        tracker.update(msg)
+        latest_tracks = tracker.n_latest_tracks(10)
+
+# Get the latest 10 tracks
+print('latest 10 tracks', ','.join(str(t.mmsi) for t in latest_tracks))
+
+# Get a specific track
+print(tracker.get_track(249191000))
+```
+
 # Performance Considerations
 
 You may refer to

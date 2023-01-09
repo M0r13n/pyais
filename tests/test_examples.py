@@ -14,7 +14,7 @@ class TestExamples(unittest.TestCase):
         i = -1
         exe = sys.executable
         for i, file in enumerate(pathlib.Path(__file__).parent.parent.joinpath('examples').glob('*.py')):
-            if 'tcp' not in str(file) and 'udp' not in str(file) and 'live' not in str(file):
+            if 'tcp' not in str(file) and 'udp' not in str(file) and 'live' not in str(file) and 'tracking' not in str(file):
                 env = os.environ
                 env['PYTHONPATH'] = f':{pathlib.Path(__file__).parent.parent.absolute()}'
                 assert subprocess.check_call(f'{exe} {file}'.split(), env=env, shell=False) == 0
@@ -24,4 +24,4 @@ class TestExamples(unittest.TestCase):
         if csv_file.exists():
             csv_file.unlink()
 
-        assert i == 12
+        assert i == 15
