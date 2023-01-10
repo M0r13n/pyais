@@ -243,7 +243,7 @@ class TagBlock:
     def __parse_fields(self, fields: typing.List[bytes]) -> None:
         for field in fields:
             decoded = field.decode()
-            spec, val = decoded.split(':')
+            spec, val = decoded.split(':', 1)
 
             if spec == 'c':
                 self._receiver_timestamp = val
