@@ -7,7 +7,7 @@ from pyais.exceptions import UnknownMessageException
 from pyais.tracker import AISTracker
 
 filename = pathlib.Path(__file__).parent.joinpath('../tests/nmea-sample')
-tracker = AISTracker(ttl_in_seconds=0.1)
+tracker = AISTracker(ttl_in_seconds=0.01, stream_is_ordered=True)
 
 start = time.time()
 for i, msg in enumerate(FileReaderStream(str(filename)), start=1):
