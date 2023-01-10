@@ -35,7 +35,7 @@ setuptools.setup(
         "Typing :: Typed",
     ],
     keywords=["AIS", "ship", "decoding", "nmea"],
-    python_requires='>=3.6',
+    python_requires='>=3.8',
     install_requires=[
         "bitarray",
         "attrs"
