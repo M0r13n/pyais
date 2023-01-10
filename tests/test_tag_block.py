@@ -22,11 +22,12 @@ class TagBlockTestCase(unittest.TestCase):
         self.assertEqual(tb.text, None)
 
     def test_tag_block_with_multiple_unknown_fields(self):
-        raw = b'\\s:rORBCOMM000,q:u,c:1426032001,T:2015-03-11 00.00.01*58\\!BSVDM,1,1,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*06'
+        raw = b'\\s:rORBCOMM000,q:u,c:1426032001,T:2015-03-11 00.00.01,i:<T>A:12344 F:+30000</T>*07\\!BSVDM,1,1,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*06'
         msg = NMEASentenceFactory.produce(raw)
         tb = msg.tag_block
         tb.init()
 
+        self.assertTrue(tb.is_valid)
         self.assertEqual(tb.receiver_timestamp, '1426032001')
         self.assertEqual(tb.source_station, 'rORBCOMM000')
         self.assertEqual(tb.destination_station, None)
