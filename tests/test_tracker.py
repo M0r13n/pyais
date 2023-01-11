@@ -1,7 +1,7 @@
 import time
 import unittest
 
-from pyais.tracker import AISTracker
+from pyais.tracker import AISTracker, poplast
 from pyais.messages import AISSentence
 
 
@@ -291,3 +291,21 @@ class TrackerTestCase(unittest.TestCase):
             str(err.exception),
             'can not insert an older timestamp in a ordered stream. 1673259270.0 < 1673259271.0. consider setting stream_is_ordered to False.'
         )
+
+    def test_that_poplast_is_non_destructive(self):
+        d = {'a': 1337}
+        i = poplast(d)
+
+        self.assertEqual(d, {'a': 1337})
+        self.assertEqual(i, 1337)
+
+        d = {'a': 1337, 'foo': 'bar'}
+        i = poplast(d)
+
+        self.assertEqual(d, {'a': 1337, 'foo': 'bar'})
+        self.assertEqual(i, 'bar')
+
+        for _ in range(10):
+            poplast(d)
+
+        self.assertEqual(d, {'a': 1337, 'foo': 'bar'})

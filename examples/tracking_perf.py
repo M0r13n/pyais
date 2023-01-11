@@ -13,6 +13,7 @@ start = time.time()
 for i, msg in enumerate(FileReaderStream(str(filename)), start=1):
     try:
         tracker.update(msg)
+        _ = tracker.n_latest_tracks(50)
     except UnknownMessageException as e:
         print(str(e))
 

@@ -108,6 +108,16 @@ def update_track(old: AISTrack, new: AISTrack) -> AISTrack:
     return old
 
 
+def poplast(dictionary: typing.Dict[typing.Any, typing.Any]) -> typing.Any:
+    """Get the last item of a dict non-destructively (in terms of insertion order)."""
+    # On Python3.8+ reversed(dict.items()) would do the job.
+    # But by doing so, support for Python3.7 would have to be dropped.
+    # The fastest and most memory efficient solution for that, is this little hack.
+    key, latest = dictionary.popitem()
+    dictionary[key] = latest
+    return latest
+
+
 class AISTracker:
     """
     An AIS tracker receives AIS messages and maintains a collection of known tracks.
@@ -197,7 +207,8 @@ class AISTracker:
             return
 
         # Get the newest track
-        latest = self._tracks[next(reversed(self._tracks.keys()))]
+        latest = poplast(self._tracks)
+
         if ts_epoch_ms < latest.last_updated:
             # The new track must be inserted after the latest one.
             raise ValueError(

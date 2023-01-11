@@ -186,7 +186,8 @@ encoded = encode_dict(data, radio_channel="B", talker_id="AIVDM")[0]
 It is also possible to create messages directly and pass them to `encode_payload`.
 
 ```py
-from pyais.encode import MessageType5, encode_msg
+from pyais.messages import MessageType5
+from pyais.encode import encode_msg
 
 payload = MessageType5.create(mmsi="123", shipname="Titanic", callsign="TITANIC", destination="New York")
 encoded = encode_msg(payload)
@@ -333,6 +334,15 @@ print('latest 10 tracks', ','.join(str(t.mmsi) for t in latest_tracks))
 # Get a specific track
 print(tracker.get_track(249191000))
 ```
+
+Unlike most other trackers, `AISTracker` handles out of order reception of messages.
+This means that it is possible to pass messages to update() whose timestamp is
+older that of the message before. The latter is useful when working with multiple stations
+and/or different kinds of metadata.
+
+But this comes with a performance penalty. In order to cleanup expired tracks and/or to get the latest N tracks the tracks need to be sorted after their timestamp. Thus, `cleanup()` and `n_latest_tracks()` have a complexity of `O(N * log(N))`. Depending on the number of messages in your stream this may or may not be good enough.
+
+If you know that your messages in your stream are ordered after their timestamp and/or you never pass a custom timestamp to `update()`, you <mark>should set the `stream_is_ordered=True` flag when creating a new `AISTracker` instance</mark>. If this flag is set `AISTracker` internally stores the tracks in order. Thus, `cleanup()` and `n_latest_tracks()` have a complexity of `O(k)`.
 
 ## Callbacks
 
