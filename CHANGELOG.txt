@@ -2,6 +2,13 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 2.5.0 14 Jan 2023
+-------------------------------------------------------------------------------
+* introduce `AISracker` class
+  * adds the ability to collect and maintain the state of individual vessels over time
+* closes https://github.com/M0r13n/pyais/pull/103
+  * allows tag blocks to contain multiple : in field data
+-------------------------------------------------------------------------------
  Version 2.4.0 21 Dec 2022
 -------------------------------------------------------------------------------
 * supports optional tag blocks for NMEA messages
