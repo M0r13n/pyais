@@ -1,7 +1,7 @@
 import time
 import unittest
 
-from pyais.tracker import AISTracker
+from pyais.tracker import AISTracker, poplast
 from pyais.messages import AISSentence
 
 
@@ -217,3 +217,95 @@ class TrackerTestCase(unittest.TestCase):
         tracker.update(msg, now)
 
         self.assertEqual(len(tracker.tracks), 4)
+
+    def test_that_ordered_tracker_handles_cleanup(self):
+        tracker = AISTracker(ttl_in_seconds=None, stream_is_ordered=True)
+        now = time.time()
+
+        # 227006760
+        msg = AISSentence(b"!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23")
+        tracker.update(msg, now - 4)
+
+        # 205448890
+        msg = AISSentence(b"!AIVDM,1,1,,A,133sVfPP00PD>hRMDH@jNOvN20S8,0*7F")
+        tracker.update(msg, now - 3)
+
+        # 786434
+        msg = AISSentence(b"!AIVDM,1,1,,B,100h00PP0@PHFV`Mg5gTH?vNPUIp,0*3B")
+        tracker.update(msg, now - 2)
+
+        tracker.ttl_in_seconds = 3
+        tracker.cleanup()
+        self.assertEqual(len(tracker.tracks), 1)
+        self.assertEqual(tracker.tracks[0].mmsi, 786434)
+
+    def test_that_ordered_tracker_returns_correct_latest_n(self):
+        tracker = AISTracker(ttl_in_seconds=None, stream_is_ordered=True)
+
+        # 227006760
+        msg = AISSentence(b"!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23")
+        tracker.update(msg, 1673259271.0)
+
+        # 205448890
+        msg = AISSentence(b"!AIVDM,1,1,,A,133sVfPP00PD>hRMDH@jNOvN20S8,0*7F")
+        tracker.update(msg, 1673259272.0)
+
+        # 786434
+        msg = AISSentence(b"!AIVDM,1,1,,B,100h00PP0@PHFV`Mg5gTH?vNPUIp,0*3B")
+        tracker.update(msg, 1673259272.000001)
+
+        latest_n = tracker.n_latest_tracks(5)
+        self.assertEqual([x.mmsi for x in latest_n], [227006760, 205448890, 786434])
+        self.assertEqual(list(tracker._tracks.keys()), [227006760, 205448890, 786434])
+
+        # 227006760
+        msg = AISSentence(b"!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23")
+        tracker.update(msg, 1673259272.000001)
+
+        latest_n = tracker.n_latest_tracks(5)
+        self.assertEqual([x.mmsi for x in latest_n], [205448890, 786434, 227006760])
+        self.assertEqual(list(tracker._tracks.keys()), [205448890, 786434, 227006760])
+
+    def test_that_ordered_tracker_raises_value_error_if_older_record_is_received(self):
+        tracker = AISTracker(ttl_in_seconds=None, stream_is_ordered=True)
+
+        # 227006760
+        msg = AISSentence(b"!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23")
+        tracker.update(msg, 1673259271.0)
+
+        # This should raise an error
+        with self.assertRaises(ValueError) as err:
+            tracker.update(msg, 1673259270.99)
+
+        self.assertEqual(
+            str(err.exception),
+            'can not insert an older timestamp in a ordered stream. 1673259270.99 < 1673259271.0. consider setting stream_is_ordered to False.'
+        )
+
+        # This should raise an error also
+        with self.assertRaises(ValueError) as err:
+            msg = AISSentence(b"!AIVDM,1,1,,B,100h00PP0@PHFV`Mg5gTH?vNPUIp,0*3B")
+            tracker.update(msg, 1673259270.0)
+
+        self.assertEqual(
+            str(err.exception),
+            'can not insert an older timestamp in a ordered stream. 1673259270.0 < 1673259271.0. consider setting stream_is_ordered to False.'
+        )
+
+    def test_that_poplast_is_non_destructive(self):
+        d = {'a': 1337}
+        i = poplast(d)
+
+        self.assertEqual(d, {'a': 1337})
+        self.assertEqual(i, 1337)
+
+        d = {'a': 1337, 'foo': 'bar'}
+        i = poplast(d)
+
+        self.assertEqual(d, {'a': 1337, 'foo': 'bar'})
+        self.assertEqual(i, 'bar')
+
+        for _ in range(10):
+            poplast(d)
+
+        self.assertEqual(d, {'a': 1337, 'foo': 'bar'})
