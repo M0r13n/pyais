@@ -445,6 +445,20 @@ $ make test
 
 Now you are ready to start developing on the project! Don't forget to add tests for every new change or feature!
 
+# Docker
+
+Use Docker to run your application inside a container. At first you need to build the image locally:
+
+`docker build . -t pyais`
+
+Afterwards, run the container (bash):
+
+`docker run -it --rm pyais /bin/bash`
+
+You can then run the examples inside the container:
+
+`python ./examples/live_stream.py`
+
 # Funfacts
 
 ## Python3.11 is faster
