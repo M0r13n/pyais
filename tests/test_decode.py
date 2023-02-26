@@ -6,7 +6,7 @@ import textwrap
 import typing
 import unittest
 
-from pyais import NMEAMessage, encode_dict
+from pyais import NMEAMessage, encode_dict, encode_msg
 from pyais.ais_types import AISType
 from pyais.constants import (EpfdType, ManeuverIndicator, NavAid,
                              NavigationStatus, ShipType, StationType, SyncState,
@@ -1542,3 +1542,16 @@ class TestAIS(unittest.TestCase):
 
         with self.assertRaises(UnknownMessageException):
             decode_nmea_line(b",n:4,r:35435435435,foo bar 200")
+
+    def test_that_lat_and_long_are_rounded_correctly(self):
+        """Original Issue: https://github.com/M0r13n/pyais/issues/107
+        TL;DR: There was a rounding issue with certain values for lat and lon.
+        Decoding, encoding and then decoding again led to slight changes to lat/lon."""
+
+        orig = '!AIVDM,1,1,,A,100u3g@0291Q1>BW6uDUwDk00LE@,0*74'
+
+        first_decode = decode(orig)
+        encoded = encode_msg(first_decode)[0]
+        second_decode = decode(encoded)
+
+        self.assertEqual(first_decode, second_decode)

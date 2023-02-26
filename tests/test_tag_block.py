@@ -35,6 +35,29 @@ class TagBlockTestCase(unittest.TestCase):
         self.assertEqual(tb.relative_time, None)
         self.assertEqual(tb.text, None)
 
+    def test_spire_maritime_format(self):
+        """https://documentation.spire.com/tcp-stream-v2/the-nmea-message-encoding-format/"""
+        text = textwrap.dedent("""
+        \\c:1503079517*55\\!AIVDM,1,1,,B,C6:b0Kh09b3t1K4ChsS2FK008NL>`2CT@2N000000000S4h8S400,0*50
+        \\c:1503079517*53\\!AIVDM,1,1,,B,16:Vk1h00g8O=vRBDhNp0nKp0000,0*40
+        \\c:1503079517*53\\!AIVDM,1,1,,B,18155hh00u0DEU`N1F@Bg22R06@D,0*60
+        \\c:1503079517*53\\!AIVDM,1,1,,A,83aGFQ@j2ddtMH1b@g?b`7mL0,0*55
+        \\c:1503079517*53\\!AIVDM,2,1,9,A,53m@FJ400000hT5<0008E8q@TpF000000000000T2P3425rg0:53kThQDQh0,0*48
+        \\c:1503079517*53\\!AIVDM,2,2,9,A,00000000000,2*2D
+        \\c:1503079517*52\\!AIVDM,1,1,,A,13oP50Oi420UAtPgp@UPrP1d01,0*1A
+        \\c:1503079517*52\\!AIVDM,1,1,,B,B3mISo000H;wsB8SetMnww`5oP06,0*7C
+        \\c:1503079517*53\\!AIVDM,2,1,0,B,53aIjwh000010CSK7R04lu8F222222222222221?9@<297?o060@C51D`888,0*1B
+        """)
+
+        messages = [line.encode() for line in text.split() if line]
+
+        with IterMessages(messages) as s:
+            for msg in s:
+                msg.tag_block.init()
+                decoded = msg.decode()
+                self.assertIsNotNone(decoded.mmsi)
+                self.assertEqual(msg.tag_block.receiver_timestamp, '1503079517')
+
     def test_multiple_messages(self):
         text = textwrap.dedent("""
         \\s:2573535,c:1671533231*08\\!BSVDM,2,2,8,B,00000000000,2*36
