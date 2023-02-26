@@ -742,7 +742,7 @@ def to_speed(v: typing.Union[int, float]) -> float:
 
 
 def from_lat_lon(v: typing.Union[int, float]) -> float:
-    return float(v) * 600000.0
+    return round(float(v) * 600000.0)
 
 
 def to_lat_lon(v: typing.Union[int, float]) -> float:
@@ -750,7 +750,7 @@ def to_lat_lon(v: typing.Union[int, float]) -> float:
 
 
 def from_lat_lon_600(v: typing.Union[int, float]) -> float:
-    return float(v) * 600.0
+    return round(float(v) * 600.0)
 
 
 def to_lat_lon_600(v: typing.Union[int, float]) -> float:
