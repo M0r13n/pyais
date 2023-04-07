@@ -5,11 +5,15 @@ of a message. This works for message types 1, 2, 4, 9, 11 and 18.
 These messages contain diagnostic information for the radio system.
 """
 from pyais import decode
+from pyais.messages import MessageType18
 import json
 import functools
 
 msg = '!AIVDM,1,1,,A,B69Gk3h071tpI02lT2ek?wg61P06,0*1F'
 decoded = decode(msg)
+
+# the following methods are only available for messages of types: 1, 2, 3, 4, 9, 11, 18
+assert isinstance(decoded, MessageType18)
 
 print("The raw radio value is:", decoded.radio)
 print("Communication state is SOTMDA:", decoded.is_sotdma)
