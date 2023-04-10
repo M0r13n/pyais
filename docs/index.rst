@@ -11,12 +11,5 @@ Welcome to Pyais's documentation!
    :caption: Contents:
 
    install
+   examples
    messages
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`

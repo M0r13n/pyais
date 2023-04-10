@@ -35,11 +35,6 @@ The lib also includes some handy helper functions to transform bytes to bits and
 NMEA messages
 ----------------
 
-Refer to the examples folder for some typical examples: https://github.com/M0r13n/pyais/tree/master/examples
-
-NMEA messages
-----------------
-
 The `NMEASentence` is the first level of abstraction during parsing/decoding.
 
 Every instance of `NMEASentence` has a fixed set of attributes::
@@ -80,6 +75,53 @@ e.g. `FileReaderStream` or `TCPStream`.
 
 Such additional information can then be accessed by the `.wrapper_msg` of every `NMEASentence`. This attribute is `None` by default.
 
+
+Communication State
+--------------------
+
+The `ITU`_ documentation provides details regarding the Time-division multiple access (TDMA) synchronization.
+
+.. _ITU: https://www.itu.int/dms_pubrec/itu-r/rec/m/R-REC-M.1371-1-200108-S!!PDF-E.pdf
+
+Such details include information used by the slot allocation algorithm (either SOTDMA or ITDMA) including their synchronization state.
+
+This information can be found in the last 19 data-bits of some messages.
+
+The following messages have the SOTDMA communication state:
+
+- Type 1
+- Type 2
+- Type 4
+- Type 9
+- Type 11
+- Type 18
+
+The following messages have the ITDMA communication state:
+
+- Type 3
+- Type 18
+
+These messages have in common that they have the `.radio` attribute. This attribute holds the **raw value** of the last 19 data-bits.
+
+Further details can be retrieved by using one of the following methods:
+
+- `.is_sotdma()`: Returns True when using the SOTDMA algorithm
+- `.is_itdma()`: Returns True when using the ITDMA algorithm
+- `get_communication_state()`: information used by the slot allocation algorithm as a dictionary
+
+Example::
+
+    msg = '!AIVDM,1,1,,A,B69Gk3h071tpI02lT2ek?wg61P06,0*1F'
+    decoded = decode(msg)
+
+    print("The raw radio value is:", decoded.radio)
+    print("Communication state is SOTMDA:", decoded.is_sotdma)
+    print("Communication state is ITDMA:", decoded.is_itdma)
+
+    pretty_json = functools.partial(json.dumps, indent=4)
+    print("Communication state:", pretty_json(decoded.get_communication_state()))
+
+All other messages do not contain any details about the communication state. Therefore, the methods mentioned above are not available for these messages.
 
 Message classes
 ----------------

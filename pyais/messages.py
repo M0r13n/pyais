@@ -802,6 +802,7 @@ class CommunicationStateMixin:
     MAX_COMM_STATE_VALUE = 0x7ffff
 
     def get_communication_state(self) -> Dict[str, typing.Optional[int]]:
+        """Returns information used by the slot allocation algorithm as a dict."""
         result: Dict[str, typing.Optional[int]] = {
             'received_stations': None,
             'slot_number': None,
