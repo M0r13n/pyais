@@ -143,1422 +143,1428 @@ When encoding:
 MessageType1
     AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 1
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `status`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 0
-        * `turn`
-            * type: <class 'int'>
-            * bit-width: 8
-            * default: 0
-        * `speed`
-            * type: <class 'float'>
-            * bit-width: 10
-            * default: 0
-        * `accuracy`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-        * `lon`
-            * type: <class 'float'>
-            * bit-width: 28
-            * default: 0
-        * `lat`
-            * type: <class 'float'>
-            * bit-width: 27
-            * default: 0
-        * `course`
-            * type: <class 'float'>
-            * bit-width: 12
-            * default: 0
-        * `heading`
-            * type: <class 'int'>
-            * bit-width: 9
-            * default: 0
-        * `second`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `maneuver`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `spare`
-            * type: <class 'int'>
-            * bit-width: 3
-            * default: 0
-        * `raim`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: 0
-        * `radio`
-            * type: <class 'int'>
-            * bit-width: 19
-            * default: 0
-MessageType2
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 1
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `status`
+			* type: <class 'int'>
+			* bit-width: 4
+			* default: 0
+		* `turn`
+			* type: <class 'float'>
+			* bit-width: 8
+			* default: TurnRate.NO_TI_DEFAULT
+		* `speed`
+			* type: <class 'float'>
+			* bit-width: 10
+			* default: 0
+		* `accuracy`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `lon`
+			* type: <class 'float'>
+			* bit-width: 28
+			* default: 0
+		* `lat`
+			* type: <class 'float'>
+			* bit-width: 27
+			* default: 0
+		* `course`
+			* type: <class 'float'>
+			* bit-width: 12
+			* default: 0
+		* `heading`
+			* type: <class 'int'>
+			* bit-width: 9
+			* default: 0
+		* `second`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `maneuver`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 3
+			* default: b''
+		* `raim`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `radio`
+			* Further decoded by `.get_communication_state()` 
+			* type: <class 'int'>
+			* bit-width: 19
+			* default: 0
+MessageType2 
     AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 1
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `status`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 0
-        * `turn`
-            * type: <class 'int'>
-            * bit-width: 8
-            * default: 0
-        * `speed`
-            * type: <class 'float'>
-            * bit-width: 10
-            * default: 0
-        * `accuracy`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-        * `lon`
-            * type: <class 'float'>
-            * bit-width: 28
-            * default: 0
-        * `lat`
-            * type: <class 'float'>
-            * bit-width: 27
-            * default: 0
-        * `course`
-            * type: <class 'float'>
-            * bit-width: 12
-            * default: 0
-        * `heading`
-            * type: <class 'int'>
-            * bit-width: 9
-            * default: 0
-        * `second`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `maneuver`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `spare`
-            * type: <class 'int'>
-            * bit-width: 3
-            * default: 0
-        * `raim`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: 0
-        * `radio`
-            * type: <class 'int'>
-            * bit-width: 19
-            * default: 0
-MessageType3
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 1
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `status`
+			* type: <class 'int'>
+			* bit-width: 4
+			* default: 0
+		* `turn`
+			* type: <class 'float'>
+			* bit-width: 8
+			* default: TurnRate.NO_TI_DEFAULT
+		* `speed`
+			* type: <class 'float'>
+			* bit-width: 10
+			* default: 0
+		* `accuracy`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `lon`
+			* type: <class 'float'>
+			* bit-width: 28
+			* default: 0
+		* `lat`
+			* type: <class 'float'>
+			* bit-width: 27
+			* default: 0
+		* `course`
+			* type: <class 'float'>
+			* bit-width: 12
+			* default: 0
+		* `heading`
+			* type: <class 'int'>
+			* bit-width: 9
+			* default: 0
+		* `second`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `maneuver`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 3
+			* default: b''
+		* `raim`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `radio`
+			* Further decoded by `.get_communication_state()` 
+			* type: <class 'int'>
+			* bit-width: 19
+			* default: 0
+MessageType3 
     AIS Vessel position report using ITDMA (Incremental Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 1
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `status`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 0
-        * `turn`
-            * type: <class 'int'>
-            * bit-width: 8
-            * default: 0
-        * `speed`
-            * type: <class 'float'>
-            * bit-width: 10
-            * default: 0
-        * `accuracy`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-        * `lon`
-            * type: <class 'float'>
-            * bit-width: 28
-            * default: 0
-        * `lat`
-            * type: <class 'float'>
-            * bit-width: 27
-            * default: 0
-        * `course`
-            * type: <class 'float'>
-            * bit-width: 12
-            * default: 0
-        * `heading`
-            * type: <class 'int'>
-            * bit-width: 9
-            * default: 0
-        * `second`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `maneuver`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `spare`
-            * type: <class 'int'>
-            * bit-width: 3
-            * default: 0
-        * `raim`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: 0
-        * `radio`
-            * type: <class 'int'>
-            * bit-width: 19
-            * default: 0
-MessageType4
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 1
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `status`
+			* type: <class 'int'>
+			* bit-width: 4
+			* default: 0
+		* `turn`
+			* type: <class 'float'>
+			* bit-width: 8
+			* default: TurnRate.NO_TI_DEFAULT
+		* `speed`
+			* type: <class 'float'>
+			* bit-width: 10
+			* default: 0
+		* `accuracy`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `lon`
+			* type: <class 'float'>
+			* bit-width: 28
+			* default: 0
+		* `lat`
+			* type: <class 'float'>
+			* bit-width: 27
+			* default: 0
+		* `course`
+			* type: <class 'float'>
+			* bit-width: 12
+			* default: 0
+		* `heading`
+			* type: <class 'int'>
+			* bit-width: 9
+			* default: 0
+		* `second`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `maneuver`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 3
+			* default: b''
+		* `raim`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `radio`
+			* Further decoded by `.get_communication_state()` 
+			* type: <class 'int'>
+			* bit-width: 19
+			* default: 0
+MessageType4 
     AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_4_base_station_report
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 4
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `year`
-            * type: <class 'int'>
-            * bit-width: 14
-            * default: 1970
-        * `month`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 1
-        * `day`
-            * type: <class 'int'>
-            * bit-width: 5
-            * default: 1
-        * `hour`
-            * type: <class 'int'>
-            * bit-width: 5
-            * default: 0
-        * `minute`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `second`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `accuracy`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-        * `lon`
-            * type: <class 'float'>
-            * bit-width: 28
-            * default: 0
-        * `lat`
-            * type: <class 'float'>
-            * bit-width: 27
-            * default: 0
-        * `epfd`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 0
-        * `spare`
-            * type: <class 'int'>
-            * bit-width: 10
-            * default: 0
-        * `raim`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: 0
-        * `radio`
-            * type: <class 'int'>
-            * bit-width: 19
-            * default: 0
-MessageType5
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 4
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `year`
+			* type: <class 'int'>
+			* bit-width: 14
+			* default: 1970
+		* `month`
+			* type: <class 'int'>
+			* bit-width: 4
+			* default: 1
+		* `day`
+			* type: <class 'int'>
+			* bit-width: 5
+			* default: 1
+		* `hour`
+			* type: <class 'int'>
+			* bit-width: 5
+			* default: 0
+		* `minute`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `second`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `accuracy`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `lon`
+			* type: <class 'float'>
+			* bit-width: 28
+			* default: 0
+		* `lat`
+			* type: <class 'float'>
+			* bit-width: 27
+			* default: 0
+		* `epfd`
+			* type: <class 'int'>
+			* bit-width: 4
+			* default: 0
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 10
+			* default: b''
+		* `raim`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `radio`
+			* Further decoded by `.get_communication_state()` 
+			* type: <class 'int'>
+			* bit-width: 19
+			* default: 0
+MessageType5 
     Static and Voyage Related Data
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_5_static_and_voyage_related_data
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 5
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `ais_version`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `imo`
-            * type: <class 'int'>
-            * bit-width: 30
-            * default: 0
-        * `callsign`
-            * type: <class 'str'>
-            * bit-width: 42
-            * default:
-        * `shipname`
-            * type: <class 'str'>
-            * bit-width: 120
-            * default:
-        * `ship_type`
-            * type: <class 'int'>
-            * bit-width: 8
-            * default: 0
-        * `to_bow`
-            * type: <class 'int'>
-            * bit-width: 9
-            * default: 0
-        * `to_stern`
-            * type: <class 'int'>
-            * bit-width: 9
-            * default: 0
-        * `to_port`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `to_starboard`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `epfd`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 0
-        * `month`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 0
-        * `day`
-            * type: <class 'int'>
-            * bit-width: 5
-            * default: 0
-        * `hour`
-            * type: <class 'int'>
-            * bit-width: 5
-            * default: 0
-        * `minute`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `draught`
-            * type: <class 'float'>
-            * bit-width: 8
-            * default: 0
-        * `destination`
-            * type: <class 'str'>
-            * bit-width: 120
-            * default:
-        * `dte`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-        * `spare`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-MessageType6
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 5
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `ais_version`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `imo`
+			* type: <class 'int'>
+			* bit-width: 30
+			* default: 0
+		* `callsign`
+			* type: <class 'str'>
+			* bit-width: 42
+			* default: 
+		* `shipname`
+			* type: <class 'str'>
+			* bit-width: 120
+			* default: 
+		* `ship_type`
+			* type: <class 'int'>
+			* bit-width: 8
+			* default: 0
+		* `to_bow`
+			* type: <class 'int'>
+			* bit-width: 9
+			* default: 0
+		* `to_stern`
+			* type: <class 'int'>
+			* bit-width: 9
+			* default: 0
+		* `to_port`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `to_starboard`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `epfd`
+			* type: <class 'int'>
+			* bit-width: 4
+			* default: 0
+		* `month`
+			* type: <class 'int'>
+			* bit-width: 4
+			* default: 0
+		* `day`
+			* type: <class 'int'>
+			* bit-width: 5
+			* default: 0
+		* `hour`
+			* type: <class 'int'>
+			* bit-width: 5
+			* default: 0
+		* `minute`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `draught`
+			* type: <class 'float'>
+			* bit-width: 8
+			* default: 0
+		* `destination`
+			* type: <class 'str'>
+			* bit-width: 120
+			* default: 
+		* `dte`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 1
+			* default: b''
+MessageType6 
     Binary Addresses Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_4_base_station_report
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 6
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `seqno`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `dest_mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `retransmit`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: False
-        * `spare`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-        * `dac`
-            * type: <class 'int'>
-            * bit-width: 10
-            * default: 0
-        * `fid`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `data`
-            * type: <class 'int'>
-            * bit-width: 920
-            * default: 0
-MessageType7
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 6
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `seqno`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `dest_mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `retransmit`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: False
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 1
+			* default: b''
+		* `dac`
+			* type: <class 'int'>
+			* bit-width: 10
+			* default: 0
+		* `fid`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `data`
+			* type: <class 'bytes'>
+			* bit-width: 920
+			* default: b''
+MessageType7 
     Binary Acknowledge
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_7_binary_acknowledge
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 7
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `spare`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi1`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: 0
-        * `mmsiseq1`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 2
-            * default: 0
-        * `mmsi2`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: 0
-        * `mmsiseq2`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 2
-            * default: 0
-        * `mmsi3`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: 0
-        * `mmsiseq3`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 2
-            * default: 0
-        * `mmsi4`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: 0
-        * `mmsiseq4`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 2
-            * default: 0
-MessageType8
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 7
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 2
+			* default: b''
+		* `mmsi1`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: 0
+		* `mmsiseq1`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 2
+			* default: 0
+		* `mmsi2`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: 0
+		* `mmsiseq2`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 2
+			* default: 0
+		* `mmsi3`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: 0
+		* `mmsiseq3`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 2
+			* default: 0
+		* `mmsi4`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: 0
+		* `mmsiseq4`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 2
+			* default: 0
+MessageType8 
     Binary Acknowledge
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_8_binary_broadcast_message
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 8
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `spare`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `dac`
-            * type: <class 'int'>
-            * bit-width: 10
-            * default: 0
-        * `fid`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `data`
-            * type: <class 'int'>
-            * bit-width: 952
-            * default: 0
-MessageType9
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 8
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 2
+			* default: b''
+		* `dac`
+			* type: <class 'int'>
+			* bit-width: 10
+			* default: 0
+		* `fid`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `data`
+			* type: <class 'bytes'>
+			* bit-width: 952
+			* default: b''
+MessageType9 
     Standard SAR Aircraft Position Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_9_standard_sar_aircraft_position_report
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 9
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `alt`
-            * type: <class 'int'>
-            * bit-width: 12
-            * default: 0
-        * `speed`
-            * type: <class 'int'>
-            * bit-width: 10
-            * default: 0
-        * `accuracy`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-        * `lon`
-            * type: <class 'float'>
-            * bit-width: 28
-            * default: 0
-        * `lat`
-            * type: <class 'float'>
-            * bit-width: 27
-            * default: 0
-        * `course`
-            * type: <class 'float'>
-            * bit-width: 12
-            * default: 0
-        * `second`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `reserved`
-            * type: <class 'int'>
-            * bit-width: 8
-            * default: 0
-        * `dte`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-        * `spare`
-            * type: <class 'int'>
-            * bit-width: 3
-            * default: 0
-        * `assigned`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-        * `raim`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: 0
-        * `radio`
-            * type: <class 'int'>
-            * bit-width: 20
-            * default: 0
-MessageType10
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 9
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `alt`
+			* type: <class 'int'>
+			* bit-width: 12
+			* default: 0
+		* `speed`
+			* type: <class 'float'>
+			* bit-width: 10
+			* default: 0
+		* `accuracy`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `lon`
+			* type: <class 'float'>
+			* bit-width: 28
+			* default: 0
+		* `lat`
+			* type: <class 'float'>
+			* bit-width: 27
+			* default: 0
+		* `course`
+			* type: <class 'float'>
+			* bit-width: 12
+			* default: 0
+		* `second`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `reserved_1`
+			* type: <class 'int'>
+			* bit-width: 8
+			* default: 0
+		* `dte`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 3
+			* default: b''
+		* `assigned`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `raim`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `radio`
+			* Further decoded by `.get_communication_state()` 
+			* type: <class 'int'>
+			* bit-width: 20
+			* default: 0
+MessageType10 
     UTC/Date Inquiry
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_10_utc_date_inquiry
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 10
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `spare_1`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `dest_mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `spare_2`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-MessageType11
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 10
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 2
+			* default: b''
+		* `dest_mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `spare_2`
+			* type: <class 'bytes'>
+			* bit-width: 2
+			* default: b''
+MessageType11 
     UTC/Date Response
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_11_utc_date_response
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 4
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `year`
-            * type: <class 'int'>
-            * bit-width: 14
-            * default: 1970
-        * `month`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 1
-        * `day`
-            * type: <class 'int'>
-            * bit-width: 5
-            * default: 1
-        * `hour`
-            * type: <class 'int'>
-            * bit-width: 5
-            * default: 0
-        * `minute`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `second`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `accuracy`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-        * `lon`
-            * type: <class 'float'>
-            * bit-width: 28
-            * default: 0
-        * `lat`
-            * type: <class 'float'>
-            * bit-width: 27
-            * default: 0
-        * `epfd`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 0
-        * `spare`
-            * type: <class 'int'>
-            * bit-width: 10
-            * default: 0
-        * `raim`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: 0
-        * `radio`
-            * type: <class 'int'>
-            * bit-width: 19
-            * default: 0
-MessageType12
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 4
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `year`
+			* type: <class 'int'>
+			* bit-width: 14
+			* default: 1970
+		* `month`
+			* type: <class 'int'>
+			* bit-width: 4
+			* default: 1
+		* `day`
+			* type: <class 'int'>
+			* bit-width: 5
+			* default: 1
+		* `hour`
+			* type: <class 'int'>
+			* bit-width: 5
+			* default: 0
+		* `minute`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `second`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `accuracy`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `lon`
+			* type: <class 'float'>
+			* bit-width: 28
+			* default: 0
+		* `lat`
+			* type: <class 'float'>
+			* bit-width: 27
+			* default: 0
+		* `epfd`
+			* type: <class 'int'>
+			* bit-width: 4
+			* default: 0
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 10
+			* default: b''
+		* `raim`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `radio`
+			* Further decoded by `.get_communication_state()` 
+			* type: <class 'int'>
+			* bit-width: 19
+			* default: 0
+MessageType12 
     Addressed Safety-Related Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_12_addressed_safety_related_message
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 12
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `seqno`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `dest_mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `retransmit`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-        * `spare`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-        * `text`
-            * type: <class 'str'>
-            * bit-width: 936
-            * default:
-MessageType13
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 12
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `seqno`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `dest_mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `retransmit`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: False
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 1
+			* default: b''
+		* `text`
+			* type: <class 'str'>
+			* bit-width: 936
+			* default: 
+MessageType13 
     Identical to type 7
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 7
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `spare`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi1`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: 0
-        * `mmsiseq1`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 2
-            * default: 0
-        * `mmsi2`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: 0
-        * `mmsiseq2`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 2
-            * default: 0
-        * `mmsi3`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: 0
-        * `mmsiseq3`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 2
-            * default: 0
-        * `mmsi4`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: 0
-        * `mmsiseq4`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 2
-            * default: 0
-MessageType14
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 7
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 2
+			* default: b''
+		* `mmsi1`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: 0
+		* `mmsiseq1`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 2
+			* default: 0
+		* `mmsi2`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: 0
+		* `mmsiseq2`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 2
+			* default: 0
+		* `mmsi3`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: 0
+		* `mmsiseq3`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 2
+			* default: 0
+		* `mmsi4`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: 0
+		* `mmsiseq4`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 2
+			* default: 0
+MessageType14 
     Safety-Related Broadcast Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_14_safety_related_broadcast_message
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 14
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `spare`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `text`
-            * type: <class 'str'>
-            * bit-width: 968
-            * default:
-MessageType15
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 14
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 2
+			* default: b''
+		* `text`
+			* type: <class 'str'>
+			* bit-width: 968
+			* default: 
+MessageType15 
     Interrogation
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_15_interrogation
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 15
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `spare_1`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi1`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: 0
-        * `type1_1`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `offset1_1`
-            * type: <class 'int'>
-            * bit-width: 12
-            * default: 0
-        * `spare_2`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `type1_2`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `offset1_2`
-            * type: <class 'int'>
-            * bit-width: 12
-            * default: 0
-        * `spare_3`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi2`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: 0
-        * `type2_1`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `offset2_1`
-            * type: <class 'int'>
-            * bit-width: 12
-            * default: 0
-        * `spare_4`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-MessageType16
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 15
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 2
+			* default: b''
+		* `mmsi1`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: 0
+		* `type1_1`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `offset1_1`
+			* type: <class 'int'>
+			* bit-width: 12
+			* default: 0
+		* `spare_2`
+			* type: <class 'bytes'>
+			* bit-width: 2
+			* default: b''
+		* `type1_2`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `offset1_2`
+			* type: <class 'int'>
+			* bit-width: 12
+			* default: 0
+		* `spare_3`
+			* type: <class 'bytes'>
+			* bit-width: 2
+			* default: b''
+		* `mmsi2`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: 0
+		* `type2_1`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `offset2_1`
+			* type: <class 'int'>
+			* bit-width: 12
+			* default: 0
+		* `spare_4`
+			* type: <class 'bytes'>
+			* bit-width: 2
+			* default: b''
+MessageType16 
     Assignment Mode Command
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_16_assignment_mode_command
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 16
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `spare`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi1`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: 0
-        * `offset1`
-            * type: <class 'int'>
-            * bit-width: 12
-            * default: 0
-        * `increment1`
-            * type: <class 'int'>
-            * bit-width: 10
-            * default: 0
-        * `mmsi2`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: 0
-        * `offset2`
-            * type: <class 'int'>
-            * bit-width: 12
-            * default: 0
-        * `increment2`
-            * type: <class 'int'>
-            * bit-width: 10
-            * default: 0
-MessageType17
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 16
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 2
+			* default: b''
+		* `mmsi1`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: 0
+		* `offset1`
+			* type: <class 'int'>
+			* bit-width: 12
+			* default: 0
+		* `increment1`
+			* type: <class 'int'>
+			* bit-width: 10
+			* default: 0
+		* `mmsi2`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: 0
+		* `offset2`
+			* type: <class 'int'>
+			* bit-width: 12
+			* default: 0
+		* `increment2`
+			* type: <class 'int'>
+			* bit-width: 10
+			* default: 0
+MessageType17 
     DGNSS Broadcast Binary Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_17_dgnss_broadcast_binary_message
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 17
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `spare_1`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `lon`
-            * type: <class 'float'>
-            * bit-width: 18
-            * default: 0
-        * `lat`
-            * type: <class 'float'>
-            * bit-width: 17
-            * default: 0
-        * `spare_2`
-            * type: <class 'int'>
-            * bit-width: 5
-            * default: 0
-        * `data`
-            * type: <class 'int'>
-            * bit-width: 736
-            * default: 0
-MessageType18
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 17
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 2
+			* default: b''
+		* `lon`
+			* type: <class 'float'>
+			* bit-width: 18
+			* default: 0
+		* `lat`
+			* type: <class 'float'>
+			* bit-width: 17
+			* default: 0
+		* `spare_2`
+			* type: <class 'bytes'>
+			* bit-width: 5
+			* default: b''
+		* `data`
+			* type: <class 'bytes'>
+			* bit-width: 736
+			* default: b''
+MessageType18 
     Standard Class B CS Position Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_18_standard_class_b_cs_position_report
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 18
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `reserved`
-            * type: <class 'int'>
-            * bit-width: 8
-            * default: 0
-        * `speed`
-            * type: <class 'float'>
-            * bit-width: 10
-            * default: 0
-        * `accuracy`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-        * `lon`
-            * type: <class 'float'>
-            * bit-width: 28
-            * default: 0
-        * `lat`
-            * type: <class 'float'>
-            * bit-width: 27
-            * default: 0
-        * `course`
-            * type: <class 'float'>
-            * bit-width: 12
-            * default: 0
-        * `heading`
-            * type: <class 'int'>
-            * bit-width: 9
-            * default: 0
-        * `second`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `reserved_2`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `cs`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: 0
-        * `display`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: 0
-        * `dsc`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: 0
-        * `band`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: 0
-        * `msg22`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: 0
-        * `assigned`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: 0
-        * `raim`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: 0
-        * `radio`
-            * type: <class 'int'>
-            * bit-width: 20
-            * default: 0
-MessageType19
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 18
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `reserved_1`
+			* type: <class 'int'>
+			* bit-width: 8
+			* default: 0
+		* `speed`
+			* type: <class 'float'>
+			* bit-width: 10
+			* default: 0
+		* `accuracy`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `lon`
+			* type: <class 'float'>
+			* bit-width: 28
+			* default: 0
+		* `lat`
+			* type: <class 'float'>
+			* bit-width: 27
+			* default: 0
+		* `course`
+			* type: <class 'float'>
+			* bit-width: 12
+			* default: 0
+		* `heading`
+			* type: <class 'int'>
+			* bit-width: 9
+			* default: 0
+		* `second`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `reserved_2`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `cs`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `display`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `dsc`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `band`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `msg22`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `assigned`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `raim`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `radio`
+			* Further decoded by `.get_communication_state()` 
+			* type: <class 'int'>
+			* bit-width: 20
+			* default: 0
+MessageType19 
     Extended Class B CS Position Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_19_extended_class_b_cs_position_report
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 19
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `reserved`
-            * type: <class 'int'>
-            * bit-width: 8
-            * default: 0
-        * `speed`
-            * type: <class 'float'>
-            * bit-width: 10
-            * default: 0
-        * `accuracy`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-        * `lon`
-            * type: <class 'float'>
-            * bit-width: 28
-            * default: 0
-        * `lat`
-            * type: <class 'float'>
-            * bit-width: 27
-            * default: 0
-        * `course`
-            * type: <class 'float'>
-            * bit-width: 12
-            * default: 0
-        * `heading`
-            * type: <class 'int'>
-            * bit-width: 9
-            * default: 0
-        * `second`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `regional`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 0
-        * `shipname`
-            * type: <class 'str'>
-            * bit-width: 120
-            * default:
-        * `ship_type`
-            * type: <class 'int'>
-            * bit-width: 8
-            * default: 0
-        * `to_bow`
-            * type: <class 'int'>
-            * bit-width: 9
-            * default: 0
-        * `to_stern`
-            * type: <class 'int'>
-            * bit-width: 9
-            * default: 0
-        * `to_port`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `to_starboard`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `epfd`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 0
-        * `raim`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: 0
-        * `dte`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: 0
-        * `assigned`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-        * `spare`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 0
-MessageType20
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 19
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `reserved_1`
+			* type: <class 'int'>
+			* bit-width: 8
+			* default: 0
+		* `speed`
+			* type: <class 'float'>
+			* bit-width: 10
+			* default: 0
+		* `accuracy`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `lon`
+			* type: <class 'float'>
+			* bit-width: 28
+			* default: 0
+		* `lat`
+			* type: <class 'float'>
+			* bit-width: 27
+			* default: 0
+		* `course`
+			* type: <class 'float'>
+			* bit-width: 12
+			* default: 0
+		* `heading`
+			* type: <class 'int'>
+			* bit-width: 9
+			* default: 0
+		* `second`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `reserved_2`
+			* type: <class 'int'>
+			* bit-width: 4
+			* default: 0
+		* `shipname`
+			* type: <class 'str'>
+			* bit-width: 120
+			* default: 
+		* `ship_type`
+			* type: <class 'int'>
+			* bit-width: 8
+			* default: 0
+		* `to_bow`
+			* type: <class 'int'>
+			* bit-width: 9
+			* default: 0
+		* `to_stern`
+			* type: <class 'int'>
+			* bit-width: 9
+			* default: 0
+		* `to_port`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `to_starboard`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `epfd`
+			* type: <class 'int'>
+			* bit-width: 4
+			* default: 0
+		* `raim`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `dte`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `assigned`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 4
+			* default: b''
+MessageType20 
     Data Link Management Message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_20_data_link_management_message
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 20
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `spare`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `offset1`
-            * type: <class 'int'>
-            * bit-width: 12
-            * default: 0
-        * `number1`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 0
-        * `timeout1`
-            * type: <class 'int'>
-            * bit-width: 3
-            * default: 0
-        * `increment1`
-            * type: <class 'int'>
-            * bit-width: 11
-            * default: 0
-        * `offset2`
-            * type: <class 'int'>
-            * bit-width: 12
-            * default: 0
-        * `number2`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 0
-        * `timeout2`
-            * type: <class 'int'>
-            * bit-width: 3
-            * default: 0
-        * `increment2`
-            * type: <class 'int'>
-            * bit-width: 11
-            * default: 0
-        * `offset3`
-            * type: <class 'int'>
-            * bit-width: 12
-            * default: 0
-        * `number3`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 0
-        * `timeout3`
-            * type: <class 'int'>
-            * bit-width: 3
-            * default: 0
-        * `increment3`
-            * type: <class 'int'>
-            * bit-width: 11
-            * default: 0
-        * `offset4`
-            * type: <class 'int'>
-            * bit-width: 12
-            * default: 0
-        * `number4`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 0
-        * `timeout4`
-            * type: <class 'int'>
-            * bit-width: 3
-            * default: 0
-        * `increment4`
-            * type: <class 'int'>
-            * bit-width: 11
-            * default: 0
-MessageType21
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 20
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 2
+			* default: b''
+		* `offset1`
+			* type: <class 'int'>
+			* bit-width: 12
+			* default: 0
+		* `number1`
+			* type: <class 'int'>
+			* bit-width: 4
+			* default: 0
+		* `timeout1`
+			* type: <class 'int'>
+			* bit-width: 3
+			* default: 0
+		* `increment1`
+			* type: <class 'int'>
+			* bit-width: 11
+			* default: 0
+		* `offset2`
+			* type: <class 'int'>
+			* bit-width: 12
+			* default: 0
+		* `number2`
+			* type: <class 'int'>
+			* bit-width: 4
+			* default: 0
+		* `timeout2`
+			* type: <class 'int'>
+			* bit-width: 3
+			* default: 0
+		* `increment2`
+			* type: <class 'int'>
+			* bit-width: 11
+			* default: 0
+		* `offset3`
+			* type: <class 'int'>
+			* bit-width: 12
+			* default: 0
+		* `number3`
+			* type: <class 'int'>
+			* bit-width: 4
+			* default: 0
+		* `timeout3`
+			* type: <class 'int'>
+			* bit-width: 3
+			* default: 0
+		* `increment3`
+			* type: <class 'int'>
+			* bit-width: 11
+			* default: 0
+		* `offset4`
+			* type: <class 'int'>
+			* bit-width: 12
+			* default: 0
+		* `number4`
+			* type: <class 'int'>
+			* bit-width: 4
+			* default: 0
+		* `timeout4`
+			* type: <class 'int'>
+			* bit-width: 3
+			* default: 0
+		* `increment4`
+			* type: <class 'int'>
+			* bit-width: 11
+			* default: 0
+MessageType21 
     Aid-to-Navigation Report
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_21_aid_to_navigation_report
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 21
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `aid_type`
-            * type: <class 'int'>
-            * bit-width: 5
-            * default: 0
-        * `name`
-            * type: <class 'str'>
-            * bit-width: 120
-            * default:
-        * `accuracy`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: 0
-        * `lon`
-            * type: <class 'float'>
-            * bit-width: 28
-            * default: 0
-        * `lat`
-            * type: <class 'float'>
-            * bit-width: 27
-            * default: 0
-        * `to_bow`
-            * type: <class 'int'>
-            * bit-width: 9
-            * default: 0
-        * `to_stern`
-            * type: <class 'int'>
-            * bit-width: 9
-            * default: 0
-        * `to_port`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `to_starboard`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `epfd`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 0
-        * `second`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `off_position`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: 0
-        * `regional`
-            * type: <class 'int'>
-            * bit-width: 8
-            * default: 0
-        * `raim`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: 0
-        * `virtual_aid`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: 0
-        * `assigned`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: 0
-        * `spare`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-        * `name_ext`
-            * type: <class 'str'>
-            * bit-width: 88
-            * default:
-MessageType23
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 21
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `aid_type`
+			* type: <class 'int'>
+			* bit-width: 5
+			* default: 0
+		* `name`
+			* type: <class 'str'>
+			* bit-width: 120
+			* default: 
+		* `accuracy`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `lon`
+			* type: <class 'float'>
+			* bit-width: 28
+			* default: 0
+		* `lat`
+			* type: <class 'float'>
+			* bit-width: 27
+			* default: 0
+		* `to_bow`
+			* type: <class 'int'>
+			* bit-width: 9
+			* default: 0
+		* `to_stern`
+			* type: <class 'int'>
+			* bit-width: 9
+			* default: 0
+		* `to_port`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `to_starboard`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `epfd`
+			* type: <class 'int'>
+			* bit-width: 4
+			* default: 0
+		* `second`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 0
+		* `off_position`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `reserved_1`
+			* type: <class 'int'>
+			* bit-width: 8
+			* default: 0
+		* `raim`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `virtual_aid`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `assigned`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 1
+			* default: b''
+		* `name_ext`
+			* type: <class 'str'>
+			* bit-width: 88
+			* default: 
+MessageType23 
     Group Assignment Command
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_23_group_assignment_command
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 23
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `spare_1`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `ne_lon`
-            * type: <class 'int'>
-            * bit-width: 18
-            * default: 0
-        * `ne_lat`
-            * type: <class 'int'>
-            * bit-width: 17
-            * default: 0
-        * `sw_lon`
-            * type: <class 'int'>
-            * bit-width: 18
-            * default: 0
-        * `sw_lat`
-            * type: <class 'int'>
-            * bit-width: 17
-            * default: 0
-        * `station_type`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 0
-        * `ship_type`
-            * type: <class 'int'>
-            * bit-width: 8
-            * default: 0
-        * `spare_2`
-            * type: <class 'int'>
-            * bit-width: 22
-            * default: 0
-        * `txrx`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `interval`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 0
-        * `quiet`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 0
-        * `spare_3`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-MessageType27
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 23
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 2
+			* default: b''
+		* `ne_lon`
+			* type: <class 'float'>
+			* bit-width: 18
+			* default: 0
+		* `ne_lat`
+			* type: <class 'float'>
+			* bit-width: 17
+			* default: 0
+		* `sw_lon`
+			* type: <class 'float'>
+			* bit-width: 18
+			* default: 0
+		* `sw_lat`
+			* type: <class 'float'>
+			* bit-width: 17
+			* default: 0
+		* `station_type`
+			* type: <class 'int'>
+			* bit-width: 4
+			* default: 0
+		* `ship_type`
+			* type: <class 'int'>
+			* bit-width: 8
+			* default: 0
+		* `spare_2`
+			* type: <class 'bytes'>
+			* bit-width: 22
+			* default: b''
+		* `txrx`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `interval`
+			* type: <class 'int'>
+			* bit-width: 4
+			* default: 0
+		* `quiet`
+			* type: <class 'int'>
+			* bit-width: 4
+			* default: 0
+		* `spare_3`
+			* type: <class 'bytes'>
+			* bit-width: 6
+			* default: b''
+MessageType27 
     Long Range AIS Broadcast message
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_27_long_range_ais_broadcast_message
+    
 
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 27
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `accuracy`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-        * `raim`
-            * type: <class 'bool'>
-            * bit-width: 1
-            * default: 0
-        * `status`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 0
-        * `lon`
-            * type: <class 'float'>
-            * bit-width: 18
-            * default: 0
-        * `lat`
-            * type: <class 'float'>
-            * bit-width: 17
-            * default: 0
-        * `speed`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `course`
-            * type: <class 'int'>
-            * bit-width: 9
-            * default: 0
-        * `gnss`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-        * `spare`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-
+	Attributes:
+		* `msg_type`
+			* type: <class 'int'>
+			* bit-width: 6
+			* default: 27
+		* `repeat`
+			* type: <class 'int'>
+			* bit-width: 2
+			* default: 0
+		* `mmsi`
+			* type: (<class 'int'>, <class 'str'>)
+			* bit-width: 30
+			* default: None
+		* `accuracy`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `raim`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `status`
+			* type: <class 'int'>
+			* bit-width: 4
+			* default: 0
+		* `lon`
+			* type: <class 'float'>
+			* bit-width: 18
+			* default: 0
+		* `lat`
+			* type: <class 'float'>
+			* bit-width: 17
+			* default: 0
+		* `speed`
+			* type: <class 'float'>
+			* bit-width: 6
+			* default: 0
+		* `course`
+			* type: <class 'float'>
+			* bit-width: 9
+			* default: 0
+		* `gnss`
+			* type: <class 'bool'>
+			* bit-width: 1
+			* default: 0
+		* `spare_1`
+			* type: <class 'bytes'>
+			* bit-width: 1
+			* default: b''

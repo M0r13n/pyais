@@ -7,7 +7,11 @@ for typ, cls in MSG_CLASS.items():
     print()
     print("\tAttributes:")
     for field in cls.fields():
+
         print("\t\t*", f"`{field.name}`")
+        if field.name == 'radio':
+            print('\t\t\t* Further decoded by `.get_communication_state()` ')
+
         if 'mmsi' in field.name:
             print("\t\t\t*", "type:", f"({int}, {str})")
         else:
