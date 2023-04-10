@@ -304,6 +304,14 @@ e.g. `FileReaderStream` or `TCPStream`.
 
 Such additional information can then be accessed by the `.wrapper_msg` of every `NMEASentence`. This attribute is `None` by default.
 
+# Communication State
+
+The ITU documentation provides details regarding the Time-division multiple access (TDMA) synchronization.
+
+Such details include information used by the slot allocation algorithm (either SOTDMA or ITDMA) including their synchronization state.
+
+Refer to [readthedocs](https://pyais.readthedocs.io/en/latest/messages.html#communication-state) for more information.
+
 # AIS tracker
 
 **pyais** comes with the the ability to collect and maintain the state of individual vessels over time.
