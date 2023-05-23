@@ -223,7 +223,7 @@ class SocketStream(Stream[socket]):
             if not body:
                 return None
 
-            lines = body.split(b'\r\n')
+            lines = body.splitlines()
 
             line = partial + lines[0]
             if line:
