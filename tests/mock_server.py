@@ -26,12 +26,17 @@ def tcp_mock_server(host, port) -> None:
         while True:
             # wait for a connection
             conn, _ = sock.accept()
+            keep_alive = True
             if conn:
-                while True:
+                while keep_alive:
                     print(f"Sending {len(MESSAGES)} messages all at once.")
                     # send all at once and then close
                     for msg in MESSAGES:
-                        conn.send(msg + b"\r\n")
+                        try:
+                            # conn.send(msg + b"\r\n")
+                            conn.send(msg + b"\n")
+                        except BrokenPipeError:
+                            keep_alive = False
 
                     time.sleep(2)
     finally:
