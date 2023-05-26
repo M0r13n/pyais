@@ -223,15 +223,20 @@ class SocketStream(Stream[socket]):
             if not body:
                 return None
 
-            lines = body.split(b'\r\n')
+            lines = body.splitlines(keepends=True)
 
+            # last incomplete line
             line = partial + lines[0]
             if line:
                 yield line
 
-            yield from (line for line in lines[1:-1] if line)
-
-            partial = lines[-1]
+            if lines[-1].endswith(b'\n'):
+                # all lines are complete
+                yield from lines[1:]
+            else:
+                # the last line was only partially received
+                yield from lines[1:-1]
+                partial = lines[-1]
 
 
 class UDPReceiver(SocketStream):
