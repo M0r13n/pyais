@@ -55,3 +55,29 @@ class SocketStreamingTestCase(unittest.TestCase):
         result = list(stream.read())
         expected = [b'Hello\r\n', b'World\r\n']
         self.assertEqual(result, expected)
+
+    def test_that_a_single_line_is_returned_as_is(self):
+        # HAVING a socket
+        stream = SocketStream(None)
+
+        # WHEN receiving a single line
+        receiver = MockReceiver([b'FooBar2000\n'])
+        stream.recv = receiver.recv
+
+        # THEN the the exact same line is returned
+        result = list(stream.read())
+        expected = [b'FooBar2000\n',]
+        self.assertEqual(result, expected)
+
+    def test_that_many_lines_are_returned(self):
+         # HAVING a socket
+        stream = SocketStream(None)
+
+        # WHEN receiving 1000 lines
+        receiver = MockReceiver([b'FooBar2000\n', ]* 1000)
+        stream.recv = receiver.recv
+
+        # THEN all these lines are returned
+        result = list(stream.read())
+        expected = [b'FooBar2000\n',] * 1000
+        self.assertEqual(result, expected)
