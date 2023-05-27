@@ -2,7 +2,14 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
- Version 2.5.2 04 MAr 2023
+ Version 2.5.3 27 May 2023
+-------------------------------------------------------------------------------
+* bug fix: the streaming classes now handle universal line breaks
+  * user reported issues while receiving AIS messages through a socket
+  * pyais assumed that lines are always terminated with CRLF
+  * now pyais supports both CRLF as well as LF as line breaks
+-------------------------------------------------------------------------------
+ Version 2.5.2 04 Mar 2023
 -------------------------------------------------------------------------------
 * closes https://github.com/M0r13n/pyais/issues/100
   * updated Aid to Navigation dict (NavAid)
