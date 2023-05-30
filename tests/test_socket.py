@@ -81,3 +81,16 @@ class SocketStreamingTestCase(unittest.TestCase):
         result = list(stream.read())
         expected = [b'FooBar2000\n', ] * 1000
         self.assertEqual(result, expected)
+
+    def test_that_no_partial_artifacts_are_added_after_a_complete_line(self):
+        # HAVING a socket
+        stream = SocketStream(None)
+
+        # WHEN receiving a partial line and a complete line afterwards
+        receiver = MockReceiver([b'Hello\nWor', b'ld\n', b'FooBar\n'])
+        stream.recv = receiver.recv
+
+        # THEN the partial line is not prepended to the next line
+        result = list(stream.read())
+        expected = [b'Hello\n', b'World\n', b'FooBar\n']
+        self.assertEqual(result, expected)

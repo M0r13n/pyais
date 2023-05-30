@@ -229,6 +229,7 @@ class SocketStream(Stream[socket]):
             line = partial + lines[0]
             if line:
                 yield line
+            partial = b''
 
             if lines[-1].endswith(b'\n'):
                 # all lines are complete
