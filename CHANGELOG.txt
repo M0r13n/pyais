@@ -2,9 +2,16 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 2.5.5 16 Jun 2023
+-------------------------------------------------------------------------------
+* bug fix: incorrect logic for type 26 messages
+  * closes https://github.com/M0r13n/pyais/issues/116
+
+-------------------------------------------------------------------------------
  Version 2.5.4 30 May 2023
 -------------------------------------------------------------------------------
 * bug fix: the streaming classes previously prepended partial lines to subsequent lines
+
 -------------------------------------------------------------------------------
  Version 2.5.3 27 May 2023
 -------------------------------------------------------------------------------
@@ -12,16 +19,19 @@
   * user reported issues while receiving AIS messages through a socket
   * pyais assumed that lines are always terminated with CRLF
   * now pyais supports both CRLF as well as LF as line breaks
+
 -------------------------------------------------------------------------------
  Version 2.5.2 04 Mar 2023
 -------------------------------------------------------------------------------
 * closes https://github.com/M0r13n/pyais/issues/100
   * updated Aid to Navigation dict (NavAid)
+
 -------------------------------------------------------------------------------
  Version 2.5.1 26 Feb 2023
 -------------------------------------------------------------------------------
 * closes https://github.com/M0r13n/pyais/issues/107
   * fixes a rounding error for lat/lon values
+
 -------------------------------------------------------------------------------
  Version 2.5.0 14 Jan 2023
 -------------------------------------------------------------------------------
@@ -29,10 +39,12 @@
   * adds the ability to collect and maintain the state of individual vessels over time
 * closes https://github.com/M0r13n/pyais/pull/103
   * allows tag blocks to contain multiple : in field data
+
 -------------------------------------------------------------------------------
  Version 2.4.0 21 Dec 2022
 -------------------------------------------------------------------------------
 * supports optional tag blocks for NMEA messages
+
 -------------------------------------------------------------------------------
  Version 2.3.1 17 Dec 2022
 -------------------------------------------------------------------------------
@@ -42,34 +54,40 @@
     * boolean value that defaults to `False`
     * marks fields as variable in length (width)
     * used by the encoder to decide whether to add trailing `@`s as padding
+
 -------------------------------------------------------------------------------
  Version 2.3.0 11 Dec 2022
 -------------------------------------------------------------------------------
 * closes https://github.com/M0r13n/pyais/issues/91
   * supports Gatehouse wrappers used to add extra information
 * renames `NMEAMessage` to `NMEASentence`
+
 -------------------------------------------------------------------------------
  Version 2.2.4 11 Nov 2022
 -------------------------------------------------------------------------------
 * ignores `NonPrintableCharacterException` exceptions when using stream readers
 * such messages are simply skipped
+
 -------------------------------------------------------------------------------
  Version 2.2.3 04 Nov 2022
 -------------------------------------------------------------------------------
 * Closes https://github.com/M0r13n/pyais/issues/88
   * make the decoder more liberal by not raising an exception when the payload contains special characters
-  * replace the `ValueError` with a `NonPrintableCharacterException` in case that non printable characters are passed to the decode funtion
+  * replace the `ValueError` with a `NonPrintableCharacterException` in case that non printable characters are passed to the decode function
+
 -------------------------------------------------------------------------------
  Version 2.2.2 13 Oct 2022
 -------------------------------------------------------------------------------
 * Closes https://github.com/M0r13n/pyais/issues/86
   * ensure that the payload is always identical - even for multiple encode/decode roundtrips
   * the `turn` field can now never be `None` and is instead an instance of the newly created `TurnRate` enum
+
 -------------------------------------------------------------------------------
  Version 2.2.1 03 Oct 2022
 -------------------------------------------------------------------------------
 * Closes https://github.com/M0r13n/pyais/issues/81
   * ensure that the NMEA sentence length does not exceed 82 characters
+
 -------------------------------------------------------------------------------
  Version 2.2.0 02 Oct 2022
 -------------------------------------------------------------------------------

@@ -1617,10 +1617,10 @@ class MessageType26(Payload):
             if structured:
                 return MessageType26AddressedStructured.create(**kwargs)
             else:
-                return MessageType26BroadcastStructured.create(**kwargs)
+                return MessageType26AddressedUnstructured.create(**kwargs)
         else:
             if structured:
-                return MessageType26AddressedUnstructured.create(**kwargs)
+                return MessageType26AddressedStructured.create(**kwargs)
             else:
                 return MessageType26BroadcastUnstructured.create(**kwargs)
 
