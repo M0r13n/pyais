@@ -8,7 +8,7 @@
 [![Documentation Status](https://readthedocs.org/projects/pyais/badge/?version=latest)](https://pyais.readthedocs.io/en/latest/?badge=latest)
 
 AIS message encoding and decoding. 100% pure Python. Supports AIVDM/AIVDO messages. Supports single messages, files and
-TCP/UDP sockets. This library has been used and tested extensively in representative real-world scenarios. This includes tests with live feeds from [Spire](https://spire.com/maritime/), the [Norwegian Coastal Administration](https://kystverket.no/navigasjonstjenester/ais/tilgang-pa-ais-data/) and others. I test each major release against a selection of public and non-public data sources to ensure the broadest possible compatibility.
+TCP/UDP sockets. This library has been used and tested extensively in representative real-world scenarios. This includes tests with live feeds from [Spire](https://spire.com/maritime/), the [Norwegian Coastal Administration](https://kystverket.no/en/navigation-and-monitoring/ais/access-to-ais-data/) and others. I test each major release against a selection of public and non-public data sources to ensure the broadest possible compatibility.
 
 You can find the full documentation on [readthedocs](https://pyais.readthedocs.io/en/latest/).
 
@@ -129,7 +129,7 @@ for msg in IterMessages(fake_stream):
 
 ## Live feed
 
-The [Norwegian Coastal Administration](https://kystverket.no/navigasjonstjenester/ais/tilgang-pa-ais-data/) offers real-time AIS data.
+The [Norwegian Coastal Administration](https://kystverket.no/en/navigation-and-monitoring/ais/access-to-ais-data/) offers real-time AIS data.
 This live feed can be accessed via TCP/IP without prior registration.
 The AIS data is freely available under the [norwegian license for public data](https://data.norge.no/nlod/no/1.0):
 
