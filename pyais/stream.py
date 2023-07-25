@@ -172,7 +172,7 @@ class BinaryIOStream(Stream[BinaryIO]):
         super().__init__(file)
 
     def read(self) -> Generator[bytes, None, None]:
-        yield from self._fobj.readlines()
+        yield from self._fobj
 
 
 class FileReaderStream(BinaryIOStream):
