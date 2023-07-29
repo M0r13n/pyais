@@ -22,16 +22,11 @@ class MockFile:
             return b""
         return self.buffer.pop(0)
 
-    def readlines(self) -> List[bytes]:
-        """
-        Read until EOF using readline() and return a list containing the lines thus read.
-        """
-        buf = []
+    def __iter__(self) -> List[bytes]:
         line = self.readline()
         while line:
-            buf.append(line)
+            yield line
             line = self.readline()
-        return buf
 
 
 class TestGenericStream(unittest.TestCase):
