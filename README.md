@@ -14,6 +14,8 @@ You can find the full documentation on [readthedocs](https://pyais.readthedocs.i
 
 I also wrote a [blog post about AIS decoding](https://leonrichter.de/posts/pyais/) and this lib.
 
+Binary releases (Debian packages) are provided by the [pyais-debian](https://github.com/M0r13n/pyais-debian) starting with version **v2.5.6**. They are downloadable under the [Releases](https://github.com/M0r13n/pyais/releases) page.
+
 # Acknowledgements
 
 ![Jetbrains Logo](./docs/jetbrains_logo.svg)
@@ -23,7 +25,7 @@ the [free Jetbrains Open Source sponsorship](https://www.jetbrains.com/?from=pya
 
 # General
 
-AIS (Automatic Identification System) is a communication system that allows ships to automatically exchange information such as vessel identification, position, course, and speed. This information is transmitted via VHF radio and can be received by other ships and coastal stations, allowing them to accurately determine the location and movement of nearby vessels. AIS is often used for collision avoidance, traffic management, and search and rescue operations. AIS messages are often transmitted via NMEA 0183. 
+AIS (Automatic Identification System) is a communication system that allows ships to automatically exchange information such as vessel identification, position, course, and speed. This information is transmitted via VHF radio and can be received by other ships and coastal stations, allowing them to accurately determine the location and movement of nearby vessels. AIS is often used for collision avoidance, traffic management, and search and rescue operations. AIS messages are often transmitted via NMEA 0183.
 
 NMEA (National Marine Electronics Association) is an organization that develops and maintains standards for the interface of marine electronic equipment. NMEA 0183 is a standard for communicating marine instrument data between equipment on a boat. It defines the electrical interface and data protocol for sending data between marine instruments such as GPS, sonar, and autopilot.
 
@@ -373,7 +375,7 @@ def handle_create(track):
 def handle_update(track):
     # called every time an AISTrack is updated
     print('update', track.mmsi)
- 
+
 
 def handle_delete(track):
     # called every time an AISTrack is deleted (pruned)
@@ -478,7 +480,7 @@ With Python3.11 significant improvements to the CPython Runtime were made:
 
 Some results from the internal [performance test](https://github.com/M0r13n/pyais/blob/master/tests/test_file_stream.py#L155):
 
-**3.10:** 
+**3.10:**
 `Decoding 82758 messages took: 3.233757972717285`
 
 **3.11:**
