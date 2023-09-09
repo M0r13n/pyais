@@ -136,14 +136,14 @@ class TestFileReaderStream(unittest.TestCase):
 
         self.assertEqual(len(messages), 7)
         for msg in messages:
-            assert type(msg) == NMEAMessage
+            assert isinstance(msg, NMEAMessage)
             assert msg.is_valid
             assert msg.decode() is not None
 
     def test_reader_with_open(self):
         with FileReaderStream(self.FILENAME) as stream:
             msg = next(stream)
-            assert type(msg) == NMEAMessage
+            assert isinstance(msg, NMEAMessage)
             assert msg.is_valid
             assert msg.decode() is not None
 

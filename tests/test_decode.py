@@ -241,8 +241,8 @@ class TestAIS(unittest.TestCase):
         assert msg["hour"] == 10
         assert msg["minute"] == 41
         assert msg["second"] == 11
-        assert msg["epfd"] == 0
-        assert msg["epfd"] == EpfdType.Undefined
+        assert msg["epfd"] == 15
+        assert msg["epfd"] == EpfdType.Internal_GNSS
 
         ensure_type_for_msg_dict(msg)
 
@@ -298,11 +298,7 @@ class TestAIS(unittest.TestCase):
         assert msg["mmsi"] == 366999712
         assert msg["dac"] == 366
         assert msg["fid"] == 56
-        assert (
-            msg["data"]
-            == b"\x3a\x53\xdb\xb7\xbe\x4a\x77\x31\x37\xf8\x7d\x7b\x04\x45\xf0\x40"
-            b"\xde\xa0\x5d\x93\xf5\x93\x78\x31\x94\xae\x9b\x9d\x9d\xbe\x05\xfb"
-        )
+        assert msg["data"] == b"\x3a\x53\xdb\xb7\xbe\x4a\x77\x31\x37\xf8\x7d\x7b\x04\x45\xf0\x40\xde\xa0\x5d\x93\xf5\x93\x78\x31\x94\xae\x9b\x9d\x9d\xbe\x05\xfb"
 
         ensure_type_for_msg_dict(msg)
 
@@ -318,10 +314,7 @@ class TestAIS(unittest.TestCase):
         assert msg["mmsi"] == 888888888
         assert msg["dac"] == 0
         assert msg["fid"] == 0
-        assert (
-            msg["data"]
-            == b"\x02\x934D\x81nI;\xbd\xcd\xe5\xb7E\xed\xf1]\xc0[y\xfa#-\xcd<\x01\x05\x91\xef\x85\x92\xfbF\xed\x19t\x11\xd6\xe7\xdf\xec\x1fp\x97\x99\x83M\x8aK\xb8\x005'\x1f\xc7\x14\xeaTr\xe3o\xb8\xda\xb9\x17-FJxb\xeb5\x1aM"
-        )
+        assert msg["data"] == b"\x02\x934D\x81nI;\xbd\xcd\xe5\xb7E\xed\xf1]\xc0[y\xfa#-\xcd<\x01\x05\x91\xef\x85\x92\xfbF\xed\x19t\x11\xd6\xe7\xdf\xec\x1fp\x97\x99\x83M\x8aK\xb8\x005'\x1f\xc7\x14\xeaTr\xe3o\xb8\xda\xb9\x17-FJxb\xeb5\x1aM"
 
         ensure_type_for_msg_dict(msg)
 
@@ -463,14 +456,8 @@ class TestAIS(unittest.TestCase):
         data = msg["data"]
         bits = bytes2bits(data).to01()
 
-        assert (
-            data
-            == b'|\x05V\xc0p1\xfe\xbb\xf5)$\xfe3\xfa)3\xff\xa0\xfd)2\xfd\xb7\x06)"\xfe8\t)*\xfd\xe9\x12))\xfc\xf7\x00)#\xff\xd2\x0c)\xaa\xaa'
-        )
-        assert (
-            bits
-            == "0111110000000101010101101100000001110000001100011111111010111011111101010010100100100100111111100011001111111010001010010011001111111111101000001111110100101001001100101111110110110111000001100010100100100010111111100011100000001001001010010010101011111101111010010001001000101001001010011111110011110111000000000010100100100011111111111101001000001100001010011010101010101010"
-        )
+        assert data == b'|\x05V\xc0p1\xfe\xbb\xf5)$\xfe3\xfa)3\xff\xa0\xfd)2\xfd\xb7\x06)"\xfe8\t)*\xfd\xe9\x12))\xfc\xf7\x00)#\xff\xd2\x0c)\xaa\xaa'
+        assert bits == "0111110000000101010101101100000001110000001100011111111010111011111101010010100100100100111111100011001111111010001010010011001111111111101000001111110100101001001100101111110110110111000001100010100100100010111111100011100000001001001010010010101011111101111010010001001000101001001010011111110011110111000000000010100100100011111111111101001000001100001010011010101010101010"
 
         ensure_type_for_msg_dict(msg)
 
@@ -488,10 +475,7 @@ class TestAIS(unittest.TestCase):
         bits = bytes2bits(data).to01()
 
         assert data == b"&\xb8`\xa1 \x00\xfc\x90\x0bY\x15\xfc\x8a\rR\x00TWn~\xc8\x00"
-        assert (
-            bits
-            == "00100110101110000110000010100001001000000000000011111100100100000000101101011001000101011111110010001010000011010101001000000000010101000101011101101110011111101100100000000000"
-        )
+        assert bits == "00100110101110000110000010100001001000000000000011111100100100000000101101011001000101011111110010001010000011010101001000000000010101000101011101101110011111101100100000000000"
 
         ensure_type_for_msg_dict(msg)
 
@@ -753,10 +737,7 @@ class TestAIS(unittest.TestCase):
         assert msg["addressed"]
         assert msg["structured"]
         assert msg["dest_mmsi"] == 838351848
-        assert (
-            msg["data"]
-            == b"\xcc\xbf\x02\xa1p\xe7\x8b\x00\x1c\x01\xb3\xc0\x9b\x03\xd2 \xbe\xab@\x04\x00\x00"
-        )
+        assert msg["data"] == b"\xcc\xbf\x02\xa1p\xe7\x8b\x00\x1c\x01\xb3\xc0\x9b\x03\xd2 \xbe\xab@\x04\x00\x00"
 
         ensure_type_for_msg_dict(msg)
 
@@ -794,10 +775,7 @@ class TestAIS(unittest.TestCase):
 
     def test_broken_messages(self):
         # Undefined epfd
-        assert (
-            decode(b"!AIVDM,1,1,,B,4>O7m7Iu@<9qUfbtm`vSnwvH20S8,0*46").asdict()["epfd"]
-            == EpfdType.Undefined
-        )
+        assert decode(b"!AIVDM,1,1,,B,4>O7m7Iu@<9qUfbtm`vSnwvH20S8,0*46").asdict()["epfd"] == EpfdType.Undefined
 
     def test_multiline_message(self):
         # these messages caused issue #3
