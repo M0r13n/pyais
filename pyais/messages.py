@@ -573,7 +573,7 @@ class Payload(abc.ABC):
 
         d_type = field.metadata['d_type']
 
-        if type(val) == d_type:
+        if isinstance(val, d_type):
             # The value is already of the correct type -> nothing to do
             return val
 

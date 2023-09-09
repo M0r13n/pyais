@@ -90,6 +90,7 @@ class EpfdType(IntEnum):
     IntegratedNavigationSystem = 6
     Surveyed = 7
     Galileo = 8
+    Internal_GNSS = 15
 
     @classmethod
     def _missing_(cls, value: object) -> int:
