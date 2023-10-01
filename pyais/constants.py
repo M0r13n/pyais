@@ -53,6 +53,11 @@ class NavigationStatus(IntEnum):
     Aground = 6
     EngagedInFishing = 7
     UnderWaySailing = 8
+    ReservedFutureAmendmentHSC = 9
+    ReservedFutureAmendmentWIG = 10
+    PowerDrivenVesselTowingAstern = 11
+    PowerDrivenVesselPushingAhead = 12
+    ReservedFutureUse = 13
     AISSARTActive = 14
     Undefined = 15
 
@@ -110,6 +115,7 @@ class ShipType(IntEnum):
     WIG_HazardousCategory_C = 23
     WIG_HazardousCategory_D = 24
     WIG_Reserved = 25
+    WIG_NoAdditionalInformation = 29
     # 30's
     Fishing = 30
     Towing = 31
