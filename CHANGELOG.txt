@@ -2,6 +2,13 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 2.5.8 01 Oct 2023
+-------------------------------------------------------------------------------
+* bug fix: Navigational statuses 9, 10, 13 and Ship type 29
+  * closes https://github.com/M0r13n/pyais/issues/123
+  * adds Navigational statuses 9, 10, 13 to NavigationStatus
+  * adds Ship type 29 to ShipType
+-------------------------------------------------------------------------------
  Version 2.5.7 29 Jul 2023
 -------------------------------------------------------------------------------
 * bug fix: EpfdType Enum Missing InternalGNSS

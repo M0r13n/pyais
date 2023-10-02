@@ -1,10 +1,24 @@
 import unittest
+
+from pyais import decode, encode_msg
 from pyais.constants import NavigationStatus, ManeuverIndicator, ShipType, NavAid, TransmitMode, StationIntervals, \
     StationType
 
 
 class TestConstants(unittest.TestCase):
+    def test_that_nav_data_values_are_kept_for_all_values(self):
+        # See: https://github.com/M0r13n/pyais/issues/123
+        orignal = decode(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
+
+        for i in range(15):
+            orignal.status = i
+            encoded = encode_msg(orignal)
+            decoded = decode(encoded[0])
+
+            self.assertEqual(decoded.status.value, i)
+
     def test_nav_status(self):
+
         self.assertEqual(NavigationStatus(3), NavigationStatus.RestrictedManoeuverability)
         self.assertEqual(NavigationStatus(17), NavigationStatus.Undefined)
 

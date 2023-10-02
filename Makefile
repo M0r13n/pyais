@@ -12,7 +12,7 @@ check-build:
 	twine check dist/*
 
 type-check:
-	mypy ./pyais
+	mypy ./pyais --strict
 
 clean:
 	rm -rf .mypy_cache
