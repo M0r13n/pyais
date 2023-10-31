@@ -1,0 +1,57 @@
+[project]
+name = "pyais"
+dynamic = ["version"]
+description = "AIS message decoding"
+readme = "README.md"
+requires-python = ">=3.7"
+license = {file = "LICENSE"}
+keywords = ["AIS", "ship", "decoding", "NMEA", "maritime"]
+
+authors = [
+  {name = "Leon Morten Richter", email = "misc@leonmortenrichter.de" }
+]
+maintainers = [
+   {name = "Leon Morten Richter", email = "misc@leonmortenrichter.de" }]
+
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Communications",
+  "Topic :: System :: Networking",
+  "Typing :: Typed",
+]
+
+dependencies = [
+  "bitarray",
+  "attrs"
+]
+
+[project.optional-dependencies]
+dev = ['mypy', 'flake8', 'coverage', 'twine', 'sphinx', 'pytest', 'pytest-cov']
+
+[project.urls]
+"Homepage" = "https://github.com/M0r13n/pyais"
+"Source" = "https://github.com/M0r13n/pyais"
+
+[project.scripts]
+ais-decode = "pyais.main:main"
+
+[tool.setuptools]
+package-data = {"pyais" = ["py.typed"]}
+
+
+[build-system]
+requires = ["setuptools>=43.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "pyais.__version__"}
