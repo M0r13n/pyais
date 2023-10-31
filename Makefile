@@ -6,7 +6,9 @@ flake:
 
 .PHONY: build
 build:
-	rm -rf dist/ && rm -rf build/ && python setup.py sdist bdist_wheel
+	rm -rf dist
+	rm -rf build
+	python -m build
 
 check-build:
 	twine check dist/*
@@ -18,8 +20,8 @@ clean:
 	rm -rf .mypy_cache
 	rm -rf build
 	rm -rf dist
-	rm coverage.xml
-	rm .coverage
+	rm -f coverage.xml
+	rm -f .coverage
 
 ensure-no-print:
 	grep -r --exclude main.py --exclude '*.pyc' -i 'print(' ./pyais && (echo "Debug print statement found"; exit 1)||true
@@ -27,5 +29,5 @@ ensure-no-print:
 test: run_tests flake type-check ensure-no-print
 
 install:
-	pip install wheel
-	pip install -U .[dev]
+	pip install -U setuptools wheel build
+	pip install -U -e .[dev]
