@@ -2,6 +2,12 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 2.5.9 26 Nov 2023
+-------------------------------------------------------------------------------
+* adds `decode_nmea_and_ais`
+  * use this method to get a tuple of NMEASentence and AIS payload
+  * chore: also adds another example regarding tag blocks
+-------------------------------------------------------------------------------
  Version 2.5.8 01 Oct 2023
 -------------------------------------------------------------------------------
 * bug fix: Navigational statuses 9, 10, 13 and Ship type 29
