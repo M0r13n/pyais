@@ -7,7 +7,25 @@
 ![CI](https://github.com/M0r13n/pyais/workflows/CI/badge.svg)
 [![Documentation Status](https://readthedocs.org/projects/pyais/badge/?version=latest)](https://pyais.readthedocs.io/en/latest/?badge=latest)
 
-AIS message encoding and decoding. 100% pure Python. Supports AIVDM/AIVDO messages. Supports single messages, files and
+
+
+
+<!-- PROJECT LOGO -->
+<br />
+<div align="center">
+    <img src="docs/logo.png" alt="Logo" width="80" height="80">
+
+  <h3 align="center">pyais</h3>
+
+  <p align="center">
+    AIS message encoding and decoding. 100% pure Python.
+    <br />
+  </p>
+</div>
+
+---
+
+Supports AIVDM/AIVDO messages. Supports single messages, files and
 TCP/UDP sockets. This library has been used and tested extensively in representative real-world scenarios. This includes tests with live feeds from [Spire](https://spire.com/maritime/), the [Norwegian Coastal Administration](https://kystverket.no/en/navigation-and-monitoring/ais/access-to-ais-data/) and others. I test each major release against a selection of public and non-public data sources to ensure the broadest possible compatibility.
 
 You can find the full documentation on [readthedocs](https://pyais.readthedocs.io/en/latest/).
