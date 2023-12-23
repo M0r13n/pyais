@@ -79,6 +79,17 @@ def decode(*args: typing.Union[str, bytes], error_if_checksum_invalid: bool = Fa
     return nmea.decode()
 
 
+def decode_nmea_and_ais(
+        *args: typing.Union[str, bytes], error_if_checksum_invalid: bool = False
+) -> typing.Tuple[NMEASentence, ANY_MESSAGE]:
+    """Behaves just like `decode`.
+    But it returns both: the NMEASentence and the AIS payload.
+    Useful, if the NMEA sentence layer is of interest."""
+    parts = tuple(msg.encode('utf-8') if isinstance(msg, str) else msg for msg in args)
+    nmea = _assemble_messages(*parts, error_if_checksum_invalid=error_if_checksum_invalid)
+    return nmea, nmea.decode()
+
+
 def decode_nmea_line(line: bytes) -> NMEASentence:
     """
     Decode a single NMEA line/sentence.

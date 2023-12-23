@@ -24,4 +24,4 @@ class TestExamples(unittest.TestCase):
         if csv_file.exists():
             csv_file.unlink()
 
-        assert i == 16
+        assert i == 17

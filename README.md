@@ -1,4 +1,11 @@
-# pyais
+<div align="center">
+    <img src="docs/logo.png" alt="Logo" width="80" height="80">
+
+  <h3 align="center">pyais</h3>
+
+  <p align="center">
+    AIS message encoding and decoding. 100% pure Python.
+    <br />
 
 [![PyPI](https://img.shields.io/pypi/v/pyais)](https://pypi.org/project/pyais/)
 [![license](https://img.shields.io/pypi/l/pyais)](https://github.com/M0r13n/pyais/blob/master/LICENSE)
@@ -8,18 +15,6 @@
 [![Documentation Status](https://readthedocs.org/projects/pyais/badge/?version=latest)](https://pyais.readthedocs.io/en/latest/?badge=latest)
 
 
-
-
-<!-- PROJECT LOGO -->
-<br />
-<div align="center">
-    <img src="docs/logo.png" alt="Logo" width="80" height="80">
-
-  <h3 align="center">pyais</h3>
-
-  <p align="center">
-    AIS message encoding and decoding. 100% pure Python.
-    <br />
   </p>
 </div>
 

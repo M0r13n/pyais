@@ -19,7 +19,7 @@ from pyais.constants import (
     TransmitMode,
     TurnRate,
 )
-from pyais.decode import decode, decode_nmea_line
+from pyais.decode import decode, decode_nmea_and_ais, decode_nmea_line
 from pyais.exceptions import (
     InvalidNMEAChecksum,
     InvalidNMEAMessageException,
@@ -1488,6 +1488,10 @@ class TestAIS(unittest.TestCase):
         assert comm_state["slot_increment"] is None
         assert comm_state["num_slots"] is None
 
+        # Also test decode_nmea_and_ais
+        _, decoded_2 = decode_nmea_and_ais(msg)
+        self.assertEqual(decoded_2, decoded)
+
     def test_get_comm_state_type_18_sotdma_base_inidrect(self):
         msg = "!AIVDM,1,1,,A,B69Gk3h071tpI02lT2ek?wg61P06,0*1F"
         decoded = decode(msg)
@@ -1682,3 +1686,13 @@ class TestAIS(unittest.TestCase):
         second_decode = decode(encoded)
 
         self.assertEqual(first_decode, second_decode)
+
+    def test_that_decode_nmea_and_ais_works_with_proprietary_messages(self):
+        msg = "!AIVDM,1,1,,B,181:Kjh01ewHFRPDK1s3IRcn06sd,0*08,raishub,1342569600"
+        nmea, decoded = decode_nmea_and_ais(msg)
+
+        self.assertIsInstance(nmea, NMEAMessage)
+        self.assertEqual(decoded.course, 87.0)
+        self.assertEqual(decoded.msg_type, 1)
+        self.assertEqual(decoded.mmsi, 538090443)
+        self.assertEqual(decoded.speed, 10.9)
