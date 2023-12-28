@@ -12,7 +12,7 @@ import pyais
 # Type Aliases for readability
 AIS_STREAM = typing.Generator[pyais.AISSentence, None, None]
 FILTER_FUNCTION = typing.Callable[[pyais.AISSentence], bool]
-LAT_LON = tuple[float, float]  # Tuple type for latitude and longitude
+LAT_LON = typing.Tuple[float, float]  # Tuple type for latitude and longitude
 
 
 def haversine(latLon1: LAT_LON, latLon2: LAT_LON) -> float:
@@ -257,7 +257,7 @@ class FilterChain:
     Chains multiple filters together.
     """
 
-    def __init__(self, filters: list[Filter]) -> None:
+    def __init__(self, filters: typing.List[Filter]) -> None:
         """
         Initialize the filter chain with a sequence of filters.
 
