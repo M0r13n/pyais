@@ -13,3 +13,4 @@ Welcome to Pyais's documentation!
    install
    examples
    messages
+   filters

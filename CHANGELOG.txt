@@ -4,6 +4,14 @@
 -------------------------------------------------------------------------------
  Version 2.5.9 26 Nov 2023
 -------------------------------------------------------------------------------
+* Initial release of the AIS Filters system.
+* Basic filtering classes: `NoneFilter`, `MessageTypeFilter`, and `DistanceFilter`.
+* `FilterChain` class to combine multiple filters into a sequence.
+* Utility functions `haversine` and `is_in_grid` for distance and grid calculations.
+
+-------------------------------------------------------------------------------
+ Version 2.5.9 26 Nov 2023
+-------------------------------------------------------------------------------
 * adds `decode_nmea_and_ais`
   * use this method to get a tuple of NMEASentence and AIS payload
   * chore: also adds another example regarding tag blocks
