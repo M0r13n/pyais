@@ -24,8 +24,8 @@ class TestNoneFilter(unittest.TestCase):
         self.assertEqual(len(filtered_data), 1)  # Only one message should pass through the filter
 
     def test_filtering_missing_attributes(self):
-        # Setup
-        attrs = ['lat', 'lon', 'foo']  # foo is never an attribute
+        # Setup - foo is never an attribute
+        attrs = ['foo']
         filter = NoneFilter(*attrs)
 
         # Create mock data with varying attributes: some missing, some None, some with value
@@ -39,7 +39,7 @@ class TestNoneFilter(unittest.TestCase):
         filtered_data = list(filter.filter_data(mock_data))
 
         # Assert
-        self.assertEqual(len(filtered_data), 1)  # Only one message with all attributes should pass through
+        self.assertEqual(len(filtered_data), 0)
 
 
 class TestMessageTypeFilter(unittest.TestCase):

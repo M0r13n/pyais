@@ -148,7 +148,7 @@ class NoneFilter(Filter):
         AIS_STREAM: The filtered data stream.
         """
         for msg in data:
-            if all(getattr(msg, attr, False) is not None for attr in self.attrs):
+            if all(getattr(msg, attr, None) is not None for attr in self.attrs):
                 yield msg
 
 
