@@ -777,7 +777,7 @@ def to_turn(turn: typing.Union[int, float]) -> typing.Union[float, TurnRate]:
     elif abs(turn) == 128:
         return TurnRate.NO_TI_DEFAULT
 
-    return math.copysign(int((turn / 4.733) ** 2), turn)
+    return math.copysign(round((turn / 4.733) ** 2), turn)
 
 
 def from_turn(turn: typing.Optional[typing.Union[int, float, TurnRate]]) -> int:
