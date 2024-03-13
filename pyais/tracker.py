@@ -69,6 +69,10 @@ class AISTrack:
     to_starboard: typing.Optional[int] = dataclasses.field(compare=False, default=None)
     destination: typing.Optional[str] = dataclasses.field(compare=False, default=None)
     last_updated: float = dataclasses.field(compare=False, default_factory=now)
+    name: typing.Optional[str] = dataclasses.field(compare=False, default=None)
+    ais_version: typing.Optional[int] = dataclasses.field(compare=False, default=None)
+    ais_type: typing.Optional[str] = dataclasses.field(compare=False, default=None)
+    status: typing.Optional[str] = dataclasses.field(compare=False, default=None)
 
 
 # compute a set of all fields only once
