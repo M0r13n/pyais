@@ -11,7 +11,7 @@ The following example shows how you can get the communication state
 of a message. This works for message types 1, 2, 4, 9, 11 and 18.
 
 These messages contain diagnostic information for the radio system.::
-    
+
     from pyais import decode
     from pyais.messages import MessageType18
     import json
@@ -81,7 +81,7 @@ Gatehouse wrappers
 -------------------
 
 Some AIS messages have so-called Gatehouse wrappers::
-    
+
     import pathlib
 
     from pyais.stream import FileReaderStream
@@ -203,3 +203,11 @@ so that you are is instantly notified whenever a track is created, updated, or d
         for msg in pyais.TCPConnection(host, port=port):
             tracker.update(msg)
             latest_tracks = tracker.n_latest_tracks(10)
+
+Country and Flag
+-----------------
+
+The first 3 digits of any MMSI number are indicative of the vessel's flag:
+
+    country_code, country_name = get_country(249110000)
+    assert country_code, country_name == ('MT', 'Malta')
