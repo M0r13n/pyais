@@ -1,4 +1,5 @@
 import base64
+import math
 import typing
 from collections import OrderedDict
 from functools import partial, reduce
@@ -7,7 +8,7 @@ from typing import Any, Generator, Hashable, TYPE_CHECKING, Union, Dict
 
 from bitarray import bitarray
 
-from pyais.constants import SyncState
+from pyais.constants import COUNTRY_MAPPING, SyncState
 from pyais.exceptions import NonPrintableCharacterException
 
 if TYPE_CHECKING:
@@ -418,3 +419,14 @@ def get_itdma_comm_state(radio: int) -> Dict[str, typing.Optional[int]]:
         'num_slots': num_slots,
         'keep_flag': keep_flag,
     }
+
+
+def get_first_three_digits(num: int) -> int:
+    if num < 1000:
+        return num
+    digits = int(math.log10(num)) + 1
+    return int(num // (10**(digits - 3)))
+
+
+def get_country(mmsi: int) -> typing.Tuple[str, str]:
+    return COUNTRY_MAPPING.get(get_first_three_digits(mmsi), ('NA', 'Unknown'))
