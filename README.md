@@ -25,8 +25,6 @@ TCP/UDP sockets. This library has been used and tested extensively in representa
 
 You can find the full documentation on [readthedocs](https://pyais.readthedocs.io/en/latest/).
 
-I also wrote a [blog post about AIS decoding](https://leonrichter.de/posts/pyais/) and this lib.
-
 Binary releases (Debian packages) are provided by the [pyais-debian](https://github.com/M0r13n/pyais-debian) starting with version **v2.5.6**. They are downloadable under the [Releases](https://github.com/M0r13n/pyais/releases) page.
 
 # Acknowledgements
