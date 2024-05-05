@@ -372,7 +372,7 @@ def get_sotdma_comm_state(radio: int) -> Dict[str, typing.Optional[int]]:
     if slot_timeout == 0:
         result['slot_offset'] = sub_msg
     elif slot_timeout == 1:
-        result['utc_hour'] = (sub_msg >> 9) & 0xf
+        result['utc_hour'] = (sub_msg >> 9) & 0x1f
         result['utc_minute'] = (sub_msg >> 2) & 0x3f
     elif slot_timeout in (2, 4, 6):
         result['slot_number'] = sub_msg
