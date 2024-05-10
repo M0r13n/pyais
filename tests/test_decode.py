@@ -1385,6 +1385,14 @@ class TestAIS(unittest.TestCase):
         assert decode(b"!AIVDM,1,1,,A,16:VFv0k0I`KQPpFATG4SgvT40:v,0*7B").turn == -121.0
         assert decode(b"!AIVDM,1,1,,B,16:D3F0:15`5ogh<O?bk>1Dd2L1<,0*0B").turn == 71.0
 
+    def test_sotdma_time_conversion(self):
+        """Prevent regressions for: https://github.com/M0r13n/pyais/pull/135"""
+        decoded = decode('!AIVDM,1,1,,B,133ga6PP0lPPE>4M3G@DpOwTR61p,0*33')
+        cs = decoded.get_communication_state()
+
+        assert cs['utc_hour'] == 16
+        assert cs['utc_minute'] == 30
+
     def test_get_sotdma_comm_state_utc_direct(self):
         msg = "!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23"
         decoded = decode(msg)
@@ -1456,6 +1464,32 @@ class TestAIS(unittest.TestCase):
                 "num_slots": None,
             },
         )
+
+    def test_is_sotdma_or_itdma(self):
+        """ Verify that messages are correctly identified as either ITDMA or SOTDMA.
+        Details: https://github.com/M0r13n/pyais/issues/136."""
+
+        # 1
+        assert decode(b"!AIVDM,1,1,,A,13n3aW0PCkPJS8>Qhc2<urG02D13,0*18").is_sotdma
+        assert not decode(b"!AIVDM,1,1,,A,13n3aW0PCkPJS8>Qhc2<urG02D13,0*18").is_itdma
+        # 2
+        assert decode(b"!AIVDM,1,1,,A,23aFfl0P00PCR?0MEB@h0?w020S7,0*68").is_sotdma
+        assert not decode(b"!AIVDM,1,1,,A,23aFfl0P00PCR?0MEB@h0?w020S7,0*68").is_itdma
+        # 3
+        assert not decode(b"!AIVDM,1,1,,B,33UTPD5000G<@aTL3:?0010j0000,0*2A").is_sotdma
+        assert decode(b"!AIVDM,1,1,,B,33UTPD5000G<@aTL3:?0010j0000,0*2A").is_itdma
+        # 4
+        assert decode(b"!AIVDM,1,1,,B,4h2=aCAuho;QNOUQrvQ6?a1000S:,0*5D").is_sotdma
+        assert not decode(b"!AIVDM,1,1,,B,4h2=aCAuho;QNOUQrvQ6?a1000S:,0*5D").is_itdma
+        # 9
+        assert decode(b"!AIVDM,1,1,,A,91b55vRCQvOo4PLLww<3cGh20@Br,0*79").is_sotdma
+        assert not decode(b"!AIVDM,1,1,,A,91b55vRCQvOo4PLLww<3cGh20@Br,0*79").is_itdma
+        # 11
+        assert decode(b"!AIVDM,1,1,,A,;03t=KQuho;QM`d:WFAtwnW00000,0*7C").is_sotdma
+        assert not decode(b"!AIVDM,1,1,,A,;03t=KQuho;QM`d:WFAtwnW00000,0*7C").is_itdma
+        # 18
+        assert decode(b" !AIVDM,1,1,,A,B6:a?;03wk?8mP=18D3Q3wP61P06,0*7F").is_sotdma
+        assert not decode(b" !AIVDM,1,1,,A,B6:a?;03wk?8mP=18D3Q3wP61P06,0*7F").is_itdma
 
     def test_get_comm_state_type_18_itdma_base_indirect(self):
         msg = "!AIVDM,1,1,,A,B5NJ;PP005l4ot5Isbl03wsUkP06,0*76"

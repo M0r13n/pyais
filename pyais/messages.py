@@ -797,9 +797,13 @@ class CommunicationStateMixin:
     https://www.itu.int/dms_pubrec/itu-r/rec/m/R-REC-M.1371-1-200108-S!!PDF-E.pdf
     """
 
+    msg_type: int  # Type hint to make mypy happy
     radio: int  # Type hint to make mypy happy
 
     MAX_COMM_STATE_VALUE = 0x7ffff
+
+    SOTDMA_TYPES = (1, 2, 4, 11)
+    SOTDMA_ITDMA_TYPES = (9, 18, 26)
 
     def get_communication_state(self) -> Dict[str, typing.Optional[int]]:
         """Returns information used by the slot allocation algorithm as a dict."""
@@ -825,13 +829,21 @@ class CommunicationStateMixin:
 
     @property
     def is_sotdma(self) -> bool:
-        """The radio status field has it's 20th bit (MSB) set to 0 or has less than 20 bits"""
-        return self.radio <= self.MAX_COMM_STATE_VALUE
+        """Messages of type 1, 2, 4, 11 use SOTDMA or 9, 18, 26 if 20th bit is set."""
+        if self.msg_type in self.SOTDMA_TYPES:
+            return True
+        if self.msg_type in self.SOTDMA_ITDMA_TYPES:
+            return self.radio <= self.MAX_COMM_STATE_VALUE
+        return False
 
     @property
     def is_itdma(self) -> bool:
-        """The radio status field has it's 20th bit (MSB) set to 1"""
-        return self.radio > self.MAX_COMM_STATE_VALUE
+        """Messages of type 3 use ITDMA or 9, 18, 26 if 20th bit is set."""
+        if self.msg_type == 3:
+            return True
+        if self.msg_type in self.SOTDMA_ITDMA_TYPES:
+            return self.radio > self.MAX_COMM_STATE_VALUE
+        return False
 
     @property
     def communication_state_raw(self) -> int:
