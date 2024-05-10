@@ -2,6 +2,13 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 2.6.5 10 May 2024
+-------------------------------------------------------------------------------
+* merges https://github.com/M0r13n/pyais/pull/135 (by @prefixFelix)
+  * fixed the length of the UTC hour and minute field
+* closes https://github.com/M0r13n/pyais/issues/136
+  * resolved logic error to accurately distinguish between SOTDMA and ITDMA communication states
+-------------------------------------------------------------------------------
  Version 2.6.4 27 Apr 2024
 -------------------------------------------------------------------------------
 * merges https://github.com/M0r13n/pyais/pull/134 (by @alfonnews)
