@@ -9,6 +9,9 @@ class MockAISMessage:
         self.lon = lon
         self.other_attr = other_attr
 
+    def decode(self):
+        return self
+
 
 class TestNoneFilter(unittest.TestCase):
     def test_filtering_none_attributes(self):
@@ -165,6 +168,7 @@ class TestFilterChain(unittest.TestCase):
         filter1 = NoneFilter('lat', 'lon')
         filter2 = MessageTypeFilter(1, 2)
         chain = FilterChain([filter1, filter2])
+
         mock_data = [MockAISMessage(lat=1, lon=1, msg_type=1), MockAISMessage(lat=None, lon=1, msg_type=2)]
 
         # Execute

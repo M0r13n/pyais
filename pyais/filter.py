@@ -6,12 +6,15 @@ Filters can be chained using a FilterChain.
 """
 
 import math
+import socket
 import typing
 import pyais
 
 # Type Aliases for readability
-AIS_STREAM = typing.Generator[pyais.AISSentence, None, None]
-FILTER_FUNCTION = typing.Callable[[pyais.AISSentence], bool]
+F = typing.TypeVar("F", typing.BinaryIO, socket.socket, None)
+AIS_STREAM = pyais.Stream[F]
+MESSAGE_STREAM = typing.Generator[pyais.ANY_MESSAGE, None, None]
+FILTER_FUNCTION = typing.Callable[[pyais.ANY_MESSAGE], bool]
 LAT_LON = typing.Tuple[float, float]  # Tuple type for latitude and longitude
 
 
@@ -66,30 +69,30 @@ class Filter:
         """
         self.next_filter = filter
 
-    def filter(self, data: AIS_STREAM) -> AIS_STREAM:
+    def filter(self, data: MESSAGE_STREAM) -> MESSAGE_STREAM:
         """
         Apply the filter to the data and then pass it to the next filter.
 
         Parameters:
-        data (AIS_STREAM): The stream of data to filter.
+        data (MESSAGE_STREAM): The stream of data to filter.
 
         Returns:
-        AIS_STREAM: The filtered data stream.
+        MESSAGE_STREAM: The filtered data stream.
         """
         data = self.filter_data(data)
         if self.next_filter:
             return self.next_filter.filter(data)
         return data
 
-    def filter_data(self, data: AIS_STREAM) -> AIS_STREAM:
+    def filter_data(self, data: MESSAGE_STREAM) -> MESSAGE_STREAM:
         """
         Abstract method to filter data. Should be implemented by subclasses.
 
         Parameters:
-        data (AIS_STREAM): The stream of data to filter.
+        data (MESSAGE_STREAM): The stream of data to filter.
 
         Returns:
-        AIS_STREAM: The filtered data stream.
+        MESSAGE_STREAM: The filtered data stream.
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
 
@@ -109,15 +112,15 @@ class AttributeFilter(Filter):
         super().__init__()
         self.ff = ff
 
-    def filter_data(self, data: AIS_STREAM) -> AIS_STREAM:
+    def filter_data(self, data: MESSAGE_STREAM) -> MESSAGE_STREAM:
         """
         Filter the data based on the user-defined function.
 
         Parameters:
-        data (AIS_STREAM): The stream of data to filter.
+        data (MESSAGE_STREAM): The stream of data to filter.
 
         Yields:
-        AIS_STREAM: The filtered data stream.
+        MESSAGE_STREAM: The filtered data stream.
         """
         yield from filter(self.ff, data)
 
@@ -137,15 +140,15 @@ class NoneFilter(Filter):
         super().__init__()
         self.attrs = attrs
 
-    def filter_data(self, data: AIS_STREAM) -> AIS_STREAM:
+    def filter_data(self, data: MESSAGE_STREAM) -> MESSAGE_STREAM:
         """
         Filter the data, allowing only messages where specified attributes are not None.
 
         Parameters:
-        data (AIS_STREAM): The stream of data to filter.
+        data (MESSAGE_STREAM): The stream of data to filter.
 
         Yields:
-        AIS_STREAM: The filtered data stream.
+        MESSAGE_STREAM: The filtered data stream.
         """
         for msg in data:
             if all(getattr(msg, attr, None) is not None for attr in self.attrs):
@@ -167,18 +170,18 @@ class MessageTypeFilter(Filter):
         super().__init__()
         self.types = types
 
-    def filter_data(self, data: AIS_STREAM) -> AIS_STREAM:
+    def filter_data(self, data: MESSAGE_STREAM) -> MESSAGE_STREAM:
         """
         Filter the data, allowing only messages of specified types.
 
         Parameters:
-        data (AIS_STREAM): The stream of data to filter.
+        data (MESSAGE_STREAM): The stream of data to filter.
 
         Yields:
-        AIS_STREAM: The filtered data stream.
+        MESSAGE_STREAM: The filtered data stream.
         """
         for msg in data:
-            if msg.msg_type not in self.types:  # type: ignore
+            if msg.msg_type not in self.types:
                 continue
             yield msg
 
@@ -200,15 +203,15 @@ class DistanceFilter(Filter):
         self.ref_lat_lon = ref_lat_lon
         self.distance_km = distance_km
 
-    def filter_data(self, data: AIS_STREAM) -> AIS_STREAM:
+    def filter_data(self, data: MESSAGE_STREAM) -> MESSAGE_STREAM:
         """
         Filter the data based on distance from a reference point.
 
         Parameters:
-        data (AIS_STREAM): The stream of data to filter.
+        data (MESSAGE_STREAM): The stream of data to filter.
 
         Yields:
-        AIS_STREAM: The filtered data stream.
+        MESSAGE_STREAM: The filtered data stream.
         """
         for msg in data:
             if hasattr(msg, 'lat'):
@@ -235,15 +238,15 @@ class GridFilter(Filter):
         self.lat_max = lat_max
         self.lon_max = lon_max
 
-    def filter_data(self, data: AIS_STREAM) -> AIS_STREAM:
+    def filter_data(self, data: MESSAGE_STREAM) -> MESSAGE_STREAM:
         """
         Filter the data based on whether it falls within a specified grid.
 
         Parameters:
-        data (AIS_STREAM): The stream of data to filter.
+        data (MESSAGE_STREAM): The stream of data to filter.
 
         Yields:
-        AIS_STREAM: The filtered data stream.
+        MESSAGE_STREAM: The filtered data stream.
         """
         for msg in data:
             if hasattr(msg, 'lat'):
@@ -274,14 +277,14 @@ class FilterChain:
         self.filters = filters
         self.start = filters[0]
 
-    def filter(self, data: AIS_STREAM) -> AIS_STREAM:
+    def filter(self, stream: AIS_STREAM[F]) -> MESSAGE_STREAM:
         """
         Apply the chain of filters to the data.
 
         Parameters:
-        data (AIS_STREAM): The stream of data to filter.
+        stream (AIS_STREAM): The stream of data to filter.
 
         Yields:
         AIS_STREAM: The filtered data stream.
         """
-        yield from self.start.filter(data)
+        yield from self.start.filter(x.decode() for x in stream)
