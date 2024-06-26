@@ -1,4 +1,3 @@
-from pyais import decode
 from pyais.filter import (
     AttributeFilter,
     DistanceFilter,
@@ -7,6 +6,7 @@ from pyais.filter import (
     MessageTypeFilter,
     NoneFilter
 )
+from pyais.stream import TCPConnection
 
 # Define the filter chain with various criteria
 chain = FilterChain([
@@ -26,21 +26,8 @@ chain = FilterChain([
     GridFilter(lat_min=50, lon_min=0, lat_max=52, lon_max=5),
 ])
 
-# Example AIS data to filter
-data = [
-    decode(b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05"),
-    decode(b"!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23"),
-    decode(b"!AIVDM,1,1,,B,100h00PP0@PHFV`Mg5gTH?vNPUIp,0*3B"),
-    decode(b"!AIVDM,1,1,,A,133sVfPP00PD>hRMDH@jNOvN20S8,0*7F"),
-    decode(b"!AIVDM,1,1,,B,13eaJF0P00Qd388Eew6aagvH85Ip,0*45"),
-    decode(b"!AIVDM,1,1,,A,14eGrSPP00ncMJTO5C6aBwvP2D0?,0*7A"),
-    decode(b"!AIVDM,1,1,,A,15MrVH0000KH<:V:NtBLoqFP2H9:,0*2F"),
-    decode(b"!AIVDM,1,1,,A,702R5`hwCjq8,0*6B"),
-]
-
-# Filter the data using the defined chain
-filtered_data = list(chain.filter(data))
-
-# Print the latitude and longitude of each message that passed the filters
-for msg in filtered_data:
-    print(msg.lat, msg.lon)
+# Create a stream of ais messages
+with TCPConnection('153.44.253.27', port=5631) as ais_stream:
+    for ais_msg in chain.filter(ais_stream):
+        # Only messages that pass this filter chain are printed
+        print(ais_msg)

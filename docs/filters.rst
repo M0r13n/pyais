@@ -62,7 +62,7 @@ Example Usage
 
 .. code-block:: python
 
-    from pyais import decode
+    from pyais import decode, TCPConnection
     # ... (importing necessary classes)
 
     # Define and initialize filters
@@ -82,8 +82,8 @@ Example Usage
     ])
 
     # Decode AIS data and filter
-    data = [decode(b"!AIVDM..."), ...]
-    filtered_data = list(chain.filter(data))
+    stream = TCPConnection(...)
+    filtered_data = chain.filter(stream)
 
     for msg in filtered_data:
         print(msg.lat, msg.lon)

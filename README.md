@@ -159,7 +159,7 @@ This is useful for debugging or for getting used to pyais.
 It is also possible to encode messages.
 
 | :exclamation:  Every message needs at least a single keyword argument: `mmsi`. All other fields have most likely default values. |
-|----------------------------------------------------------------------------------------------------------------------------------|
+| -------------------------------------------------------------------------------------------------------------------------------- |
 
 ### Encode data using a dictionary
 
@@ -385,7 +385,7 @@ The filtering system is built around a series of filter classes, each designed t
 ## Example Usage
 
 ```python
-from pyais import decode
+from pyais import decode, TCPConnection
 # ... (importing necessary classes)
 
 # Define and initialize filters
@@ -405,8 +405,8 @@ chain = FilterChain([
 ])
 
 # Decode AIS data and filter
-data = [decode(b"!AIVDM..."), ...]
-filtered_data = list(chain.filter(data))
+stream = TCPConnection(...)
+filtered_data = list(chain.filter(stream))
 
 for msg in filtered_data:
     print(msg.lat, msg.lon)

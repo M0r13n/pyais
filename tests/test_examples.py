@@ -4,6 +4,14 @@ import pathlib
 import subprocess
 import unittest
 
+KEYWORDS_TO_IGNORE = (
+    'tcp',
+    'udp',
+    'live',
+    'tracking',
+    'filters',
+)
+
 
 class TestExamples(unittest.TestCase):
     """
@@ -14,7 +22,7 @@ class TestExamples(unittest.TestCase):
         i = -1
         exe = sys.executable
         for i, file in enumerate(pathlib.Path(__file__).parent.parent.joinpath('examples').glob('*.py')):
-            if 'tcp' not in str(file) and 'udp' not in str(file) and 'live' not in str(file) and 'tracking' not in str(file):
+            if all(kw not in str(file) for kw in KEYWORDS_TO_IGNORE):
                 env = os.environ
                 env['PYTHONPATH'] = f':{pathlib.Path(__file__).parent.parent.absolute()}'
                 assert subprocess.check_call(f'{exe} {file}'.split(), env=env, shell=False) == 0

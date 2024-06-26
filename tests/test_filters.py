@@ -1,5 +1,7 @@
+import pathlib
 import unittest
 from pyais.filter import AttributeFilter, DistanceFilter, FilterChain, GridFilter, MessageTypeFilter, NoneFilter, haversine
+from pyais.stream import FileReaderStream
 
 
 class MockAISMessage:
@@ -8,6 +10,9 @@ class MockAISMessage:
         self.lat = lat
         self.lon = lon
         self.other_attr = other_attr
+
+    def decode(self):
+        return self
 
 
 class TestNoneFilter(unittest.TestCase):
@@ -165,6 +170,7 @@ class TestFilterChain(unittest.TestCase):
         filter1 = NoneFilter('lat', 'lon')
         filter2 = MessageTypeFilter(1, 2)
         chain = FilterChain([filter1, filter2])
+
         mock_data = [MockAISMessage(lat=1, lon=1, msg_type=1), MockAISMessage(lat=None, lon=1, msg_type=2)]
 
         # Execute
@@ -199,6 +205,22 @@ class TestFilterChain(unittest.TestCase):
         self.assertEqual(filtered_data[0].lat, 40.768)
         self.assertEqual(filtered_data[0].lon, -73.965)
         self.assertEqual(filtered_data[0].msg_type, 1)
+
+    def test_filter_chain_with_file_stream(self):
+        # Setup: Define the filters and chain
+        chain = FilterChain([AttributeFilter(lambda x: x.mmsi == 445451000)])
+
+        # Setup: Define sample file
+        file = pathlib.Path(__file__).parent.joinpath('messages.ais')
+
+        with FileReaderStream(file) as ais_stream:
+            total = len(list(ais_stream))
+
+        with FileReaderStream(file) as ais_stream:
+            filtered = list(chain.filter(ais_stream))
+
+        self.assertEqual(len(filtered), 2)
+        self.assertEqual(total, 6)
 
 
 class TestAttributeFilter(unittest.TestCase):
