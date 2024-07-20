@@ -1,0 +1,12 @@
+# taken from https://www.aishub.net/ais-dispatcher
+[2024-07-19 08:45:27.141] !AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23
+[2024-07-19 08:45:30.074] !AIVDM,1,1,,A,133sVfPP00PD>hRMDH@jNOvN20S8,0*7F
+[2024-07-19 08:45:35.007] !AIVDM,1,1,,B,100h00PP0@PHFV`Mg5gTH?vNPUIp,0*3B
+[2024-07-19 08:45:35.301] !AIVDM,1,1,,B,13eaJF0P00Qd388Eew6aagvH85Ip,0*45
+[2024-07-19 08:45:40.021] !AIVDM,1,1,,A,14eGrSPP00ncMJTO5C6aBwvP2D0?,0*7A
+[2024-07-19 08:45:40.074] !AIVDM,1,1,,A,15MrVH0000KH<:V:NtBLoqFP2H9:,0*2F
+# Lines with a leading `#` are ignored
+# Also invalid lines or invalid messages are ignored
+IamNotAnAisMessage1111
+# Tag blocks are also supported
+[2024-07-19 08:47:40.074] \g:1-2-73874,n:157036,s:r003669945,c:12415440354*A\!AIVDM,1,1,,B,15N4cJ005Jrek0H@9nDW5608EP,013

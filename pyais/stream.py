@@ -1,7 +1,10 @@
 import typing
 from abc import ABC, abstractmethod
 from socket import AF_INET, SOCK_DGRAM, SOCK_STREAM, socket
-from typing import BinaryIO, Generator, Generic, Iterable, List, TypeVar, cast
+from typing import (
+    BinaryIO, Generator, Generic, Iterable, List, TypeVar,
+    cast, Tuple, Optional, Dict, Union, Any, Callable
+)
 
 from pyais.exceptions import InvalidNMEAMessageException, NonPrintableCharacterException, UnknownMessageException
 from pyais.messages import AISSentence, GatehouseSentence, NMEAMessage, NMEASentenceFactory
@@ -13,13 +16,22 @@ EXCLAMATION_POINT = ord("!")
 BACKSLASH = ord("\\")
 
 
-def should_parse(byte_str: bytes) -> bool:
+def should_parse(byte_str: bytes, parse_function: Optional[Callable] = None) -> bool:
     """Return True if a given byte string seems to be NMEA message.
     This method does **NOT** validate the message, but uses a heuristic
     approach to check (or guess) if byte string is a valid nmea_message.
     """
-    # The byte sequence is not empty and starts with a $ or a ! or \
-    return len(byte_str) > 0 and byte_str[0] in (DOLLAR_SIGN, EXCLAMATION_POINT, BACKSLASH)
+    if parse_function is None:
+        # The byte sequence is not empty and starts with a $ or a ! or \
+        return len(byte_str) > 0 and byte_str[0] in (DOLLAR_SIGN, EXCLAMATION_POINT, BACKSLASH)
+    else:
+        try:
+            # try to parse the line and run the above test
+            nmea_message = parse_function(byte_str)[0]
+            return should_parse(nmea_message)
+        except Exception:  # TODO: better Exception
+            # otherwise, the line must not be processed
+            return False
 
 
 class AssembleMessages(ABC):
@@ -29,7 +41,7 @@ class AssembleMessages(ABC):
     """
 
     def __init__(self) -> None:
-        self.wrapper_msg: typing.Optional[GatehouseSentence] = None
+        self.wrapper_msg: Optional[GatehouseSentence] = None
 
     def __enter__(self) -> "AssembleMessages":
         # Enables use of with statement
@@ -48,9 +60,8 @@ class AssembleMessages(ABC):
     def __set_last_wrapper_msg(self, wrapper_msg: GatehouseSentence) -> None:
         self.wrapper_msg = wrapper_msg
 
-    def __get_last_wrapper_msg(self) -> typing.Optional[GatehouseSentence]:
-        wrapper_msg = self.wrapper_msg
-        self.wrapper_msg = None
+    def __get_last_wrapper_msg(self) -> Optional[GatehouseSentence]:
+        self.wrapper_msg, wrapper_msg = None, self.wrapper_msg
         return wrapper_msg
 
     def __insert_wrapper_msg(self, msg: AISSentence) -> AISSentence:
@@ -59,14 +70,16 @@ class AssembleMessages(ABC):
             msg.wrapper_msg = wrapper_msg
         return msg
 
-    def _assemble_messages(self) -> Generator[NMEAMessage, None, None]:
-        buffer: typing.Dict[typing.Tuple[int, str], typing.List[typing.Optional[NMEAMessage]]] = {}
+    def _assemble_messages(
+            self
+    ) -> Generator[Union[NMEAMessage, Tuple[NMEAMessage, Any]], None, None]:
+        buffer: Dict[Tuple[int, str], List[Optional[NMEAMessage]]] = {}
         messages = self._iter_messages()
         msg: AISSentence
 
-        for line in messages:
+        for nmea_message, metadata in messages:
             try:
-                sentence = NMEASentenceFactory.produce(line)
+                sentence = NMEASentenceFactory.produce(nmea_message)
                 if sentence.TYPE == GatehouseSentence.TYPE:
                     sentence = cast(GatehouseSentence, sentence)
                     self.__set_last_wrapper_msg(sentence)
@@ -75,12 +88,13 @@ class AssembleMessages(ABC):
                 # Be gentle and just skip invalid messages
                 continue
 
-            if not sentence.TYPE == AISSentence.TYPE:
+            if sentence.TYPE != AISSentence.TYPE:
                 continue
             msg = typing.cast(AISSentence, sentence)
 
             if msg.is_single:
-                yield self.__insert_wrapper_msg(msg)
+                msg_with_wrapper = self.__insert_wrapper_msg(msg)
+                yield msg_with_wrapper if metadata is None else (msg_with_wrapper, metadata)
             else:
                 # Instead of None use -1 as a seq_id
                 seq_id = msg.seq_id
@@ -100,8 +114,8 @@ class AssembleMessages(ABC):
                 # Check if all fragments are found
                 not_none_parts = [m for m in msg_parts if m is not None]
                 if len(not_none_parts) == msg.fragment_count:
-                    msg = NMEAMessage.assemble_from_iterable(not_none_parts)
-                    yield self.__insert_wrapper_msg(msg)
+                    msg_with_wrapper = self.__insert_wrapper_msg(msg)
+                    yield msg_with_wrapper if metadata is None else (msg_with_wrapper, metadata)
                     del buffer[slot]
 
     @abstractmethod
@@ -110,17 +124,28 @@ class AssembleMessages(ABC):
 
 
 class IterMessages(AssembleMessages):
-
-    def __init__(self, messages: Iterable[bytes]):
+    def __init__(
+            self,
+            messages: Iterable[bytes],
+            parse_function: Optional[Callable] = None,
+            encoding: Optional[str] = None
+    ) -> None:
         super().__init__()
+
         # If the user passes a single byte string make it into a list
         if isinstance(messages, bytes):
             messages = [messages, ]
-        self.messages: Iterable[bytes] = messages
+        self.messages = messages
+        self.parse_function = parse_function
+        self.encoding = encoding
 
     @classmethod
-    def from_strings(cls, messages: Iterable[str], ignore_encoding_errors: bool = False,
-                     encoding: str = "utf-8") -> "IterMessages":
+    def from_strings(
+            cls, messages: Iterable[str],
+            parse_function: Optional[Callable] = None,
+            ignore_encoding_errors: bool = False,
+            encoding: str = "utf-8"
+    ) -> "IterMessages":
         # If the users passes a single message as string, make it a list
         if isinstance(messages, str):
             messages = [messages, ]
@@ -135,22 +160,33 @@ class IterMessages(AssembleMessages):
                     continue
                 raise e
 
-        return IterMessages(encoded)
+        return IterMessages(encoded, parse_function, encoding)
 
-    def _iter_messages(self) -> Generator[bytes, None, None]:
+    def _iter_messages(self) -> Generator[Tuple[bytes, Any], None, None]:
         # Transform self.messages into a generator
-        yield from (message for message in self.messages)
+        if self.parse_function is not None:
+            yield from (
+                self.parse_function(messages if self.encoding is None else messages.decode(self.encoding))
+                for messages in self.messages
+            )
+        yield from ((msg, None) for msg in self.messages)
 
 
 class Stream(AssembleMessages, Generic[F], ABC):
-
-    def __init__(self, fobj: F) -> None:
+    def __init__(
+            self,
+            fobj: F,
+            parse_function: Optional[Callable] = None,
+            encoding: Optional[str] = None
+    ) -> None:
         """
         Create a new Stream-like object.
         @param fobj: A file-like or socket object.
         """
         super().__init__()
         self._fobj: F = fobj
+        self.parse_function = parse_function
+        self.encoding = encoding
 
     def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
         if self._fobj is not None:
@@ -158,7 +194,10 @@ class Stream(AssembleMessages, Generic[F], ABC):
 
     def _iter_messages(self) -> Generator[bytes, None, None]:
         # Do not parse lines, that are obviously not NMEA messages
-        yield from (line for line in self.read() if should_parse(line))
+        # Transform self.messages into a generator
+        if self.parse_function is not None:
+            yield from (self.parse_function(line) for line in self.read() if should_parse(line, self.parse_function))
+        yield from ((line, None) for line in self.read() if should_parse(line))
 
     @abstractmethod
     def read(self) -> Generator[bytes, None, None]:
@@ -168,8 +207,8 @@ class Stream(AssembleMessages, Generic[F], ABC):
 class BinaryIOStream(Stream[BinaryIO]):
     """Read messages from a file-like object"""
 
-    def __init__(self, file: BinaryIO) -> None:
-        super().__init__(file)
+    def __init__(self, file: BinaryIO, *args, **kwargs) -> None:
+        super().__init__(file, *args, **kwargs)
 
     def read(self) -> Generator[bytes, None, None]:
         yield from self._fobj
@@ -180,7 +219,13 @@ class FileReaderStream(BinaryIOStream):
     Read NMEA messages from file
     """
 
-    def __init__(self, filename: str, mode: str = "rb") -> None:
+    def __init__(
+            self,
+            filename: str,
+            *args,
+            mode: str = "rb",
+            **kwargs
+    ) -> None:
         self.filename: str = filename
         self.mode: str = mode
         # Try to open file
@@ -189,7 +234,7 @@ class FileReaderStream(BinaryIOStream):
             file = cast(BinaryIO, file)
         except Exception as e:
             raise FileNotFoundError(f"Could not open file {self.filename}") from e
-        super().__init__(file)
+        super().__init__(file, *args, **kwargs)
 
 
 class ByteStream(Stream[None]):

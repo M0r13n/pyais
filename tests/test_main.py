@@ -41,9 +41,9 @@ class TestMainApp(unittest.TestCase):
         assert ns.in_file is None
 
         # But this can be overwritten to any file that exists
-        ns = parser.parse_args(["-f", "tests/ais_test_messages"])
+        ns = parser.parse_args(["-f", "ais_test_messages"])
         assert ns.func == decode_from_file
-        assert ns.in_file.name == "tests/ais_test_messages"
+        assert ns.in_file.name == "ais_test_messages"
         ns.in_file.close()
 
         # If the file does not exist an error is thrown
