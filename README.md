@@ -140,6 +140,39 @@ for msg in IterMessages(fake_stream):
     print(msg.decode())
 ```
 
+We can also have any king of metadata for each message:
+
+```py
+import re
+from typing import Union, Tuple
+from pyais import IterMessages
+
+enhanced_fake_stream = [
+    b"[2024-07-19 08:45:27.141] !AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23",
+    b"[2024-07-19 08:45:30.074] !AIVDM,1,1,,A,133sVfPP00PD>hRMDH@jNOvN20S8,0*7F",
+    b"[2024-07-19 08:45:35.007] !AIVDM,1,1,,B,100h00PP0@PHFV`Mg5gTH?vNPUIp,0*3B",
+    b"[2024-07-19 08:45:35.301] !AIVDM,1,1,,B,13eaJF0P00Qd388Eew6aagvH85Ip,0*45",
+    b"[2024-07-19 08:45:40.021] !AIVDM,1,1,,A,14eGrSPP00ncMJTO5C6aBwvP2D0?,0*7A",
+    b"[2024-07-19 08:45:40.074] !AIVDM,1,1,,A,15MrVH0000KH<:V:NtBLoqFP2H9:,0*2F",
+]
+
+
+# Create a custom parsing function:
+# - NMEA message must be always in the first position and in bytes
+# - For flexibility purposes, consider cases where the data can be bytes or string
+def parse_function(msg: Union[str, bytes], encoding: str = 'utf-8') -> Tuple[bytes, str]:
+    if isinstance(msg, bytes):
+        msg = msg.decode(encoding)
+    nmea_message = re.search(".* (.*)", msg).group(1)  # NMEA
+    metadata = re.search("(.*) .*", msg).group(1)  # Metadata
+
+    return bytes(nmea_message, encoding), metadata
+
+
+for message, infos in IterMessages(enhanced_fake_stream, parse_function):
+    print(infos, message.decode())
+```
+
 ## Live feed
 
 The [Norwegian Coastal Administration](https://kystverket.no/en/navigation-and-monitoring/ais/access-to-ais-data/) offers real-time AIS data.
