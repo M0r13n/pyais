@@ -27,7 +27,7 @@ class TestMainApp(unittest.TestCase):
 
     def test_decode_from_file(self):
         class DemoNamespace:
-            in_file = open("tests/ais_test_messages", "rb")
+            in_file = open("ais_test_messages", "rb")
             out_file = None
 
         assert decode_from_file(DemoNamespace()) == 0
