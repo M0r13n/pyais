@@ -16,22 +16,12 @@ EXCLAMATION_POINT = ord("!")
 BACKSLASH = ord("\\")
 
 
-def should_parse(byte_str: bytes, parse_function: Optional[Callable] = None) -> bool:
+def should_parse(byte_str: bytes) -> bool:
     """Return True if a given byte string seems to be NMEA message.
     This method does **NOT** validate the message, but uses a heuristic
     approach to check (or guess) if byte string is a valid nmea_message.
     """
-    if parse_function is None:
-        # The byte sequence is not empty and starts with a $ or a ! or \
-        return len(byte_str) > 0 and byte_str[0] in (DOLLAR_SIGN, EXCLAMATION_POINT, BACKSLASH)
-    else:
-        try:
-            # try to parse the line and run the above test
-            nmea_message = parse_function(byte_str)[0]
-            return should_parse(nmea_message)
-        except Exception:  # TODO: better Exception
-            # otherwise, the line must not be processed
-            return False
+    return len(byte_str) > 0 and byte_str[0] in (DOLLAR_SIGN, EXCLAMATION_POINT, BACKSLASH)
 
 
 class AssembleMessages(ABC):
@@ -94,7 +84,8 @@ class AssembleMessages(ABC):
 
             if msg.is_single:
                 msg_with_wrapper = self.__insert_wrapper_msg(msg)
-                yield msg_with_wrapper if metadata is None else (msg_with_wrapper, metadata)
+                yield self._yield_field_mapper(msg_with_wrapper, metadata)
+
             else:
                 # Instead of None use -1 as a seq_id
                 seq_id = msg.seq_id
@@ -116,12 +107,31 @@ class AssembleMessages(ABC):
                 if len(not_none_parts) == msg.fragment_count:
                     msg = NMEAMessage.assemble_from_iterable(not_none_parts)
                     msg_with_wrapper = self.__insert_wrapper_msg(msg)
-                    yield msg_with_wrapper if metadata is None else (msg_with_wrapper, metadata)
+                    yield self._yield_field_mapper(msg_with_wrapper, metadata)
+                    # could be also:
+                    # yield self.__prepare_yield_value(msg_with_wrapper, metadata)
+                    # what is better given the differents remarks (in __prepare_yield_value function)
                     del buffer[slot]
 
     @abstractmethod
-    def _iter_messages(self) -> Generator[bytes, None, None]:
+    def _iter_messages(self) -> Generator[Tuple[bytes, Any], None, None]:
         raise NotImplementedError("Implement me!")
+
+    @abstractmethod
+    def _yield_field_mapper(self, message: AISSentence, metadata: Any):
+        raise NotImplementedError("Implement me!")
+
+    # this method do unnecessary if else statements: replaced by _yield_field_mapper method
+    # @staticmethod
+    # def __prepare_yield_value(message: AISSentence, metadata: Any):
+    #     # the worth weakness of this feature is that we break
+    #     # the consistency of the output data structure:
+    #     # we could imagine for a future version of pyais, with a breaking change (3.y.z),
+    #     # to change the global output by (message, metadata) where metadata can be None
+    #
+    #     # for now, we ensure the retrocompatibility:
+    #     return message if metadata is None else (message, metadata)
+    #     # we can also use a different method in order to avoid the if else statement
 
 
 class IterMessages(AssembleMessages):
@@ -129,7 +139,6 @@ class IterMessages(AssembleMessages):
             self,
             messages: Iterable[bytes],
             parse_function: Optional[Callable] = None,
-            encoding: Optional[str] = None
     ) -> None:
         super().__init__()
 
@@ -138,7 +147,11 @@ class IterMessages(AssembleMessages):
             messages = [messages, ]
         self.messages = messages
         self.parse_function = parse_function
-        self.encoding = encoding
+
+        # TODO: there is certainly a better way to do this mapper
+        self._io_mapper_function = (
+            (lambda msg, infos: msg) if parse_function is None else (lambda msg, infos: (msg, infos))
+        )
 
     @classmethod
     def from_strings(
@@ -161,16 +174,21 @@ class IterMessages(AssembleMessages):
                     continue
                 raise e
 
-        return IterMessages(encoded, parse_function, encoding)
+        return IterMessages(encoded, parse_function)
 
     def _iter_messages(self) -> Generator[Tuple[bytes, Any], None, None]:
         # Transform self.messages into a generator
         if self.parse_function is not None:
-            yield from (
-                self.parse_function(messages if self.encoding is None else messages.decode(self.encoding))
-                for messages in self.messages
-            )
-        yield from ((msg, None) for msg in self.messages)
+            yield from (self.parse_function(messages) for messages in self.messages)
+        else:
+            yield from ((msg, None) for msg in self.messages)
+
+    def _yield_field_mapper(
+            self,
+            message: AISSentence,
+            metadata: Any
+    ) -> Union[AISSentence, Tuple[AISSentence, Any]]:
+        return self._io_mapper_function(message, metadata)
 
 
 class Stream(AssembleMessages, Generic[F], ABC):
@@ -178,7 +196,6 @@ class Stream(AssembleMessages, Generic[F], ABC):
             self,
             fobj: F,
             parse_function: Optional[Callable] = None,
-            encoding: Optional[str] = None
     ) -> None:
         """
         Create a new Stream-like object.
@@ -187,7 +204,9 @@ class Stream(AssembleMessages, Generic[F], ABC):
         super().__init__()
         self._fobj: F = fobj
         self.parse_function = parse_function
-        self.encoding = encoding
+        self._io_mapper_function = (
+            (lambda msg, infos: msg) if parse_function is None else (lambda msg, infos: (msg, infos))
+        )
 
     def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
         if self._fobj is not None:
@@ -197,12 +216,29 @@ class Stream(AssembleMessages, Generic[F], ABC):
         # Do not parse lines, that are obviously not NMEA messages
         # Transform self.messages into a generator
         if self.parse_function is not None:
-            yield from (self.parse_function(line) for line in self.read() if should_parse(line, self.parse_function))
-        yield from ((line, None) for line in self.read() if should_parse(line))
+            # TODO: refacto this cuz ugly
+            for line in self.read():
+                try:
+                    # try to parse the line
+                    nmea_message, metadata = self.parse_function(line)
+                    if should_parse(nmea_message):  # is the message correct ?
+                        yield nmea_message, metadata
+                except AttributeError:
+                    # otherwise, the line must not be processed
+                    continue
+        else:
+            yield from ((line, None) for line in self.read() if should_parse(line))
+
+    def _yield_field_mapper(
+            self,
+            message: AISSentence,
+            metadata: Any
+    ) -> Union[AISSentence, Tuple[AISSentence, Any]]:
+        return self._io_mapper_function(message, metadata)
 
     @abstractmethod
     def read(self) -> Generator[bytes, None, None]:
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 class BinaryIOStream(Stream[BinaryIO]):

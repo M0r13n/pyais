@@ -9,7 +9,7 @@ When reading a file, the following things are important to know:
 """
 import pathlib
 import re
-from typing import Tuple, Union
+from typing import Tuple, Any
 
 from pyais.stream import FileReaderStream
 
@@ -18,14 +18,16 @@ filename = pathlib.Path(__file__).parent.joinpath('sample.ais')
 for message in FileReaderStream(str(filename)):
     print(message.decode())
 
+# Create a custom parsing function:
+# - NMEA message must be always in the first position
+# - Always consider that the NMEA message are bytes when parsing
+# - The metadata field can be also parsed during the process: he could
+# be anything (string, float, datetime, etc.)
+def parse_function(msg: bytes) -> Tuple[bytes, Any]:
+    nmea_message = re.search(b'.* (.*)', msg).group(1)  # NMEA
+    metadata = re.search(b'(.*) .*', msg).group(1)  # Metadata
 
-def parse_function(msg: Union[str, bytes], encoding: str = 'utf-8') -> Tuple[bytes, str]:
-    if isinstance(msg, bytes):
-        msg = msg.decode(encoding)
-    nmea_message = re.search(".* (.*)", msg).group(1)  # NMEA
-    metadata = re.search("(.*) .*", msg).group(1)  # Metadata
-
-    return bytes(nmea_message, encoding), metadata
+    return nmea_message, metadata
 
 
 filename = pathlib.Path(__file__).parent.joinpath('enhanced_sample.ais')

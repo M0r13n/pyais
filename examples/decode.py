@@ -1,6 +1,8 @@
 import re
-from typing import Tuple, Union
+from typing import Tuple, Any
+
 from pyais import decode, IterMessages
+from datetime import datetime
 
 # Decode a single part using decode
 decoded = decode(b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05")
@@ -59,15 +61,15 @@ enhanced_fake_stream = [
 
 
 # Create a custom parsing function:
-# - NMEA message must be always in the first position and in bytes
-# - For flexibility purposes, consider cases where the data can be bytes or string
-def parse_function(msg: Union[str, bytes], encoding: str = 'utf-8') -> Tuple[bytes, str]:
-    if isinstance(msg, bytes):
-        msg = msg.decode(encoding)
-    nmea_message = re.search(".* (.*)", msg).group(1)  # NMEA
-    metadata = re.search("(.*) .*", msg).group(1)  # Metadata
-
-    return bytes(nmea_message, encoding), metadata
+# - NMEA message must be always in the first position
+# - Always consider that the NMEA message are bytes when parsing
+# - The metadata field can be also parsed during the process: he could
+# be anything (string, float, datetime, etc.)
+def parse_function(msg: bytes) -> Tuple[bytes, Any]:
+    nmea_message = re.search(b'.* (.*)', msg).group(1)  # NMEA
+    metadata_bytes = re.search(b'(.*) .*', msg).group(1)  # Metadata
+    date = datetime.strptime(metadata_bytes.decode("utf-8"), "[%Y-%m-%d %X.%f]")
+    return nmea_message, date
 
 
 for message, infos in IterMessages(enhanced_fake_stream, parse_function):
