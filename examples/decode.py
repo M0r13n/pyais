@@ -68,12 +68,12 @@ enhanced_fake_stream = [
 def parse_function(msg: bytes) -> Tuple[bytes, Any]:
     nmea_message = re.search(b'.* (.*)', msg).group(1)  # NMEA
     metadata_bytes = re.search(b'(.*) .*', msg).group(1)  # Metadata
-    date = datetime.strptime(metadata_bytes.decode("utf-8"), "[%Y-%m-%d %X.%f]")
-    return nmea_message, date
+    timestamp = datetime.strptime(metadata_bytes.decode("utf-8"), "[%Y-%m-%d %X.%f]").timestamp()
+    return nmea_message, timestamp
 
 
 for message, infos in IterMessages(enhanced_fake_stream, parse_function):
-    print(infos, message.decode())
+    print(f"Timestamp: {infos} --", message.decode())
 
 # Whatever if the data are bytes or strings
 enhanced_fake_stream = [
@@ -86,4 +86,4 @@ enhanced_fake_stream = [
 ]
 
 for message, infos in IterMessages.from_strings(enhanced_fake_stream, parse_function):
-    print(infos, message.decode())
+    print(f"Timestamp: {infos} ->", message.decode())

@@ -124,7 +124,7 @@ class AssembleMessages(ABC):
     # this method do unnecessary if else statements: replaced by _yield_field_mapper method
     # @staticmethod
     # def __prepare_yield_value(message: AISSentence, metadata: Any):
-    #     # the worth weakness of this feature is that we break
+    #     # the biggest weakness of this feature is that we break
     #     # the consistency of the output data structure:
     #     # we could imagine for a future version of pyais, with a breaking change (3.y.z),
     #     # to change the global output by (message, metadata) where metadata can be None
