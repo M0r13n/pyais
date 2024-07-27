@@ -22,6 +22,37 @@ def should_parse(byte_str: bytes) -> bool:
     return len(byte_str) > 0 and byte_str[0] in (DOLLAR_SIGN, EXCLAMATION_POINT, BACKSLASH)
 
 
+class PreprocessorProtocol(typing.Protocol):
+    """
+    Protocol for preprocessing lines of bytes into NMEA0183 format.
+
+    This protocol must be implemented to support various message formats in the pyais library.
+    Implementing classes should provide a `process` method that transforms input lines of bytes
+    into NMEA0183 compliant messages.
+
+    Methods:
+    --------
+    process(line: bytes) -> bytes:
+        Processes an input line of bytes and returns it in NMEA0183 format.
+    """
+
+    def process(self, line: bytes) -> bytes:
+        """
+        Process an input line of bytes and return it in NMEA0183 format.
+
+        Parameters:
+        -----------
+        line : bytes
+            The input line of bytes to be processed.
+
+        Returns:
+        --------
+        bytes
+            The processed line in bytes, conforming to the NMEA0183 format.
+        """
+        pass
+
+
 class AssembleMessages(ABC):
     """
     Base class that assembles multiline messages.
@@ -144,13 +175,15 @@ class IterMessages(AssembleMessages):
 
 class Stream(AssembleMessages, Generic[F], ABC):
 
-    def __init__(self, fobj: F) -> None:
+    def __init__(self, fobj: F, preprocessor: PreprocessorProtocol | None = None) -> None:
         """
         Create a new Stream-like object.
         @param fobj: A file-like or socket object.
+        @param preprocessor: An optional preprocessor
         """
         super().__init__()
         self._fobj: F = fobj
+        self.preprocessor = preprocessor
 
     def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
         if self._fobj is not None:
@@ -158,7 +191,13 @@ class Stream(AssembleMessages, Generic[F], ABC):
 
     def _iter_messages(self) -> Generator[bytes, None, None]:
         # Do not parse lines, that are obviously not NMEA messages
-        yield from (line for line in self.read() if should_parse(line))
+        for line in self.read():
+            if len(line) <= 10:
+                continue
+            if self.preprocessor is not None:
+                line = self.preprocessor.process(line)
+            if should_parse(line):
+                yield line
 
     @abstractmethod
     def read(self) -> Generator[bytes, None, None]:
@@ -168,8 +207,8 @@ class Stream(AssembleMessages, Generic[F], ABC):
 class BinaryIOStream(Stream[BinaryIO]):
     """Read messages from a file-like object"""
 
-    def __init__(self, file: BinaryIO) -> None:
-        super().__init__(file)
+    def __init__(self, file: BinaryIO, preprocessor: PreprocessorProtocol | None = None) -> None:
+        super().__init__(file, preprocessor=preprocessor)
 
     def read(self) -> Generator[bytes, None, None]:
         yield from self._fobj
@@ -180,7 +219,7 @@ class FileReaderStream(BinaryIOStream):
     Read NMEA messages from file
     """
 
-    def __init__(self, filename: str, mode: str = "rb") -> None:
+    def __init__(self, filename: str, mode: str = "rb", preprocessor: PreprocessorProtocol | None = None) -> None:
         self.filename: str = filename
         self.mode: str = mode
         # Try to open file
@@ -189,7 +228,7 @@ class FileReaderStream(BinaryIOStream):
             file = cast(BinaryIO, file)
         except Exception as e:
             raise FileNotFoundError(f"Could not open file {self.filename}") from e
-        super().__init__(file)
+        super().__init__(file, preprocessor=preprocessor)
 
 
 class ByteStream(Stream[None]):
@@ -197,9 +236,9 @@ class ByteStream(Stream[None]):
     Takes a iterable that contains ais messages as bytes and assembles them.
     """
 
-    def __init__(self, iterable: Iterable[bytes]) -> None:
+    def __init__(self, iterable: Iterable[bytes], preprocessor: PreprocessorProtocol | None = None) -> None:
         self.iterable: Iterable[bytes] = iterable
-        super().__init__(None)
+        super().__init__(None, preprocessor=preprocessor)
 
     def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
         return
@@ -242,10 +281,10 @@ class SocketStream(Stream[socket]):
 
 class UDPReceiver(SocketStream):
 
-    def __init__(self, host: str, port: int) -> None:
+    def __init__(self, host: str, port: int, preprocessor: PreprocessorProtocol | None = None) -> None:
         sock: socket = socket(AF_INET, SOCK_DGRAM)
         sock.bind((host, port))
-        super().__init__(sock)
+        super().__init__(sock, preprocessor=preprocessor)
 
     def recv(self) -> bytes:
         return self._fobj.recvfrom(self.BUF_SIZE)[0]
@@ -260,11 +299,11 @@ class TCPConnection(SocketStream):
     def recv(self) -> bytes:
         return self._fobj.recv(self.BUF_SIZE)
 
-    def __init__(self, host: str, port: int = 80) -> None:
+    def __init__(self, host: str, port: int = 80, preprocessor: PreprocessorProtocol | None = None) -> None:
         sock: socket = socket(AF_INET, SOCK_STREAM)
         try:
             sock.connect((host, port))
         except ConnectionRefusedError as e:
             sock.close()
             raise ConnectionRefusedError(f"Failed to connect to {host}:{port}") from e
-        super().__init__(sock)
+        super().__init__(sock, preprocessor=preprocessor)
