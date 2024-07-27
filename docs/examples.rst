@@ -8,7 +8,7 @@ Communication State
 --------------------
 
 The following example shows how you can get the communication state
-of a message. This works for message types 1, 2, 4, 9, 11 and 18.
+of a message. This works for message types 1, 2, 3, 4, 9, 11 and 18.
 
 These messages contain diagnostic information for the radio system.::
 
