@@ -175,7 +175,7 @@ class IterMessages(AssembleMessages):
 
 class Stream(AssembleMessages, Generic[F], ABC):
 
-    def __init__(self, fobj: F, preprocessor: PreprocessorProtocol | None = None) -> None:
+    def __init__(self, fobj: F, preprocessor: typing.Optional[PreprocessorProtocol] = None) -> None:
         """
         Create a new Stream-like object.
         @param fobj: A file-like or socket object.
@@ -207,7 +207,7 @@ class Stream(AssembleMessages, Generic[F], ABC):
 class BinaryIOStream(Stream[BinaryIO]):
     """Read messages from a file-like object"""
 
-    def __init__(self, file: BinaryIO, preprocessor: PreprocessorProtocol | None = None) -> None:
+    def __init__(self, file: BinaryIO, preprocessor: typing.Optional[PreprocessorProtocol] = None) -> None:
         super().__init__(file, preprocessor=preprocessor)
 
     def read(self) -> Generator[bytes, None, None]:
@@ -219,7 +219,7 @@ class FileReaderStream(BinaryIOStream):
     Read NMEA messages from file
     """
 
-    def __init__(self, filename: str, mode: str = "rb", preprocessor: PreprocessorProtocol | None = None) -> None:
+    def __init__(self, filename: str, mode: str = "rb", preprocessor: typing.Optional[PreprocessorProtocol] = None) -> None:
         self.filename: str = filename
         self.mode: str = mode
         # Try to open file
@@ -236,7 +236,7 @@ class ByteStream(Stream[None]):
     Takes a iterable that contains ais messages as bytes and assembles them.
     """
 
-    def __init__(self, iterable: Iterable[bytes], preprocessor: PreprocessorProtocol | None = None) -> None:
+    def __init__(self, iterable: Iterable[bytes], preprocessor: typing.Optional[PreprocessorProtocol] = None) -> None:
         self.iterable: Iterable[bytes] = iterable
         super().__init__(None, preprocessor=preprocessor)
 
@@ -281,7 +281,7 @@ class SocketStream(Stream[socket]):
 
 class UDPReceiver(SocketStream):
 
-    def __init__(self, host: str, port: int, preprocessor: PreprocessorProtocol | None = None) -> None:
+    def __init__(self, host: str, port: int, preprocessor: typing.Optional[PreprocessorProtocol] = None) -> None:
         sock: socket = socket(AF_INET, SOCK_DGRAM)
         sock.bind((host, port))
         super().__init__(sock, preprocessor=preprocessor)
@@ -299,7 +299,7 @@ class TCPConnection(SocketStream):
     def recv(self) -> bytes:
         return self._fobj.recv(self.BUF_SIZE)
 
-    def __init__(self, host: str, port: int = 80, preprocessor: PreprocessorProtocol | None = None) -> None:
+    def __init__(self, host: str, port: int = 80, preprocessor: typing.Optional[PreprocessorProtocol] = None) -> None:
         sock: socket = socket(AF_INET, SOCK_STREAM)
         try:
             sock.connect((host, port))

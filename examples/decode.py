@@ -32,7 +32,7 @@ decoded_b = decode(b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05")
 decoded_s = decode("!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05")
 assert decoded_b == decoded_s
 
-# Lets say you have some kind of stream of messages. Than you can use `IterMessages` to decode the messages:
+# Lets say you have some kind of stream of messages. Then you can use `IterMessages` to decode the messages:
 fake_stream = [
     b"!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23",
     b"!AIVDM,1,1,,A,133sVfPP00PD>hRMDH@jNOvN20S8,0*7F",

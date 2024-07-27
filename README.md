@@ -344,12 +344,12 @@ where `process` is defined as:
 ```py
 def process(self, line: bytes) -> bytes:
     pass
-
-    Parameters:
-        line (bytes): The input line in bytes that needs to be processed.
-    Returns:
-        bytes: The processed line in bytes, conforming to the NMEA0183 format.
 ```
+
+Parameters:
+    line (bytes): The input line in bytes that needs to be processed.
+Returns:
+    bytes: The processed line in bytes, conforming to the NMEA0183 format.
 
 The `process` method is responsible for transforming the input bytes into a format that adheres to the NMEA0183 standard. This method must be implemented by any class that conforms to the `PreprocessorProtocol`.
 
