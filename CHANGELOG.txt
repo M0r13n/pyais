@@ -2,6 +2,12 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 2.7.0 27 Jul 2024
+-------------------------------------------------------------------------------
+* adds the `PreprocessorProtocol` to support custom message formats
+* DROPS support for Python 3.7 (EOL)
+* minor correction in the documentation (thanks to @lsamaciel)
+-------------------------------------------------------------------------------
  Version 2.6.6 26 Jun 2024
 -------------------------------------------------------------------------------
 * improves the API of `FilterChain`
