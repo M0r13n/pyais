@@ -38,3 +38,4 @@ tests/test-reports-*/*
 profiling_results
 venv/
 build/
+*.ais

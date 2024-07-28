@@ -13,6 +13,7 @@ from pyais.stream import FileReaderStream
 
 filename = pathlib.Path(__file__).parent.joinpath('sample.ais')
 
-for msg in FileReaderStream(str(filename)):
-    decoded = msg.decode()
-    print(decoded)
+with FileReaderStream(str(filename)) as stream:
+    for msg in stream:
+        decoded = msg.decode()
+        print(decoded)

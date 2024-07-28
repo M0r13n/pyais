@@ -73,9 +73,10 @@ The following example shows how to read and parse AIS messages from a file::
 
     filename = pathlib.Path(__file__).parent.joinpath('sample.ais')
 
-    for msg in FileReaderStream(str(filename)):
-        decoded = msg.decode()
-        print(decoded)
+    with FileReaderStream(str(filename)) as stream:
+        for msg in stream:
+            decoded = msg.decode()
+            print(decoded)
 
 Gatehouse wrappers
 -------------------
@@ -88,16 +89,17 @@ Some AIS messages have so-called Gatehouse wrappers::
 
     filename = pathlib.Path(__file__).parent.joinpath('gatehouse.nmea')
 
-    for msg in FileReaderStream(str(filename)):
-        print('*' * 80)
-        if msg.wrapper_msg is not None:  # <= optional gatehouse wrapper
-            print('Country', msg.wrapper_msg.country)
-            print('Online', msg.wrapper_msg.online_data)
-            print('PSS', msg.wrapper_msg.pss)
-            print('Region', msg.wrapper_msg.region)
-            print('Timestamp', msg.wrapper_msg.timestamp)
-        decoded = msg.decode()
-        print(decoded)
+    with FileReaderStream(str(filename)) as stream:
+        for msg in stream:
+            print('*' * 80)
+            if msg.wrapper_msg is not None:  # <= optional gatehouse wrapper
+                print('Country', msg.wrapper_msg.country)
+                print('Online', msg.wrapper_msg.online_data)
+                print('PSS', msg.wrapper_msg.pss)
+                print('Region', msg.wrapper_msg.region)
+                print('Timestamp', msg.wrapper_msg.timestamp)
+            decoded = msg.decode()
+            print(decoded)
 
 Livestream
 -----------

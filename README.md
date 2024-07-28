@@ -118,9 +118,10 @@ from pyais.stream import FileReaderStream
 
 filename = "sample.ais"
 
-for msg in FileReaderStream(filename):
-    decoded = msg.decode()
-    print(decoded)
+with FileReaderStream(filename) as stream:
+    for msg in stream:
+        decoded = msg.decode()
+        print(decoded)
 ```
 
 Decode a stream of messages (e.g. a list or generator)::
@@ -325,6 +326,37 @@ Such details include information used by the slot allocation algorithm (either S
 
 Refer to [readthedocs](https://pyais.readthedocs.io/en/latest/messages.html#communication-state) for more information.
 
+# Preprocessing
+
+The `PreprocessorProtocol` is designed to provide flexibility in handling different message formats. By implementing this protocol, users can create custom preprocessors that transform input messages into the required NMEA0183 format before further processing.
+
+## Definition
+
+```py
+import typing
+
+class PreprocessorProtocol(typing.Protocol):
+    def process(self, line: bytes) -> bytes:
+        pass
+```
+
+where `process` is defined as:
+
+```py
+def process(self, line: bytes) -> bytes:
+    pass
+```
+
+Parameters:
+    line (bytes): The input line in bytes that needs to be processed.
+Returns:
+    bytes: The processed line in bytes, conforming to the NMEA0183 format.
+
+The `process` method is responsible for transforming the input bytes into a format that adheres to the NMEA0183 standard. This method must be implemented by any class that conforms to the `PreprocessorProtocol`.
+
+The custom preprocessor implementing the PreprocessorProtocol can be passed as an optional keyword argument (default None) to any class that implements the streaming protocol, excluding `IterMessages()`.
+
+See [the preprocess example](./examples/preprocess.py) for an example implementation.
 
 # AIS Filters
 
@@ -431,10 +463,11 @@ from pyais.stream import FileReaderStream
 
 filename = pathlib.Path(__file__).parent.joinpath('sample.ais')
 
-with AISTracker() as tracker:
-    for msg in FileReaderStream(str(filename)):
-        tracker.update(msg)
-        latest_tracks = tracker.n_latest_tracks(10)
+with FileReaderStream(str(filename)) as stream:
+    with AISTracker() as tracker:
+        for msg in stream:
+            tracker.update(msg)
+            latest_tracks = tracker.n_latest_tracks(10)
 
 # Get the latest 10 tracks
 print('latest 10 tracks', ','.join(str(t.mmsi) for t in latest_tracks))
