@@ -1,4 +1,5 @@
 import typing
+import pathlib
 from abc import ABC, abstractmethod
 from socket import AF_INET, SOCK_DGRAM, SOCK_STREAM, socket
 from typing import BinaryIO, Generator, Generic, Iterable, List, TypeVar, cast
@@ -219,8 +220,8 @@ class FileReaderStream(BinaryIOStream):
     Read NMEA messages from file
     """
 
-    def __init__(self, filename: str, mode: str = "rb", preprocessor: typing.Optional[PreprocessorProtocol] = None) -> None:
-        self.filename: str = filename
+    def __init__(self, filename: typing.Union[str, pathlib.Path], mode: str = "rb", preprocessor: typing.Optional[PreprocessorProtocol] = None) -> None:
+        self.filename: typing.Union[str, pathlib.Path] = filename
         self.mode: str = mode
         # Try to open file
         try:

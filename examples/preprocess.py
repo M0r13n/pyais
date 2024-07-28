@@ -38,6 +38,7 @@ class Preprocessor(PreprocessorProtocol):
 
 preprocessor = Preprocessor()
 
-for msg in FileReaderStream(str(filename), preprocessor=preprocessor):
-    decoded = msg.decode()
-    print(decoded, preprocessor.get_meta())
+with FileReaderStream(str(filename), preprocessor=preprocessor) as stream:
+    for msg in stream:
+        decoded = msg.decode()
+        print(decoded, preprocessor.get_meta())

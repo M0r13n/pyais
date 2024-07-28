@@ -10,12 +10,13 @@ filename = pathlib.Path(__file__).parent.joinpath('../tests/nmea-sample')
 tracker = AISTracker(ttl_in_seconds=0.01, stream_is_ordered=True)
 
 start = time.time()
-for i, msg in enumerate(FileReaderStream(str(filename)), start=1):
-    try:
-        tracker.update(msg)
-        _ = tracker.n_latest_tracks(50)
-    except UnknownMessageException as e:
-        print(str(e))
+with FileReaderStream(str(filename)) as stream:
+    for i, msg in enumerate(stream, start=1):
+        try:
+            tracker.update(msg)
+            _ = tracker.n_latest_tracks(50)
+        except UnknownMessageException as e:
+            print(str(e))
 
 finish = time.time()
 

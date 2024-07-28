@@ -22,10 +22,11 @@ print(nmea.tag_block.asdict())
 
 filename = pathlib.Path(__file__).parent.joinpath('sample.ais')
 
-for nmea in FileReaderStream(filename):
-    if nmea.tag_block:
-        # again: not all messages have a tag block
-        nmea.tag_block.init()
-        print(nmea.tag_block.asdict())
+with FileReaderStream(filename) as stream:
+    for nmea in stream:
+        if nmea.tag_block:
+            # again: not all messages have a tag block
+            nmea.tag_block.init()
+            print(nmea.tag_block.asdict())
 
-    decoded = nmea.decode()
+        decoded = nmea.decode()

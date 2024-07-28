@@ -158,12 +158,13 @@ class TestFileReaderStream(unittest.TestCase):
         par_dir = pathlib.Path(__file__).parent.absolute()
         large_file = par_dir.joinpath("nmea-sample")
         errors = 0
-        for i, msg in enumerate(FileReaderStream(large_file)):
-            try:
-                msg.decode()
-            except UnknownMessageException:
-                errors += 1
-                continue
+        with FileReaderStream(large_file) as stream:
+            for i, msg in enumerate(stream):
+                try:
+                    msg.decode()
+                except UnknownMessageException:
+                    errors += 1
+                    continue
 
         print(f"Decoding {i + 1} messages took:", time.time() - start)
         print("ERRORS", errors)
@@ -186,7 +187,8 @@ class TestFileReaderStream(unittest.TestCase):
         text files, that contain both AIS messages and non AIS messages."""
         par_dir = pathlib.Path(__file__).parent.absolute()
         mixed_content_file = par_dir.joinpath("messages.ais")
-        self.assertEqual(len(list(iter(FileReaderStream(mixed_content_file)))), 6)
+        with FileReaderStream(mixed_content_file) as stream:
+            self.assertEqual(len(list(iter(stream))), 6)
 
     def test_timestamp_messages(self):
         par_dir = pathlib.Path(__file__).parent.absolute()
