@@ -1,7 +1,7 @@
 import typing
 import pathlib
 from abc import ABC, abstractmethod
-from socket import AF_INET, SO_REUSEPORT, SOCK_DGRAM, SOL_SOCKET, socket
+from socket import AF_INET, SO_REUSEPORT, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, socket
 from typing import BinaryIO, Generator, Generic, Iterable, List, TypeVar, cast
 
 from pyais.exceptions import InvalidNMEAMessageException, NonPrintableCharacterException, UnknownMessageException
