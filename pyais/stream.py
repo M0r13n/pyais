@@ -1,7 +1,7 @@
 import typing
 import pathlib
 from abc import ABC, abstractmethod
-from socket import AF_INET, SOCK_DGRAM, SOCK_STREAM, socket
+from socket import AF_INET, SO_REUSEPORT, SOCK_DGRAM, SOL_SOCKET, socket
 from typing import BinaryIO, Generator, Generic, Iterable, List, TypeVar, cast
 
 from pyais.exceptions import InvalidNMEAMessageException, NonPrintableCharacterException, UnknownMessageException
@@ -187,8 +187,7 @@ class Stream(AssembleMessages, Generic[F], ABC):
         self.preprocessor = preprocessor
 
     def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
-        if self._fobj is not None:
-            self._fobj.close()
+        self.close()
 
     def _iter_messages(self) -> Generator[bytes, None, None]:
         # Do not parse lines, that are obviously not NMEA messages
@@ -199,6 +198,10 @@ class Stream(AssembleMessages, Generic[F], ABC):
                 line = self.preprocessor.process(line)
             if should_parse(line):
                 yield line
+
+    def close(self) -> None:
+        if self._fobj is not None:
+            self._fobj.close()
 
     @abstractmethod
     def read(self) -> Generator[bytes, None, None]:
@@ -282,8 +285,10 @@ class SocketStream(Stream[socket]):
 
 class UDPReceiver(SocketStream):
 
-    def __init__(self, host: str, port: int, preprocessor: typing.Optional[PreprocessorProtocol] = None) -> None:
+    def __init__(self, host: str, port: int, preprocessor: typing.Optional[PreprocessorProtocol] = None, reusable: bool = False) -> None:
         sock: socket = socket(AF_INET, SOCK_DGRAM)
+        if reusable:
+            sock.setsockopt(SOL_SOCKET, SO_REUSEPORT, 1)
         sock.bind((host, port))
         super().__init__(sock, preprocessor=preprocessor)
 
