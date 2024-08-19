@@ -1,7 +1,7 @@
 import typing
 import pathlib
 from abc import ABC, abstractmethod
-from socket import AF_INET, SO_REUSEPORT, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, socket
+from socket import AF_INET, SOCK_DGRAM, SOCK_STREAM, socket
 from typing import BinaryIO, Generator, Generic, Iterable, List, TypeVar, cast
 
 from pyais.exceptions import InvalidNMEAMessageException, NonPrintableCharacterException, UnknownMessageException
@@ -285,10 +285,8 @@ class SocketStream(Stream[socket]):
 
 class UDPReceiver(SocketStream):
 
-    def __init__(self, host: str, port: int, preprocessor: typing.Optional[PreprocessorProtocol] = None, reusable: bool = False) -> None:
+    def __init__(self, host: str, port: int, preprocessor: typing.Optional[PreprocessorProtocol] = None) -> None:
         sock: socket = socket(AF_INET, SOCK_DGRAM)
-        if reusable:
-            sock.setsockopt(SOL_SOCKET, SO_REUSEPORT, 1)
         sock.bind((host, port))
         super().__init__(sock, preprocessor=preprocessor)
 
