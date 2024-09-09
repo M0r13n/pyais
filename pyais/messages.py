@@ -155,6 +155,51 @@ def error_if_uninitialized(func: typing.Callable[['TagBlock'], typing.Any]) -> t
     return wrapper
 
 
+class TagBlockGroup:
+    """Tag Block Group represents the 3-int group sequence 
+    optionally included as part of the NMEA Tag Block
+
+    it consists of 3, comma-seperated integers X-Y-Z where:
+    - X = Message ID in sequence
+    - Y = Total parts in group
+    - Z = Unique GroupID for this group of messages."""
+
+    __slots__ = (
+        'msg_id',
+        'total',
+        'group_id'
+    )
+
+    def __init__(self, msg_id: int, total: int, group_id: int):
+        self.msg_id = msg_id
+        self.total = total
+        self.group_id = group_id
+
+    @staticmethod
+    def from_str(raw: str):
+        """Constructs a new NMEAGroup from it's string representation"""
+        [ msg_id, msg_total, group_id ] = raw.split("-", 3)
+
+        return TagBlockGroup(
+            int(msg_id),
+            int(msg_total),
+            int(group_id)
+        )
+
+    @property
+    def is_fragmented(self) -> bool:
+        """Returns whether or not this group expects several parts."""
+        return self.msg_total > 1
+    
+    def __str__(self):
+        """Returns this NMEA group instance in it's string representation."""
+        return f"{self.msg_id}-{self.total}-{self.group_id}"
+    
+    def __eq__(self, other) -> bool:
+        if isinstance(other, NMEAGroup):
+            return self.msg_id == other.msg_id and self.total == other.total and self.group_id == other.group_id
+        return False
+
 class TagBlock:
 
     __slots__ = (
@@ -169,6 +214,7 @@ class TagBlock:
         '_line_count',
         '_relative_time',
         '_text',
+        '_group'
     )
 
     def __init__(self, raw: bytes) -> None:
@@ -183,6 +229,7 @@ class TagBlock:
         self._source_station: typing.Optional[str] = None
         self._relative_time: typing.Optional[str] = None
         self._text: typing.Optional[str] = None
+        self._group: typing.Optional[TagBlockGroup] = None
 
     @property
     @error_if_uninitialized
@@ -228,6 +275,11 @@ class TagBlock:
     @error_if_uninitialized
     def expected_checksum(self) -> int:
         return self._expected_checksum
+    
+    @property
+    @error_if_uninitialized
+    def group(self) -> typing.Optional[TagBlockGroup]:
+        return self._group
 
     def init(self) -> None:
         payload, check = self.raw.split(ASTERISK)
@@ -257,6 +309,8 @@ class TagBlock:
                 self._source_station = val
             elif spec == 't':
                 self._text = val
+            elif spec == 'g':
+                self._group = TagBlockGroup.from_str(val)
             else:
                 pass
 
