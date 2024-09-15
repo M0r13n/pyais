@@ -55,10 +55,10 @@ class PreprocessorProtocol(typing.Protocol):
         pass
 
 
-class TagBlockQueue(queue.Queue[list[NMEASentence]]):
+class TagBlockQueue(queue.Queue):  # type: ignore
 
     def __init__(self, maxsize: int = 0) -> None:
-        self.groups: dict[str, dict[str, object]] = {}
+        self.groups: typing.Dict[str, typing.Dict[str, object]] = {}
         super().__init__(maxsize)
 
     def put_sentence(self, sentence: NMEASentence) -> None:
@@ -99,7 +99,7 @@ class TagBlockQueue(queue.Queue[list[NMEASentence]]):
             return
 
         # All sentences belonging to this group were received.
-        super().put(self.groups[tb.group.group_id]['sentences'])  # type: ignore
+        super().put(self.groups[tb.group.group_id]['sentences'])
         del self.groups[tb.group.group_id]
 
 
@@ -109,9 +109,9 @@ class AssembleMessages(ABC):
     Offers a iterator like interface.
     """
 
-    def __init__(self, tbq: TagBlockQueue | None = None) -> None:
+    def __init__(self, tbq: typing.Optional[TagBlockQueue] = None) -> None:
         self.wrapper_msg: typing.Optional[GatehouseSentence] = None
-        self.tbq: TagBlockQueue | None = tbq
+        self.tbq: typing.Optional[TagBlockQueue] = tbq
 
     def __enter__(self) -> "AssembleMessages":
         # Enables use of with statement
@@ -200,7 +200,7 @@ class AssembleMessages(ABC):
 
 class IterMessages(AssembleMessages):
 
-    def __init__(self, messages: Iterable[bytes], tbq: TagBlockQueue | None = None):
+    def __init__(self, messages: Iterable[bytes], tbq: typing.Optional[TagBlockQueue] = None):
         super().__init__(tbq=tbq)
         # If the user passes a single byte string make it into a list
         if isinstance(messages, bytes):
@@ -236,7 +236,7 @@ class Stream(AssembleMessages, Generic[F], ABC):
     def __init__(
         self, fobj: F,
         preprocessor: typing.Optional[PreprocessorProtocol] = None,
-        tbq: TagBlockQueue | None = None
+        tbq: typing.Optional[TagBlockQueue] = None
     ) -> None:
         """
         Create a new Stream-like object.
@@ -276,7 +276,7 @@ class BinaryIOStream(Stream[BinaryIO]):
         self,
         file: BinaryIO,
         preprocessor: typing.Optional[PreprocessorProtocol] = None,
-        tbq: TagBlockQueue | None = None
+        tbq: typing.Optional[TagBlockQueue] = None
     ) -> None:
         super().__init__(file, preprocessor=preprocessor, tbq=tbq)
 
@@ -294,7 +294,7 @@ class FileReaderStream(BinaryIOStream):
         filename: typing.Union[str, pathlib.Path],
         mode: str = "rb",
         preprocessor: typing.Optional[PreprocessorProtocol] = None,
-        tbq: TagBlockQueue | None = None
+        tbq: typing.Optional[TagBlockQueue] = None
     ) -> None:
         self.filename: typing.Union[str, pathlib.Path] = filename
         self.mode: str = mode
@@ -316,7 +316,7 @@ class ByteStream(Stream[None]):
         self,
         iterable: Iterable[bytes],
         preprocessor: typing.Optional[PreprocessorProtocol] = None,
-        tbq: TagBlockQueue | None = None
+        tbq: typing.Optional[TagBlockQueue] = None
     ) -> None:
         self.iterable: Iterable[bytes] = iterable
         super().__init__(None, preprocessor=preprocessor, tbq=tbq)
@@ -367,7 +367,7 @@ class UDPReceiver(SocketStream):
         host: str,
         port: int,
         preprocessor: typing.Optional[PreprocessorProtocol] = None,
-        tbq: TagBlockQueue | None = None
+        tbq: typing.Optional[TagBlockQueue] = None
     ) -> None:
         sock: socket = socket(AF_INET, SOCK_DGRAM)
         sock.bind((host, port))
@@ -391,7 +391,7 @@ class TCPConnection(SocketStream):
         host: str,
         port: int = 80,
         preprocessor: typing.Optional[PreprocessorProtocol] = None,
-        tbq: TagBlockQueue | None = None
+        tbq: typing.Optional[TagBlockQueue] = None
     ) -> None:
         sock: socket = socket(AF_INET, SOCK_STREAM)
         try:
