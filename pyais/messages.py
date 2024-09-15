@@ -156,7 +156,7 @@ def error_if_uninitialized(func: typing.Callable[['TagBlock'], typing.Any]) -> t
 
 
 class TagBlockGroup:
-    """Tag Block Group represents the 3-int group sequence 
+    """Tag Block Group represents the 3-int group sequence
     optionally included as part of the NMEA Tag Block
 
     it consists of 3, comma-seperated integers X-Y-Z where:
@@ -165,20 +165,20 @@ class TagBlockGroup:
     - Z = Unique GroupID for this group of messages."""
 
     __slots__ = (
-        'msg_id',
-        'total',
+        'sentence_num',
+        'sentence_tot',
         'group_id'
     )
 
     def __init__(self, msg_id: int, total: int, group_id: int):
-        self.msg_id = msg_id
-        self.total = total
+        self.sentence_num = msg_id
+        self.sentence_tot = total
         self.group_id = group_id
 
     @staticmethod
-    def from_str(raw: str):
+    def from_str(raw: str) -> 'TagBlockGroup':
         """Constructs a new NMEAGroup from it's string representation"""
-        [ msg_id, msg_total, group_id ] = raw.split("-", 3)
+        [msg_id, msg_total, group_id] = raw.split("-", 3)
 
         return TagBlockGroup(
             int(msg_id),
@@ -189,16 +189,17 @@ class TagBlockGroup:
     @property
     def is_fragmented(self) -> bool:
         """Returns whether or not this group expects several parts."""
-        return self.msg_total > 1
-    
-    def __str__(self):
+        return self.sentence_tot > 1
+
+    def __str__(self) -> str:
         """Returns this NMEA group instance in it's string representation."""
-        return f"{self.msg_id}-{self.total}-{self.group_id}"
-    
-    def __eq__(self, other) -> bool:
-        if isinstance(other, NMEAGroup):
-            return self.msg_id == other.msg_id and self.total == other.total and self.group_id == other.group_id
+        return f"{self.sentence_num}-{self.sentence_tot}-{self.group_id}"
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, TagBlockGroup):
+            return self.sentence_num == other.sentence_num and self.sentence_tot == other.sentence_tot and self.group_id == other.group_id
         return False
+
 
 class TagBlock:
 
@@ -275,7 +276,7 @@ class TagBlock:
     @error_if_uninitialized
     def expected_checksum(self) -> int:
         return self._expected_checksum
-    
+
     @property
     @error_if_uninitialized
     def group(self) -> typing.Optional[TagBlockGroup]:
