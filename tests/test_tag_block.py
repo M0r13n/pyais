@@ -21,6 +21,19 @@ class TagBlockTestCase(unittest.TestCase):
         self.assertEqual(tb.relative_time, None)
         self.assertEqual(tb.text, None)
 
+    def test_tag_block_with_group(self):
+        raw = b'\\g:1-2-4512,s:FooBar,c:1428451253*50\\!AIVDM,1,1,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C'
+        msg = NMEASentenceFactory.produce(raw)
+        tb = msg.tag_block
+        tb.init()
+        
+        self.assertEqual(tb.receiver_timestamp, '1428451253')
+        self.assertIsNotNone(tb.group)
+        self.assertEqual(tb.group.msg_id, 1)
+        self.assertEqual(tb.group.total, 2)
+        self.assertEqual(tb.group.group_id, 4512)
+
+
     def test_tag_block_with_multiple_unknown_fields(self):
         raw = b'\\s:rORBCOMM000,q:u,c:1426032001,T:2015-03-11 00.00.01,i:<T>A:12344 F:+30000</T>*07\\!BSVDM,1,1,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*06'
         msg = NMEASentenceFactory.produce(raw)
