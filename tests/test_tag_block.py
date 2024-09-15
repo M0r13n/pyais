@@ -3,7 +3,57 @@ import textwrap
 from pyais.exceptions import TagBlockNotInitializedException, UnknownMessageException
 from pyais.messages import AISSentence, NMEASentenceFactory, TagBlock
 
-from pyais.stream import IterMessages
+from pyais.stream import IterMessages, TagBlockQueue
+
+
+class TagBlockQueueTestCase(unittest.TestCase):
+
+    def test_put_single_w_group(self):
+        tbq = TagBlockQueue()
+
+        raw = b'\\g:1-1-4512,s:FooBar,c:1428451253*50\\!AIVDM,1,1,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C'
+        sentence = NMEASentenceFactory.produce(raw)
+        tbq.put_sentence(sentence)
+
+        result = tbq.get_nowait()
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0], sentence)
+
+    def test_put_single_wo_group(self):
+        tbq = TagBlockQueue()
+
+        raw = b'!AIVDM,1,1,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C'
+        sentence = NMEASentenceFactory.produce(raw)
+        tbq.put_sentence(sentence)
+
+        result = tbq.get_nowait()
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0], sentence)
+
+    def test_put_multiple_w_groups(self):
+        RAWS = [
+            b'\\g:1-3-4512,s:FooBar,c:1428451253*50\\!AIVDM,1,1,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C',
+            b'\\g:3-3-4512,s:FooBar,c:1428451253*50\\!AIVDM,1,3,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C',
+            b'\\g:1-3-1234*30\\!AIVDM,1,1,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C',
+            b'\\g:2-3-4512*30\\!AIVDM,1,2,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C',
+            b'\\g:1-1-1337,s:FooBar,c:1428451253*50\\!AIVDM,1,2,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C',
+            b'\\g:1-42-4242,s:FooBar,c:1428451253*50\\!AIVDM,1,1,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C',
+        ]
+        tbq = TagBlockQueue()
+
+        for raw in RAWS:
+            tbq.put_sentence(NMEASentenceFactory.produce(raw))
+
+        result = tbq.get_nowait()
+        self.assertEqual(len(result), 3)
+        self.assertEqual(result[0].frag_num, 1)
+        self.assertEqual(result[1].frag_num, 3)
+        self.assertEqual(result[2].frag_num, 2)
+
+        result = tbq.get_nowait()
+        self.assertEqual(len(result), 1)
 
 
 class TagBlockTestCase(unittest.TestCase):
@@ -187,3 +237,7 @@ class TagBlockTestCase(unittest.TestCase):
                 'text': None
             }
         )
+
+
+if __name__ == '__main__':
+    unittest.main()
