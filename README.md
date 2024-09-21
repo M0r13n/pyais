@@ -14,7 +14,6 @@
 ![CI](https://github.com/M0r13n/pyais/workflows/CI/badge.svg)
 [![Documentation Status](https://readthedocs.org/projects/pyais/badge/?version=latest)](https://pyais.readthedocs.io/en/latest/?badge=latest)
 
-
   </p>
 </div>
 
@@ -51,7 +50,7 @@ This AIS sentence is known as a "Position Report" message and is used to transmi
 - : This field is left blank. This field can contain the sequence number.
 - **B**: This field indicates the communication channel being used to transmit the message. In this case, the channel is "B".
 - **15MwkT1P37G?fl0EJbR0OwT0@MS**: This field contains the payload of the message, which is encoded using a variant of ASCII known as "Six-bit ASCII". The payload contains information such as the vessel's identification, position, course, and speed.
-    0*4E: This field is a checksum that is used to verify the integrity of the sentence.
+  0\*4E: This field is a checksum that is used to verify the integrity of the sentence.
 
 **pyais** is a Python modul to encode and decode AIS messages.
 
@@ -149,7 +148,7 @@ The AIS data is freely available under the [norwegian license for public data](h
 
 Data can be read from a TCP/IP socket and is encoded according to IEC 62320-1:
 
-- IP:   153.44.253.27
+- IP: 153.44.253.27
 - Port: 5631
 
 Refer to the [examples/live_stream.py](./examples/live_stream.py) for a practical example on how to read & decode AIS data from a TCP/IP socket.
@@ -159,8 +158,8 @@ This is useful for debugging or for getting used to pyais.
 
 It is also possible to encode messages.
 
-| :exclamation:  Every message needs at least a single keyword argument: `mmsi`. All other fields have most likely default values. |
-| -------------------------------------------------------------------------------------------------------------------------------- |
+| :exclamation: Every message needs at least a single keyword argument: `mmsi`. All other fields have most likely default values. |
+| ------------------------------------------------------------------------------------------------------------------------------- |
 
 ### Encode data using a dictionary
 
@@ -169,12 +168,12 @@ You can pass a dict that has a set of key-value pairs:
 - use `from pyais.encode import encode_dict` to import `encode_dict` method
 - it takes a dictionary of data and some NMEA specific kwargs and returns the NMEA 0183 encoded AIS sentence.
 - only keys known to each message are considered
-    - other keys are simply omitted
-    - you can get list of available keys by looking at pyais/encode.py
-    - you can also call `MessageType1.fields()` to get a list of fields programmatically for each message
+  - other keys are simply omitted
+  - you can get list of available keys by looking at pyais/encode.py
+  - you can also call `MessageType1.fields()` to get a list of fields programmatically for each message
 - every message needs at least two keyword arguments:
-    - `mmsi` the MMSI number to encode
-    - `type` or `msg_type` the type of the message to encode (1-27)
+  - `mmsi` the MMSI number to encode
+  - `type` or `msg_type` the type of the message to encode (1-27)
 
 **NOTE:**
 This method takes care of splitting large payloads (larger than 60 characters)
@@ -303,6 +302,21 @@ with IterMessages(messages) as s:
         print(msg.decode())
 ```
 
+## Tag Block Queue (grouping)
+
+Every class that implements the streaming API accepts an optional keyword argument `tbq`, which is set to `None` by default. When tbq is provided, it can be used as a queue for handling NMEA tag blocks. The queue's `get_nowait()` method allows you to retrieve a list of NMEASentence objects, but only when the entire group has been received (i.e., all sentences within the group are complete). It is important to note that this is rudimentary support for tag block groups, as pyais primarily focuses on processing AIS messages and abstracts away NMEA sentences from the user.
+
+```py
+with FileReaderStream('/path/to/file.nmea', tbq=TagBlockQueue()) as stream:
+    tbq = stream.tbq
+
+    for msg in stream:
+        try:
+            print(tbq.get_nowait())
+        except queue.Empty:
+            pass
+```
+
 # Gatehouse wrappers
 
 Some AIS messages have so-called Gatehouse wrappers. These encapsulating messages contain extra information, such as time and checksums. Some readers also process these. See some more documentation [here](https://www.iala-aism.org/wiki/iwrap/index.php/GH_AIS_Message_Format).
@@ -348,9 +362,9 @@ def process(self, line: bytes) -> bytes:
 ```
 
 Parameters:
-    line (bytes): The input line in bytes that needs to be processed.
+line (bytes): The input line in bytes that needs to be processed.
 Returns:
-    bytes: The processed line in bytes, conforming to the NMEA0183 format.
+bytes: The processed line in bytes, conforming to the NMEA0183 format.
 
 The `process` method is responsible for transforming the input bytes into a format that adheres to the NMEA0183 standard. This method must be implemented by any class that conforms to the `PreprocessorProtocol`.
 
@@ -549,7 +563,7 @@ feature, please create an issue.
 
 During installation, you may encounter problems due to missing header files. The error looks like this:
 
-````sh
+```sh
 ...
 
     bitarray/_bitarray.c:13:10: fatal error: Python.h: No such file or directory
@@ -560,13 +574,13 @@ During installation, you may encounter problems due to missing header files. The
 
 ...
 
-````
+```
 
 In order to solve this issue, you need to install header files and static libraries for python dev:
 
-````sh
+```sh
 $ sudo apt install python3-dev
-````
+```
 
 # For developers
 
