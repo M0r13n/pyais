@@ -5,6 +5,7 @@ import subprocess
 import unittest
 
 KEYWORDS_TO_IGNORE = (
+    'bench',
     'tcp',
     'udp',
     'live',
@@ -32,4 +33,4 @@ class TestExamples(unittest.TestCase):
         if csv_file.exists():
             csv_file.unlink()
 
-        assert i == 22
+        assert i == 23
