@@ -332,7 +332,7 @@ class SocketStream(Stream[socket]):
     BUF_SIZE = 4096
 
     def recv(self) -> bytes:
-        return b""
+        return self._fobj.recv(self.BUF_SIZE)
 
     def read(self) -> Generator[bytes, None, None]:
         partial: bytes = b''
