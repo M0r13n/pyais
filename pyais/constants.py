@@ -1,5 +1,5 @@
 import typing
-from enum import Enum, IntEnum
+from enum import Enum
 
 # Keywords
 UNDEFINED = 'Undefined'
@@ -9,7 +9,13 @@ ANSI_RED = '\x1b[31m'
 ANSI_RESET = '\x1b[0m'
 
 
-class TurnRate(float, Enum):
+class ReprEnum(Enum):
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+class TurnRate(float, ReprEnum):
     # Source: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
     # turning right at more than 5deg/30s (No TI available)
     NO_TI_RIGHT = 127
@@ -19,7 +25,7 @@ class TurnRate(float, Enum):
     NO_TI_DEFAULT = -128
 
 
-class TalkerID(str, Enum):
+class TalkerID(str, ReprEnum):
     """ Enum of all  NMEA talker IDs.
     See: https://gpsd.gitlab.io/gpsd/AIVDM.html#_talker_ids"""
     Base_Station = "AB"
@@ -43,7 +49,7 @@ class TalkerID(str, Enum):
         return cls(v) if v is not None else None
 
 
-class NavigationStatus(IntEnum):
+class NavigationStatus(int, ReprEnum):
     UnderWayUsingEngine = 0
     AtAnchor = 1
     NotUnderCommand = 2
@@ -70,7 +76,7 @@ class NavigationStatus(IntEnum):
         return cls(v) if v is not None else None
 
 
-class ManeuverIndicator(IntEnum):
+class ManeuverIndicator(int, ReprEnum):
     NotAvailable = 0
     NoSpecialManeuver = 1
     SpecialManeuver = 2
@@ -85,7 +91,7 @@ class ManeuverIndicator(IntEnum):
         return cls(v) if v is not None else None
 
 
-class EpfdType(IntEnum):
+class EpfdType(int, ReprEnum):
     Undefined = 0
     GPS = 1
     GLONASS = 2
@@ -106,7 +112,7 @@ class EpfdType(IntEnum):
         return cls(v) if v is not None else None
 
 
-class ShipType(IntEnum):
+class ShipType(int, ReprEnum):
     NotAvailable = 0
     # 20's
     WIG = 20
@@ -207,7 +213,7 @@ class ShipType(IntEnum):
         return cls(v) if v is not None else None
 
 
-class DacFid(IntEnum):
+class DacFid(int, ReprEnum):
     DangerousCargoIndication = 13
     TidalWindow = 15
     NumPersonsOnBoard = 17
@@ -226,7 +232,7 @@ class DacFid(IntEnum):
         return cls(v) if v is not None else None
 
 
-class NavAid(IntEnum):
+class NavAid(int, ReprEnum):
     DEFAULT = 0
     REFERENCE_POINT = 1
     RACON = 2
@@ -269,7 +275,7 @@ class NavAid(IntEnum):
         return cls(v) if v is not None else None
 
 
-class TransmitMode(IntEnum):
+class TransmitMode(int, ReprEnum):
     TXA_TXB_RXA_RXB = 0  # default
     TXA_RXA_RXB = 1
     TXB_RXA_RXB = 2
@@ -284,7 +290,7 @@ class TransmitMode(IntEnum):
         return cls(v) if v is not None else None
 
 
-class StationType(IntEnum):
+class StationType(int, ReprEnum):
     ALL = 0
     RESERVED = 1
     CLASS_B_ALL = 2
@@ -307,7 +313,7 @@ class StationType(IntEnum):
         return cls(v) if v is not None else None
 
 
-class StationIntervals(IntEnum):
+class StationIntervals(int, ReprEnum):
     AUTONOMOUS_MODE = 0
     MINUTES_10 = 1
     MINUTES_6 = 2
@@ -330,7 +336,7 @@ class StationIntervals(IntEnum):
         return cls(v) if v is not None else None
 
 
-class SyncState(IntEnum):
+class SyncState(int, ReprEnum):
     """
     https://www.navcen.uscg.gov/?pageName=AISMessagesA#Sync
     """
