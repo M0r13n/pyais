@@ -44,7 +44,6 @@ class TestDecode(unittest.TestCase):
         should_raise(",1,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")
         should_raise("!AIVDM,,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")
         should_raise("!AIVDM,1,,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")
-        should_raise("!AIVDM,1,1,,A,,0*28")
 
         should_raise("!AIVDM,11111111111111,1,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")
         should_raise("!AIVDM,1,11111111111111111111,,A,403Ovl@000Htt<tSF0l4Q@100`Pq,0*28")

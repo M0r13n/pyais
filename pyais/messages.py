@@ -12,7 +12,7 @@ from bitarray import bitarray
 from pyais.constants import TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
     TransmitMode, StationIntervals, TurnRate
 from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitializedException, UnknownMessageException, UnknownPartNoException, \
-    InvalidDataTypeException
+    InvalidDataTypeException, MissingPayloadException
 from pyais.util import checksum, decode_into_bit_array, compute_checksum, get_itdma_comm_state, get_sotdma_comm_state, int_to_bin, str_to_bin, \
     encode_ascii_6, from_bytes, from_bytes_signed, decode_bin_as_ascii6, get_int, chk_to_int, coerce_val, \
     bits2bytes, bytes2bits, b64encode_str
@@ -500,9 +500,6 @@ class AISSentence(NMEASentence):
         except Exception as err:
             raise InvalidNMEAMessageException(raw) from err
 
-        if not len(payload):
-            raise InvalidNMEAMessageException("Invalid empty payload")
-
         if len(payload) > MAX_PAYLOAD_LEN:
             raise InvalidNMEAMessageException("AIS payload too large")
 
@@ -601,6 +598,8 @@ class AISSentence(NMEASentence):
         >>> nmea = NMEAMessage(b"!AIVDO,1,1,,,B>qc:003wk?8mP=18D3Q3wgTiT;T,0*13").decode()
         MessageType18(msg_type=18, ...)
         """
+        if not self.payload:
+            raise MissingPayloadException(self.raw.decode())
         try:
             return MSG_CLASS[self.ais_id].from_bitarray(self.bit_array)
         except KeyError as e:

@@ -3,7 +3,7 @@ import time
 import unittest
 from unittest.case import skip
 
-from pyais.exceptions import UnknownMessageException
+from pyais.exceptions import UnknownMessageException, MissingPayloadException
 from pyais.messages import GatehouseSentence, NMEAMessage
 from pyais.stream import FileReaderStream, IterMessages
 
@@ -180,7 +180,10 @@ class TestFileReaderStream(unittest.TestCase):
 
         with FileReaderStream(nmea_file) as stream:
             for msg in stream:
-                assert msg.decode()
+                try:
+                    assert msg.decode()
+                except MissingPayloadException:
+                    assert msg.raw.startswith(b'!AIVDM,1,1,,')
 
     def test_mixed_content(self):
         """Test that the file reader handles mixed content. That means, that is is able to handle
