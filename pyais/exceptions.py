@@ -38,3 +38,8 @@ class NonPrintableCharacterException(AISBaseException):
 
 class TagBlockNotInitializedException(Exception):
     """The TagBlock is not initialized"""
+
+
+class MissingPayloadException(AISBaseException):
+    """Valid NMEA Message without payload"""
+    pass

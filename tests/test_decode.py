@@ -48,6 +48,7 @@ from pyais.messages import (
 )
 from pyais.stream import ByteStream
 from pyais.util import b64encode_str, bits2bytes, bytes2bits, decode_into_bit_array
+from pyais.exceptions import MissingPayloadException
 
 
 def ensure_type_for_msg_dict(msg_dict: typing.Dict[str, typing.Any]) -> None:
@@ -1743,3 +1744,27 @@ class TestAIS(unittest.TestCase):
         self.assertEqual(decoded.msg_type, 1)
         self.assertEqual(decoded.mmsi, 538090443)
         self.assertEqual(decoded.speed, 10.9)
+
+    def test_that_decode_works_for_fragmented_messages_with_empty_payloads(self):
+        """Issue: https://github.com/M0r13n/pyais/issues/157"""
+        # WHEN decoding a fragmented message where the second message has an empty payload.
+        decoded = decode(
+            b"!AIVDM,2,1,0,A,8@2R5Ph0GhRbUqe?n>KS?wvlFR06EuOwiOl?wnSwe7wvlOwwsAwwnSGmwvwt,0*4E",
+            b"!AIVDM,2,2,0,A,,0*16",
+        )
+        # THEN the message is decoded without an error
+        # Verified against https://www.aggsoft.com/ais-decoder.htm
+        self.assertEqual(decoded.msg_type, 8)
+        self.assertEqual(decoded.repeat, 1)
+        self.assertEqual(decoded.mmsi, 2655619)
+        self.assertEqual(decoded.data, b'\x08\xaa\x97\x9bO\xd8\xe6\xe3?\xff\xb4Z \x06W\xd7\xff\xc5\xfd\x0f\xffh\xff\xb4\x7f\xfe\xd1\xff\xff\xed\x1f\xff\xda5\xf5\xff\xef\xfc')
+
+    def test_decode_with_empty_payload(self):
+        """Variation of test_that_decode_works_for_fragmented_messages_with_empty_payloads"""
+        # WHEN decoding message without payload an exception is raised
+        with self.assertRaises(MissingPayloadException) as err:
+            _ = decode(
+                b"!AIVDM,1,1,0,A,,0*16",
+            )
+
+        self.assertEqual(str(err.exception), '!AIVDM,1,1,0,A,,0*16')
