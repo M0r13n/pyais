@@ -1009,7 +1009,7 @@ class MessageType5(Payload):
 class MessageType6(Payload):
     """
     Binary Addresses Message
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_4_base_station_report
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_6_binary_addressed_message
     """
     msg_type = bit_field(6, int, default=6)
     repeat = bit_field(2, int, default=0, signed=False)
