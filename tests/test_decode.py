@@ -961,6 +961,7 @@ class TestAIS(unittest.TestCase):
                 "aid_type": 25,
                 "assigned": None,
                 "epfd": 7,
+                'full_name': 'STDB CUT 2',
                 "lat": -32.004333,
                 "lon": 115.691833,
                 "mmsi": 995036013,
@@ -986,7 +987,6 @@ class TestAIS(unittest.TestCase):
         decoded = NMEAMessage(msg)
 
         d = decoded.decode_and_merge(enum_as_int=True)
-
         self.assertEqual(
             d,
             {
@@ -1001,6 +1001,7 @@ class TestAIS(unittest.TestCase):
                 "fill_bits": 2,
                 "frag_cnt": 1,
                 "frag_num": 1,
+                'full_name': 'STDB CUT 2',
                 "lat": -32.004333,
                 "lon": 115.691833,
                 "mmsi": 995036013,
@@ -1041,6 +1042,7 @@ class TestAIS(unittest.TestCase):
                 "fill_bits": 2,
                 "frag_cnt": 1,
                 "frag_num": 1,
+                'full_name': 'STDB CUT 2',
                 "lat": -32.004333,
                 "lon": 115.691833,
                 "mmsi": 995036013,
@@ -1768,3 +1770,9 @@ class TestAIS(unittest.TestCase):
             )
 
         self.assertEqual(str(err.exception), '!AIVDM,1,1,0,A,,0*16')
+
+    def test_decode_type_21_full_name(self):
+        raw = b"!AIVDM,1,1,,B,E>jHDL1W73nWaanah7S39T7a2h;wror=@5nL`A2AISd002CQ1PDS@0,4*39"
+        decoded = decode(raw)
+
+        assert decoded.full_name == "NNG-OSS-S OFFSHORE WINDFARM"
