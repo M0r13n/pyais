@@ -1329,6 +1329,18 @@ class MessageType21(Payload):
     spare_1 = bit_field(1, bytes, default=b'')
     name_ext = bit_field(88, str, default='')
 
+    @functools.cached_property
+    def full_name(self) -> str:
+        """The name field is up to 20 characters of 6-bit ASCII. If this field
+        is full (has no trailing @ characters) the decoder should interpret
+        the Name Extension field later in the message (no more than 14 6-bit
+        characters) and concatenate it to this one to obtain the full name."""
+        if self.name:
+            if self.name_ext:
+                return f"{self.name}{self.name_ext}"
+            return str(self.name)
+        return ""
+
 
 @attr.s(slots=True)
 class MessageType22Addressed(Payload):
