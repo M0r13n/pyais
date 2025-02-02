@@ -1350,22 +1350,22 @@ class TestAIS(unittest.TestCase):
 
     def test_rot_encode_yields_expected_values(self):
         encoded = encode_dict({"msg_type": 1, "mmsi": 123, "turn": 25.0})[0]
-        assert encoded == "!AIVDO,1,1,,A,10000Nh600000000000000000000,0*05"
+        assert encoded == "!AIVDO,1,1,,A,10000Nw60000000000000001P000,0*7B"
 
         encoded = encode_dict({"msg_type": 1, "mmsi": 123, "turn": -16.0})[0]
-        assert encoded == "!AIVDO,1,1,,A,10000Nhs@0000000000000000000,0*30"
+        assert encoded == "!AIVDO,1,1,,A,10000Nws@000000000000001P000,0*4E"
 
         encoded = encode_dict({"msg_type": 1, "mmsi": 123, "turn": 4.0})[0]
-        assert encoded == "!AIVDO,1,1,,A,10000Nh2@0000000000000000000,0*71"
+        assert encoded == "!AIVDO,1,1,,A,10000Nw2@000000000000001P000,0*0F"
 
         encoded = encode_dict({"msg_type": 1, "mmsi": 123, "turn": -4.0})[0]
-        assert encoded == "!AIVDO,1,1,,A,10000Nhuh0000000000000000000,0*1E"
+        assert encoded == "!AIVDO,1,1,,A,10000Nwuh000000000000001P000,0*60"
 
         encoded = encode_dict({"msg_type": 1, "mmsi": 123, "turn": -121.0})[0]
-        assert encoded == "!AIVDO,1,1,,A,10000Nhk00000000000000000000,0*58"
+        assert encoded == "!AIVDO,1,1,,A,10000Nwk0000000000000001P000,0*26"
 
         encoded = encode_dict({"msg_type": 1, "mmsi": 123, "turn": 64.0})[0]
-        assert encoded == "!AIVDO,1,1,,A,10000Nh9P0000000000000000000,0*6A"
+        assert encoded == "!AIVDO,1,1,,A,10000Nw9P000000000000001P000,0*14"
 
     def test_rot_encode_decode(self):
         encoded = encode_dict({"msg_type": 1, "mmsi": 123, "turn": 2.0})[0]
