@@ -3,6 +3,7 @@ import unittest
 import bitarray
 
 from pyais import encode_dict, encode_msg
+from pyais.constants import NavigationStatus
 from pyais.decode import decode
 from pyais.encode import data_to_payload, get_ais_type
 from pyais.exceptions import UnknownPartNoException
@@ -1020,7 +1021,25 @@ def test_encode_msg_type2():
         'type': 2
     }
     encoded = encode_dict(data)[0]
-    assert encoded == "!AIVDO,1,1,,A,1S9edj0003PecbBN`ja@0?w42000,0*4A"
+    assert encoded == "!AIVDO,1,1,,A,1S9edj?003PecbBN`ja@0?w5R000,0*24"
+
+    data = {
+        'accuracy': 1,
+        'course': 0.0,
+        'heading': 511,
+        'lat': 53.542675,
+        'lon': 9.97942833333333,
+        'mmsi': 211512520,
+        'raim': 1,
+        'repeat': 2,
+        'second': 34,
+        'speed': 0.3,
+        'turn': 0,
+        'type': 2,
+        'status': NavigationStatus.UnderWayUsingEngine,
+    }
+    encoded = encode_dict(data)[0]
+    assert encoded == "!AIVDO,1,1,,A,1S9edj0003PecbBN`ja@0?w5R000,0*2B"
 
 
 def test_encode_msg_type_3():
@@ -1042,7 +1061,7 @@ def test_encode_msg_type_3():
     }
 
     encoded = encode_dict(data)[0]
-    assert encoded == "!AIVDO,1,1,,A,15NSH95001G?wopE`beasVk@0E5:,0*6F"
+    assert encoded == "!AIVDO,1,1,,A,15NSH95001G?wopE`beasVkAPE5:,0*0E"
 
 
 def test_encode_type_1_default():
@@ -1051,7 +1070,7 @@ def test_encode_type_1_default():
     """
     data = {'mmsi': 123456789, 'type': 1}
     encoded = encode_dict(data)[0]
-    assert encoded == "!AIVDO,1,1,,A,11mg=5@P00000000000000000000,0*36"
+    assert encoded == "!AIVDO,1,1,,A,11mg=5OP0000000000000001P000,0*58"
 
 
 def test_encode_type_1():
@@ -1088,7 +1107,7 @@ def test_mmsi_too_long():
     encoded = encode_msg(msg)
     decoded = decode(encoded[0])
 
-    assert encoded[0] == "!AIVDO,1,1,,A,1?wwwwhP00000000000000000000,0*12"
+    assert encoded[0] == "!AIVDO,1,1,,A,1?wwwwwP0000000000000001P000,0*6C"
     assert decoded.mmsi == 1073741823
 
 
@@ -1097,7 +1116,7 @@ def test_lon_too_large():
     encoded = encode_msg(msg)
     decoded = decode(encoded[0])
 
-    assert encoded[0] == "!AIVDO,1,1,,A,10000NhP00Owwwv0000000000000,0*1D"
+    assert encoded[0] == "!AIVDO,1,1,,A,10000NwP00Owwwv000000001P000,0*63"
     assert decoded.lon == -2e-06
 
 

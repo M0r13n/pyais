@@ -919,7 +919,7 @@ class MessageType1(Payload, CommunicationStateMixin):
     msg_type = bit_field(6, int, default=1, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
-    status = bit_field(4, int, default=0, converter=NavigationStatus.from_value, signed=False)
+    status = bit_field(4, int, default=NavigationStatus.Undefined, converter=NavigationStatus.from_value, signed=False)
     turn = bit_field(8, float, default=TurnRate.NO_TI_DEFAULT, signed=True, to_converter=to_turn, from_converter=from_turn)
     speed = bit_field(10, float, from_converter=from_speed, to_converter=to_speed, default=0, signed=False)
     accuracy = bit_field(1, bool, default=0, signed=False)
@@ -928,7 +928,7 @@ class MessageType1(Payload, CommunicationStateMixin):
     course = bit_field(12, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
     heading = bit_field(9, int, default=0, signed=False)
     second = bit_field(6, int, default=0, signed=False)
-    maneuver = bit_field(2, int, default=0, from_converter=ManeuverIndicator.from_value,
+    maneuver = bit_field(2, int, default=ManeuverIndicator.UNDEFINED, from_converter=ManeuverIndicator.from_value,
                          to_converter=ManeuverIndicator.from_value, signed=False)
     spare_1 = bit_field(3, bytes, default=b'')
     raim = bit_field(1, bool, default=0)
@@ -969,7 +969,7 @@ class MessageType4(Payload, CommunicationStateMixin):
     accuracy = bit_field(1, bool, default=0, signed=False)
     lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
     lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
-    epfd = bit_field(4, int, default=0, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value,
+    epfd = bit_field(4, int, default=EpfdType.Undefined, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value,
                      signed=False)
     spare_1 = bit_field(10, bytes, default=b'')
     raim = bit_field(1, bool, default=0)
@@ -994,7 +994,7 @@ class MessageType5(Payload):
     to_stern = bit_field(9, int, default=0, signed=False)
     to_port = bit_field(6, int, default=0, signed=False)
     to_starboard = bit_field(6, int, default=0, signed=False)
-    epfd = bit_field(4, int, default=0, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value)
+    epfd = bit_field(4, int, default=EpfdType.Undefined, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value)
     month = bit_field(4, int, default=0, signed=False)
     day = bit_field(5, int, default=0, signed=False)
     hour = bit_field(5, int, default=0, signed=False)
@@ -1258,7 +1258,7 @@ class MessageType19(Payload):
     to_stern = bit_field(9, int, default=0, signed=False)
     to_port = bit_field(6, int, default=0, signed=False)
     to_starboard = bit_field(6, int, default=0, signed=False)
-    epfd = bit_field(4, int, default=0, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value)
+    epfd = bit_field(4, int, default=EpfdType.Undefined, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value)
     raim = bit_field(1, bool, default=0)
     dte = bit_field(1, bool, default=0)
     assigned = bit_field(1, bool, default=0, signed=False)
@@ -1319,7 +1319,7 @@ class MessageType21(Payload):
     to_port = bit_field(6, int, default=0, signed=False)
     to_starboard = bit_field(6, int, default=0, signed=False)
 
-    epfd = bit_field(4, int, default=0, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value)
+    epfd = bit_field(4, int, default=EpfdType.Undefined, from_converter=EpfdType.from_value, to_converter=EpfdType.from_value)
     second = bit_field(6, int, default=0, signed=False)
     off_position = bit_field(1, bool, default=0)
     reserved_1 = bit_field(8, int, default=0, signed=False)
@@ -1731,7 +1731,7 @@ class MessageType27(Payload):
 
     accuracy = bit_field(1, bool, default=0, signed=False)
     raim = bit_field(1, bool, default=0, signed=False)
-    status = bit_field(4, int, default=0, from_converter=NavigationStatus, to_converter=NavigationStatus, signed=False)
+    status = bit_field(4, int, default=NavigationStatus.Undefined, from_converter=NavigationStatus, to_converter=NavigationStatus, signed=False)
     lon = bit_field(18, float, from_converter=from_lat_lon_600, to_converter=to_lat_lon_600, default=0, signed=True)
     lat = bit_field(17, float, from_converter=from_lat_lon_600, to_converter=to_lat_lon_600, default=0, signed=True)
     speed = bit_field(6, float, default=0, signed=False)
