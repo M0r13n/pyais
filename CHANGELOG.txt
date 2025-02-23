@@ -2,6 +2,14 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 2.9.0 23 Feb 2025
+-------------------------------------------------------------------------------
+* added NMEAQueue class
+  * supports both single-line and multi-line NMEA sentences
+  * buffers fragments until all parts are available
+  * handles tag blocks
+  * supports gatehouse wrappers
+-------------------------------------------------------------------------------
  Version 2.8.4 26 Jan 2025
 -------------------------------------------------------------------------------
 * closes #161: https://github.com/M0r13n/pyais/issues/161

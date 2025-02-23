@@ -14,3 +14,4 @@ Welcome to Pyais's documentation!
    examples
    messages
    filters
+   queue
