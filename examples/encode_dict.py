@@ -22,7 +22,7 @@ For the following example, let's assume that we want to create a type 1 AIS mess
 """
 # Required imports
 from pyais.encode import encode_dict
-from pyais.messages import MessageType1
+from pyais.messages import MessageType1, TagBlock
 
 # This statement tells us which fields can be set for messages of type 1
 print(MessageType1.fields())
@@ -47,3 +47,14 @@ print(encoded)
 
 # You can also change the NMEA fields like the radio channel:
 print(encode_dict(data, radio_channel="B"))
+
+# You can also prepend a tag block
+tb_str = TagBlock.create_str(
+    receiver_timestamp=12415440354,
+    source_station='foobar',
+    line_count=157036
+)
+
+nmea = encode_dict(data, radio_channel="B")[0]
+nmea = f"\\{tb_str}\\{nmea}"
+print(nmea)

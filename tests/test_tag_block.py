@@ -1,9 +1,11 @@
 import unittest
 import textwrap
+from pyais.decode import decode_nmea_and_ais
 from pyais.exceptions import TagBlockNotInitializedException, UnknownMessageException
 from pyais.messages import AISSentence, NMEASentenceFactory, TagBlock
 
 from pyais.stream import IterMessages, TagBlockQueue
+from pyais.util import checksum
 
 
 class TagBlockQueueTestCase(unittest.TestCase):
@@ -237,6 +239,67 @@ class TagBlockTestCase(unittest.TestCase):
                 'text': None
             }
         )
+
+    def test_create_from_tag_block(self):
+        # Having a NMEA message with a tag block
+        msg = b'\\n:157036,s:r003669945,c:12415440354*A\\!AIVDM,1,1,,B,15N4cJ005Jrek0H@9nDW5608EP,013'
+
+        # While decoding the NMEA layer including the tag block
+        nmea, _ = decode_nmea_and_ais(msg)
+        assert nmea.tag_block
+        nmea.tag_block.init()
+
+        # When creating a tag block instance based on the original tag block
+        created = TagBlock.create(**nmea.tag_block.asdict())
+
+        # Then the tag block fields are correctly encoded
+        self.assertIn(b'c:12415440354', created)
+        self.assertIn(b's:r003669945', created)
+        self.assertIn(b'n:157036', created)
+
+    def test_create_manually(self):
+        # When creating a tag block using key word arguments
+        created = TagBlock.create(
+            receiver_timestamp=12415440354,
+            source_station='foobar',
+            line_count=157036,
+        )
+
+        # The fields are correctly encoded
+        self.assertIn(b'c:12415440354', created)
+        self.assertIn(b's:foobar', created)
+        self.assertIn(b'n:157036', created)
+
+    def test_create_with_bogus_key_word_args(self):
+        # When creating a tag block using key word arguments including some bogus arguments
+        created = TagBlock.create(
+            receiver_timestamp=12415440354,
+            source_station='foobar',
+            line_count=157036,
+            foo='bar',
+            blah=None
+        )
+
+        # The fields are correctly encoded
+        self.assertIn(b'c:12415440354', created)
+        self.assertIn(b's:foobar', created)
+        self.assertIn(b'n:157036', created)
+
+        # And all other fielda are ignored
+        self.assertEqual(b'c:12415440354,s:foobar,n:157036*64', created)
+
+    def test_create_checksum_valid(self):
+        # When creating a tag block using key word arguments
+        created = TagBlock.create(
+            receiver_timestamp=12415440354,
+            source_station='foobar',
+            line_count=157036,
+        )
+
+        # Then the computed checksum is valid
+        payload, actual = created.split(b'*')
+        expected = checksum(payload)
+        self.assertEqual(int(actual, 16), expected)
 
 
 if __name__ == '__main__':

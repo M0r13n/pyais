@@ -202,6 +202,19 @@ class TagBlockGroup:
 
 
 class TagBlock:
+    # Field code mapping for encoding/decoding
+    FIELD_CODES = {
+        'receiver_timestamp': 'c',
+        'destination_station': 'd',
+        'line_count': 'n',
+        'relative_time': 'r',
+        'source_station': 's',
+        'text': 't',
+        'group': 'g',
+    }
+
+    # Reverse mapping for decoding
+    FIELD_NAMES = {code: name for name, code in FIELD_CODES.items()}
 
     __slots__ = (
         'raw',
@@ -224,13 +237,13 @@ class TagBlock:
         self._is_valid = False
         self._actual_checksum = -1
         self._expected_checksum = -1
-        self._receiver_timestamp: typing.Optional[str] = None
-        self._destination_station: typing.Optional[str] = None
-        self._line_count: typing.Optional[str] = None
-        self._source_station: typing.Optional[str] = None
-        self._relative_time: typing.Optional[str] = None
-        self._text: typing.Optional[str] = None
-        self._group: typing.Optional[TagBlockGroup] = None
+        self._receiver_timestamp = None
+        self._destination_station = None
+        self._line_count = None
+        self._source_station = None
+        self._relative_time = None
+        self._text = None
+        self._group: Optional[TagBlockGroup] = None
 
     @property
     @error_if_uninitialized
@@ -283,43 +296,67 @@ class TagBlock:
         return self._group
 
     def init(self) -> None:
+        """Initialize the TagBlock by parsing the raw data."""
         payload, check = self.raw.split(ASTERISK)
 
         self._actual_checksum = checksum(payload)
-        self._expected_checksum = int(check, 16)
+        self._expected_checksum = int(check.decode(), 16)
         self._is_valid = self._actual_checksum == self._expected_checksum
 
-        fields = payload.split(COMMA)
-        self.__parse_fields(fields)
+        self._parse_payload(payload)
         self.initialized = True
 
-    def __parse_fields(self, fields: typing.List[bytes]) -> None:
+    def _parse_payload(self, payload: bytes) -> None:
+        """Parse the payload bytes into fields."""
+        fields = payload.split(COMMA)
         for field in fields:
-            decoded = field.decode()
-            spec, val = decoded.split(':', 1)
+            try:
+                field_str = field.decode()
+                spec, val = field_str.split(':', 1)
 
-            if spec == 'c':
-                self._receiver_timestamp = val
-            elif spec == 'd':
-                self._destination_station = val
-            elif spec == 'n':
-                self._line_count = val
-            elif spec == 'r':
-                self._relative_time = val
-            elif spec == 's':
-                self._source_station = val
-            elif spec == 't':
-                self._text = val
-            elif spec == 'g':
-                self._group = TagBlockGroup.from_str(val)
-            else:
-                pass
+                if spec == 'g':
+                    self._group = TagBlockGroup.from_str(val)
+                elif spec in self.FIELD_NAMES:
+                    # Set attribute directly using field name
+                    attr_name = f"_{self.FIELD_NAMES[spec]}"
+                    setattr(self, attr_name, val)
+            except (ValueError, UnicodeDecodeError):
+                # Skip malformed fields
+                continue
+
+    @classmethod
+    def create(cls, **fields: dict[str, object]) -> bytes:
+        """Create a TagBlock from field values.
+        Unknown fields are ignored. Refer to TagBlock.FIELD_NAMES for supported fields.
+
+        >>> TagBlock.create(source_station="STATION1", text="Hello")
+        b's:STATION1,t:Hello*2'
+        """
+        pairs = []
+        for key, val in fields.items():
+            if val is not None and key in cls.FIELD_CODES:
+                field_code = cls.FIELD_CODES[key]
+                pairs.append(f"{field_code}:{val}".encode())
+
+        payload = COMMA.join(pairs)
+
+        # compute checksum as hex, e.g. *7E
+        csum = hex(checksum(payload))[2:].upper().encode()
+        return payload + ASTERISK + csum
+
+    @classmethod
+    def create_str(cls, **fields: dict[str, object]) -> str:
+        """The same as .create() but returns a string"""
+        return cls.create(**fields).decode()
 
     def __repr__(self) -> str:
+        if not self.initialized:
+            return "TagBlock<uninitialized>"
         return f"TagBlock<{self.raw.decode()}>"
 
     @error_if_uninitialized
     def asdict(self) -> typing.Dict[str, typing.Any]:
+        """Return a dictionary representation of the TagBlock."""
         return {
             'raw': self.raw,
             'receiver_timestamp': self.receiver_timestamp,

@@ -1,6 +1,7 @@
 """How to work with optional tag blocks?"""
 import pathlib
 from pyais.decode import decode_nmea_and_ais
+from pyais.messages import TagBlock
 from pyais.stream import FileReaderStream
 
 # Tag blocks for single messages
@@ -30,3 +31,18 @@ with FileReaderStream(filename) as stream:
             print(nmea.tag_block.asdict())
 
         decoded = nmea.decode()
+
+# You can also create tag blocks as either bytes or strings
+tb_bytes = TagBlock.create(
+    receiver_timestamp=12415440354,
+    source_station='foobar',
+    line_count=157036
+)
+
+tb_str = TagBlock.create_str(
+    receiver_timestamp=12415440354,
+    source_station='foobar',
+    line_count=157036
+)
+
+print(tb_bytes, tb_str, sep='\n')

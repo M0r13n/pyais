@@ -1,11 +1,11 @@
-from pyais.messages import NMEAMessage, ANY_MESSAGE, AISSentence
+from pyais.messages import NMEAMessage, ANY_MESSAGE, AISSentence, TagBlock
 from pyais.stream import TCPConnection, FileReaderStream, IterMessages, Stream, PreprocessorProtocol
 from pyais.encode import encode_dict, encode_msg, ais_to_nmea_0183
 from pyais.decode import decode
 from pyais.tracker import AISTracker, AISTrack
 
 __license__ = 'MIT'
-__version__ = '2.9.0'
+__version__ = '2.9.1'
 __author__ = 'Leon Morten Richter'
 
 __all__ = (
@@ -14,6 +14,7 @@ __all__ = (
     'ais_to_nmea_0183',
     'NMEAMessage',
     'AISSentence',
+    'TagBlock',
     'ANY_MESSAGE',
     'TCPConnection',
     'IterMessages',
