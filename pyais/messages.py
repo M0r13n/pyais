@@ -325,7 +325,7 @@ class TagBlock:
                 continue
 
     @classmethod
-    def create(cls, **fields: dict[str, object]) -> bytes:
+    def create(cls, **fields: Dict[str, object]) -> bytes:
         """Create a TagBlock from field values.
         Unknown fields are ignored. Refer to TagBlock.FIELD_NAMES for supported fields.
 
@@ -345,7 +345,7 @@ class TagBlock:
         return payload + ASTERISK + csum
 
     @classmethod
-    def create_str(cls, **fields: dict[str, object]) -> str:
+    def create_str(cls, **fields: Dict[str, object]) -> str:
         """The same as .create() but returns a string"""
         return cls.create(**fields).decode()
 
