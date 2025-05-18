@@ -33,6 +33,9 @@ from pyais.messages import (
     GatehouseSentence,
     MessageType5,
     MessageType6,
+    MessageType8,
+    MessageType8Default,
+    MessageType8Dac200Fid10,
     MessageType18,
     MessageType22Addressed,
     MessageType22Broadcast,
@@ -299,7 +302,10 @@ class TestAIS(unittest.TestCase):
         assert msg["mmsi"] == 366999712
         assert msg["dac"] == 366
         assert msg["fid"] == 56
-        assert msg["data"] == b"\x3a\x53\xdb\xb7\xbe\x4a\x77\x31\x37\xf8\x7d\x7b\x04\x45\xf0\x40\xde\xa0\x5d\x93\xf5\x93\x78\x31\x94\xae\x9b\x9d\x9d\xbe\x05\xfb"
+        assert (
+            msg["data"]
+            == b"\x3a\x53\xdb\xb7\xbe\x4a\x77\x31\x37\xf8\x7d\x7b\x04\x45\xf0\x40\xde\xa0\x5d\x93\xf5\x93\x78\x31\x94\xae\x9b\x9d\x9d\xbe\x05\xfb"
+        )
 
         ensure_type_for_msg_dict(msg)
 
@@ -315,9 +321,27 @@ class TestAIS(unittest.TestCase):
         assert msg["mmsi"] == 888888888
         assert msg["dac"] == 0
         assert msg["fid"] == 0
-        assert msg["data"] == b"\x02\x934D\x81nI;\xbd\xcd\xe5\xb7E\xed\xf1]\xc0[y\xfa#-\xcd<\x01\x05\x91\xef\x85\x92\xfbF\xed\x19t\x11\xd6\xe7\xdf\xec\x1fp\x97\x99\x83M\x8aK\xb8\x005'\x1f\xc7\x14\xeaTr\xe3o\xb8\xda\xb9\x17-FJxb\xeb5\x1aM"
+        assert (
+            msg["data"]
+            == b"\x02\x934D\x81nI;\xbd\xcd\xe5\xb7E\xed\xf1]\xc0[y\xfa#-\xcd<\x01\x05\x91\xef\x85\x92\xfbF\xed\x19t\x11\xd6\xe7\xdf\xec\x1fp\x97\x99\x83M\x8aK\xb8\x005'\x1f\xc7\x14\xeaTr\xe3o\xb8\xda\xb9\x17-FJxb\xeb5\x1aM"
+        )
 
         ensure_type_for_msg_dict(msg)
+
+    def test_msg_type_8_inland(self):
+        # example from norwegion public AIS feed
+        decoded = decode(b"!BSVDM,1,1,,B,83m;Fa0j2d<<<<<<<0@pUg`50000,0*11")
+        msg = decoded.asdict()
+
+        assert msg["repeat"] == 0
+        assert msg["mmsi"] == 257087140
+        assert msg["dac"] == 200
+        assert msg["fid"] == 10
+        # inland aIS data should be present
+        assert isinstance(decoded, MessageType8Dac200Fid10)
+        assert "beam" in msg
+        # and correct
+        assert msg["beam"] == 7.5
 
     def test_msg_type_9(self):
         msg = decode(b"!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*30").asdict()
@@ -457,8 +481,14 @@ class TestAIS(unittest.TestCase):
         data = msg["data"]
         bits = bytes2bits(data).to01()
 
-        assert data == b'|\x05V\xc0p1\xfe\xbb\xf5)$\xfe3\xfa)3\xff\xa0\xfd)2\xfd\xb7\x06)"\xfe8\t)*\xfd\xe9\x12))\xfc\xf7\x00)#\xff\xd2\x0c)\xaa\xaa'
-        assert bits == "0111110000000101010101101100000001110000001100011111111010111011111101010010100100100100111111100011001111111010001010010011001111111111101000001111110100101001001100101111110110110111000001100010100100100010111111100011100000001001001010010010101011111101111010010001001000101001001010011111110011110111000000000010100100100011111111111101001000001100001010011010101010101010"
+        assert (
+            data
+            == b'|\x05V\xc0p1\xfe\xbb\xf5)$\xfe3\xfa)3\xff\xa0\xfd)2\xfd\xb7\x06)"\xfe8\t)*\xfd\xe9\x12))\xfc\xf7\x00)#\xff\xd2\x0c)\xaa\xaa'
+        )
+        assert (
+            bits
+            == "0111110000000101010101101100000001110000001100011111111010111011111101010010100100100100111111100011001111111010001010010011001111111111101000001111110100101001001100101111110110110111000001100010100100100010111111100011100000001001001010010010101011111101111010010001001000101001001010011111110011110111000000000010100100100011111111111101001000001100001010011010101010101010"
+        )
 
         ensure_type_for_msg_dict(msg)
 
@@ -476,7 +506,10 @@ class TestAIS(unittest.TestCase):
         bits = bytes2bits(data).to01()
 
         assert data == b"&\xb8`\xa1 \x00\xfc\x90\x0bY\x15\xfc\x8a\rR\x00TWn~\xc8\x00"
-        assert bits == "00100110101110000110000010100001001000000000000011111100100100000000101101011001000101011111110010001010000011010101001000000000010101000101011101101110011111101100100000000000"
+        assert (
+            bits
+            == "00100110101110000110000010100001001000000000000011111100100100000000101101011001000101011111110010001010000011010101001000000000010101000101011101101110011111101100100000000000"
+        )
 
         ensure_type_for_msg_dict(msg)
 
@@ -738,7 +771,10 @@ class TestAIS(unittest.TestCase):
         assert msg["addressed"]
         assert msg["structured"]
         assert msg["dest_mmsi"] == 838351848
-        assert msg["data"] == b"\xcc\xbf\x02\xa1p\xe7\x8b\x00\x1c\x01\xb3\xc0\x9b\x03\xd2 \xbe\xab@\x04\x00\x00"
+        assert (
+            msg["data"]
+            == b"\xcc\xbf\x02\xa1p\xe7\x8b\x00\x1c\x01\xb3\xc0\x9b\x03\xd2 \xbe\xab@\x04\x00\x00"
+        )
 
         ensure_type_for_msg_dict(msg)
 
@@ -776,7 +812,10 @@ class TestAIS(unittest.TestCase):
 
     def test_broken_messages(self):
         # Undefined epfd
-        assert decode(b"!AIVDM,1,1,,B,4>O7m7Iu@<9qUfbtm`vSnwvH20S8,0*46").asdict()["epfd"] == EpfdType.Undefined
+        assert (
+            decode(b"!AIVDM,1,1,,B,4>O7m7Iu@<9qUfbtm`vSnwvH20S8,0*46").asdict()["epfd"]
+            == EpfdType.Undefined
+        )
 
     def test_multiline_message(self):
         # these messages caused issue #3
@@ -961,7 +1000,7 @@ class TestAIS(unittest.TestCase):
                 "aid_type": 25,
                 "assigned": None,
                 "epfd": 7,
-                'full_name': 'STDB CUT 2',
+                "full_name": "STDB CUT 2",
                 "lat": -32.004333,
                 "lon": 115.691833,
                 "mmsi": 995036013,
@@ -1001,7 +1040,7 @@ class TestAIS(unittest.TestCase):
                 "fill_bits": 2,
                 "frag_cnt": 1,
                 "frag_num": 1,
-                'full_name': 'STDB CUT 2',
+                "full_name": "STDB CUT 2",
                 "lat": -32.004333,
                 "lon": 115.691833,
                 "mmsi": 995036013,
@@ -1042,7 +1081,7 @@ class TestAIS(unittest.TestCase):
                 "fill_bits": 2,
                 "frag_cnt": 1,
                 "frag_num": 1,
-                'full_name': 'STDB CUT 2',
+                "full_name": "STDB CUT 2",
                 "lat": -32.004333,
                 "lon": 115.691833,
                 "mmsi": 995036013,
@@ -1390,11 +1429,11 @@ class TestAIS(unittest.TestCase):
 
     def test_sotdma_time_conversion(self):
         """Prevent regressions for: https://github.com/M0r13n/pyais/pull/135"""
-        decoded = decode('!AIVDM,1,1,,B,133ga6PP0lPPE>4M3G@DpOwTR61p,0*33')
+        decoded = decode("!AIVDM,1,1,,B,133ga6PP0lPPE>4M3G@DpOwTR61p,0*33")
         cs = decoded.get_communication_state()
 
-        assert cs['utc_hour'] == 16
-        assert cs['utc_minute'] == 30
+        assert cs["utc_hour"] == 16
+        assert cs["utc_minute"] == 30
 
     def test_get_sotdma_comm_state_utc_direct(self):
         msg = "!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23"
@@ -1469,7 +1508,7 @@ class TestAIS(unittest.TestCase):
         )
 
     def test_is_sotdma_or_itdma(self):
-        """ Verify that messages are correctly identified as either ITDMA or SOTDMA.
+        """Verify that messages are correctly identified as either ITDMA or SOTDMA.
         Details: https://github.com/M0r13n/pyais/issues/136."""
 
         # 1
@@ -1759,7 +1798,10 @@ class TestAIS(unittest.TestCase):
         self.assertEqual(decoded.msg_type, 8)
         self.assertEqual(decoded.repeat, 1)
         self.assertEqual(decoded.mmsi, 2655619)
-        self.assertEqual(decoded.data, b'\x08\xaa\x97\x9bO\xd8\xe6\xe3?\xff\xb4Z \x06W\xd7\xff\xc5\xfd\x0f\xffh\xff\xb4\x7f\xfe\xd1\xff\xff\xed\x1f\xff\xda5\xf5\xff\xef\xfc')
+        self.assertEqual(
+            decoded.data,
+            b"\x08\xaa\x97\x9bO\xd8\xe6\xe3?\xff\xb4Z \x06W\xd7\xff\xc5\xfd\x0f\xffh\xff\xb4\x7f\xfe\xd1\xff\xff\xed\x1f\xff\xda5\xf5\xff\xef\xfc",
+        )
 
     def test_decode_with_empty_payload(self):
         """Variation of test_that_decode_works_for_fragmented_messages_with_empty_payloads"""
@@ -1769,10 +1811,12 @@ class TestAIS(unittest.TestCase):
                 b"!AIVDM,1,1,0,A,,0*16",
             )
 
-        self.assertEqual(str(err.exception), '!AIVDM,1,1,0,A,,0*16')
+        self.assertEqual(str(err.exception), "!AIVDM,1,1,0,A,,0*16")
 
     def test_decode_type_21_full_name(self):
-        raw = b"!AIVDM,1,1,,B,E>jHDL1W73nWaanah7S39T7a2h;wror=@5nL`A2AISd002CQ1PDS@0,4*39"
+        raw = (
+            b"!AIVDM,1,1,,B,E>jHDL1W73nWaanah7S39T7a2h;wror=@5nL`A2AISd002CQ1PDS@0,4*39"
+        )
         decoded = decode(raw)
 
         assert decoded.full_name == "NNG-OSS-S OFFSHORE WINDFARM"

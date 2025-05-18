@@ -2,11 +2,11 @@ import typing
 from enum import Enum
 
 # Keywords
-UNDEFINED = 'Undefined'
-RESERVED = 'Reserved'
-NULL = 'N/A'
-ANSI_RED = '\x1b[31m'
-ANSI_RESET = '\x1b[0m'
+UNDEFINED = "Undefined"
+RESERVED = "Reserved"
+NULL = "N/A"
+ANSI_RED = "\x1b[31m"
+ANSI_RESET = "\x1b[0m"
 
 
 class ReprEnum(Enum):
@@ -26,8 +26,9 @@ class TurnRate(float, ReprEnum):
 
 
 class TalkerID(str, ReprEnum):
-    """ Enum of all  NMEA talker IDs.
+    """Enum of all  NMEA talker IDs.
     See: https://gpsd.gitlab.io/gpsd/AIVDM.html#_talker_ids"""
+
     Base_Station = "AB"
     Dependent_Base_Station = "AD"
     Mobile_Station = "AI"
@@ -340,6 +341,7 @@ class SyncState(int, ReprEnum):
     """
     https://www.navcen.uscg.gov/?pageName=AISMessagesA#Sync
     """
+
     UTC_DIRECT = 0x00
     UTC_INDIRECT = 0x01
     BASE_DIRECT = 0x02
@@ -638,3 +640,18 @@ COUNTRY_MAPPING = {
     770: ("UY", "Uruguay"),
     775: ("VE", "Venezuela"),
 }
+
+
+class InlandLoadedType(int, ReprEnum):
+    NotAvailable = 0
+    Loaded = 1
+    Unloaded = 2
+    NotUsed = 3
+
+    @classmethod
+    def _missing_(cls, value: object) -> int:
+        return InlandLoadedType.NotAvailable
+
+    @classmethod
+    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["InlandLoadedType"]:
+        return cls(v) if v is not None else None
