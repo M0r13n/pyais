@@ -10,7 +10,7 @@ import attr
 from bitarray import bitarray
 
 from pyais.constants import TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
-    TransmitMode, StationIntervals, TurnRate
+    TransmitMode, StationIntervals, TurnRate, InlandLoadedType
 from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitializedException, UnknownMessageException, UnknownPartNoException, \
     InvalidDataTypeException, MissingPayloadException
 from pyais.util import checksum, decode_into_bit_array, compute_checksum, get_itdma_comm_state, get_sotdma_comm_state, int_to_bin, str_to_bin, \
