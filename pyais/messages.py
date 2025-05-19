@@ -856,6 +856,14 @@ def to_10th(v: typing.Union[int, float]) -> float:
     return v / 10.0
 
 
+def from_100th(v: typing.Union[int, float]) -> float:
+    return float(v) * 100.0
+
+
+def to_100th(v: typing.Union[int, float]) -> float:
+    return v / 100.0
+
+
 def from_mmsi(v: typing.Union[str, int]) -> int:
     return int(v)
 
