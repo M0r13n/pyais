@@ -12,7 +12,7 @@ from pyais.messages import MessageType1, MessageType26BroadcastUnstructured, Mes
     MessageType25AddressedUnstructured, MessageType25BroadcastStructured, MessageType25AddressedStructured, \
     MessageType24PartB, MessageType24PartA, MessageType22Broadcast, MessageType22Addressed, MessageType27, \
     MessageType23, MessageType21, MessageType20, MessageType19, MessageType18, MessageType17, MessageType16, \
-    MessageType15, MessageType4, MessageType5, MessageType6, MessageType7, MessageType8, MessageType8Default, MessageType2, MessageType3, \
+    MessageType15, MessageType4, MessageType5, MessageType6, MessageType7, MessageType8Default, MessageType2, MessageType3, \
     MSG_CLASS
 from pyais.util import decode_bin_as_ascii6, decode_into_bit_array, str_to_bin, int_to_bin, to_six_bit, encode_ascii_6, \
     int_to_bytes, bits2bytes
