@@ -10,6 +10,7 @@ from pyais import NMEAMessage, encode_dict, encode_msg
 from pyais.ais_types import AISType
 from pyais.constants import (
     EpfdType,
+    InlandLoadedType,
     ManeuverIndicator,
     NavAid,
     NavigationStatus,
@@ -334,6 +335,17 @@ class TestAIS(unittest.TestCase):
         assert "beam" in msg
         # and correct
         assert msg["beam"] == 7.5
+
+    def test_msg_type_8_inland_2(self):
+        decoded = decode("!AIVDO,1,1,,A,85M67F@j2U=7EW=RAkQkBDITMV=e,0*51")
+        msg = decoded.asdict()
+
+        assert msg['mmsi'] == 366053209
+        assert msg["dac"] == 200
+        assert msg["fid"] == 10
+        assert msg["length"] == 180.6
+        assert msg["beam"] == 42
+        assert msg["loaded"] == InlandLoadedType.NotAvailable
 
     def test_msg_type_9(self):
         msg = decode(b"!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*30").asdict()
