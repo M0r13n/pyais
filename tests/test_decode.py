@@ -33,6 +33,7 @@ from pyais.messages import (
     GatehouseSentence,
     MessageType5,
     MessageType6,
+    MessageType8Dac200Fid10,
     MessageType18,
     MessageType22Addressed,
     MessageType22Broadcast,
@@ -318,6 +319,21 @@ class TestAIS(unittest.TestCase):
         assert msg["data"] == b"\x02\x934D\x81nI;\xbd\xcd\xe5\xb7E\xed\xf1]\xc0[y\xfa#-\xcd<\x01\x05\x91\xef\x85\x92\xfbF\xed\x19t\x11\xd6\xe7\xdf\xec\x1fp\x97\x99\x83M\x8aK\xb8\x005'\x1f\xc7\x14\xeaTr\xe3o\xb8\xda\xb9\x17-FJxb\xeb5\x1aM"
 
         ensure_type_for_msg_dict(msg)
+
+    def test_msg_type_8_inland(self):
+        # example from norwegion public AIS feed
+        decoded = decode(b"!BSVDM,1,1,,B,83m;Fa0j2d<<<<<<<0@pUg`50000,0*11")
+        msg = decoded.asdict()
+
+        assert msg["repeat"] == 0
+        assert msg["mmsi"] == 257087140
+        assert msg["dac"] == 200
+        assert msg["fid"] == 10
+        # inland aIS data should be present
+        assert isinstance(decoded, MessageType8Dac200Fid10)
+        assert "beam" in msg
+        # and correct
+        assert msg["beam"] == 7.5
 
     def test_msg_type_9(self):
         msg = decode(b"!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*30").asdict()

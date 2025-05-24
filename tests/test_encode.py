@@ -12,7 +12,7 @@ from pyais.messages import MessageType1, MessageType26BroadcastUnstructured, Mes
     MessageType25AddressedUnstructured, MessageType25BroadcastStructured, MessageType25AddressedStructured, \
     MessageType24PartB, MessageType24PartA, MessageType22Broadcast, MessageType22Addressed, MessageType27, \
     MessageType23, MessageType21, MessageType20, MessageType19, MessageType18, MessageType17, MessageType16, \
-    MessageType15, MessageType4, MessageType5, MessageType6, MessageType7, MessageType8, MessageType2, MessageType3, \
+    MessageType15, MessageType4, MessageType5, MessageType6, MessageType7, MessageType8Default, MessageType2, MessageType3, \
     MSG_CLASS
 from pyais.util import decode_bin_as_ascii6, decode_into_bit_array, str_to_bin, int_to_bin, to_six_bit, encode_ascii_6, \
     int_to_bytes, bits2bytes
@@ -34,7 +34,7 @@ def test_widths():
     tot_width = sum(field.metadata['width'] for field in MessageType7.fields())
     assert tot_width == 168
 
-    tot_width = sum(field.metadata['width'] for field in MessageType8.fields())
+    tot_width = sum(field.metadata['width'] for field in MessageType8Default.fields())
     assert tot_width == 1008
 
     tot_width = sum(field.metadata['width'] for field in MessageType15.fields())
@@ -173,7 +173,7 @@ def test_data_to_payload():
     assert data_to_payload(5, {'mmsi': 123}).__class__ == MessageType5
     assert data_to_payload(6, {'mmsi': 123, 'dest_mmsi': 1234}).__class__ == MessageType6
     assert data_to_payload(7, {'mmsi': 123}).__class__ == MessageType7
-    assert data_to_payload(8, {'mmsi': 123}).__class__ == MessageType8
+    assert data_to_payload(8, {'mmsi': 123}).__class__ == MessageType8Default
 
     with unittest.TestCase().assertRaises(ValueError):
         data_to_payload(28, {'mmsi': 123})

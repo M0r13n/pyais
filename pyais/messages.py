@@ -10,7 +10,7 @@ import attr
 from bitarray import bitarray
 
 from pyais.constants import TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
-    TransmitMode, StationIntervals, TurnRate
+    TransmitMode, StationIntervals, TurnRate, InlandLoadedType
 from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitializedException, UnknownMessageException, UnknownPartNoException, \
     InvalidDataTypeException, MissingPayloadException
 from pyais.util import checksum, decode_into_bit_array, compute_checksum, get_itdma_comm_state, get_sotdma_comm_state, int_to_bin, str_to_bin, \
@@ -856,6 +856,14 @@ def to_10th(v: typing.Union[int, float]) -> float:
     return v / 10.0
 
 
+def from_100th(v: typing.Union[int, float]) -> float:
+    return float(v) * 100.0
+
+
+def to_100th(v: typing.Union[int, float]) -> float:
+    return v / 100.0
+
+
 def from_mmsi(v: typing.Union[str, int]) -> int:
     return int(v)
 
@@ -1082,17 +1090,94 @@ class MessageType7(Payload):
 
 @attr.s(slots=True)
 class MessageType8(Payload):
+    @classmethod
+    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
+        dac: int = int(kwargs.get("dac", 0))
+        fid: int = int(kwargs.get("fid", 0))
+        if dac == 200 and fid == 10:
+            return MessageType8Dac200Fid10.create(**kwargs)
+        else:
+            return MessageType8Default.create(**kwargs)
+
+    @classmethod
+    def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
+        dac: int = get_int(bit_arr, 40, 50)
+        fid: int = get_int(bit_arr, 50, 56)
+        if dac == 200 and fid == 10:
+            return MessageType8Dac200Fid10.from_bitarray(bit_arr)
+        else:
+            return MessageType8Default.from_bitarray(bit_arr)
+
+
+@attr.s(slots=True)
+class MessageType8Default(Payload):
     """
     Binary Acknowledge
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_8_binary_broadcast_message
     """
+
     msg_type = bit_field(6, int, default=8, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
-    spare_1 = bit_field(2, bytes, default=b'')
+    spare_1 = bit_field(2, bytes, default=b"")
     dac = bit_field(10, int, default=0, signed=False)
     fid = bit_field(6, int, default=0, signed=False)
-    data = bit_field(952, bytes, default=b'', variable_length=True)
+    data = bit_field(952, bytes, default=b"", variable_length=True)
+
+
+@attr.s(slots=True)
+class MessageType8Dac200Fid10(Payload):
+    """
+    Binary Acknowledge
+    Inland variant with dac=200, fid=10
+
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_8_binary_broadcast_message
+    Msg variant: ECE/TRANS/SC.3/176 page 37
+    https://unece.org/fileadmin/DAM/trans/doc/finaldocs/sc3/ECE-TRANS-SC3-176e.pdf
+    """
+
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b"")
+    dac = bit_field(10, int, default=0, signed=False)
+    fid = bit_field(6, int, default=0, signed=False)
+    # Unique European Vessel Identification Number / ERI number
+    vin = bit_field(48, str, default="")
+    # 1 - 8000 (rest not to be used) length of ship in 1/10m 0 = default
+    length = bit_field(13, int, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    # 1 - 1000 (rest not to be used) beam of ship in 1/10m; 0 = default
+    beam = bit_field(10, int, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    # Numeric ERI Classification (CODES):
+    # 1 Vessel and Convoy Type as described in ANNEX
+    # E ERI ship types
+    shiptype = bit_field(14, int, default=0, signed=False)
+    # Number of blue cones/lights 0 - 3;
+    # 4 = B-Flag, 5 = default = unknown
+    hazard = bit_field(3, int, default=5, signed=False)
+    # 1 - 2000 (rest not used) draught in 1/100m, 0 = default = unknown
+    draught = bit_field(
+        11,
+        int,
+        from_converter=from_100th,
+        to_converter=to_100th,
+        default=0,
+        signed=False,
+    )
+    # 1 = loaded, 2 = unloaded, 0 = not available/default,, 3 should not be used
+    # InlandLoadedType
+    loaded = bit_field(
+        2,
+        int,
+        default=InlandLoadedType.NotAvailable,
+        from_converter=InlandLoadedType.from_value,
+        to_converter=InlandLoadedType.from_value,
+        signed=False,
+    )
+    speed_q = bit_field(1, bool, default=False)
+    course_q = bit_field(1, bool, default=False)
+    heading_q = bit_field(1, bool, default=False)
+    spare = bit_field(8, bytes)
 
 
 @attr.s(slots=True)

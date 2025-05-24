@@ -638,3 +638,18 @@ COUNTRY_MAPPING = {
     770: ("UY", "Uruguay"),
     775: ("VE", "Venezuela"),
 }
+
+
+class InlandLoadedType(int, ReprEnum):
+    NotAvailable = 0
+    Loaded = 1
+    Unloaded = 2
+    NotUsed = 3
+
+    @classmethod
+    def _missing_(cls, value: object) -> int:
+        return InlandLoadedType.NotAvailable
+
+    @classmethod
+    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["InlandLoadedType"]:
+        return cls(v) if v is not None else None
