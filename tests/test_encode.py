@@ -3,7 +3,7 @@ import unittest
 import bitarray
 
 from pyais import encode_dict, encode_msg
-from pyais.constants import NavigationStatus
+from pyais.constants import InlandLoadedType, NavigationStatus
 from pyais.decode import decode
 from pyais.encode import data_to_payload, get_ais_type
 from pyais.exceptions import UnknownPartNoException
@@ -832,6 +832,30 @@ def test_encode_type_8():
     }
     encoded = encode_dict(data, radio_channel="B", talker_id="AIVDM")
     assert encoded[0] == "!AIVDM,1,1,,B,85Mwp`1Kf0>dg4Huwt@,2*5B"
+
+
+def test_encode_type_8_inland():
+    data = {
+        'msg_type': 8,
+        'repeat': 0,
+        'mmsi': 366053209,
+        'spare_1': b'\x00',
+        'dac': 200,
+        'fid': 10,
+        'vin': 'T4]V\\6IG',
+        'length': 180.6,
+        'beam': 42.0,
+        'shiptype': 10444,
+        'hazard': 4,
+        'draught': 9.47,
+        'loaded': InlandLoadedType.NotAvailable,
+        'spare': b'm',
+        'speed_q': False,
+        'course_q': True,
+        'heading_q': True,
+    }
+    encoded = encode_dict(data, radio_channel="A", talker_id="AIVDO")
+    assert encoded[0] == "!AIVDO,1,1,,A,85M67F@j2U=7EW=RAkQkBDITMV=e,0*51"
 
 
 def tes_encode_type_8_multi():

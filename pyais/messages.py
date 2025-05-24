@@ -1145,9 +1145,9 @@ class MessageType8Dac200Fid10(Payload):
     # Unique European Vessel Identification Number / ERI number
     vin = bit_field(48, str, default="")
     # 1 - 8000 (rest not to be used) length of ship in 1/10m 0 = default
-    length = bit_field(13, int, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    length = bit_field(13, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
     # 1 - 1000 (rest not to be used) beam of ship in 1/10m; 0 = default
-    beam = bit_field(10, int, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    beam = bit_field(10, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
     # Numeric ERI Classification (CODES):
     # 1 Vessel and Convoy Type as described in ANNEX
     # E ERI ship types
@@ -1158,7 +1158,7 @@ class MessageType8Dac200Fid10(Payload):
     # 1 - 2000 (rest not used) draught in 1/100m, 0 = default = unknown
     draught = bit_field(
         11,
-        int,
+        float,
         from_converter=from_100th,
         to_converter=to_100th,
         default=0,
