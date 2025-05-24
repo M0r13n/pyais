@@ -25,6 +25,7 @@ from pyais.exceptions import (
     InvalidNMEAChecksum,
     InvalidNMEAMessageException,
     MissingMultipartMessageException,
+    TooManyMessagesException,
     UnknownMessageException,
     NonPrintableCharacterException,
 )
@@ -48,7 +49,7 @@ from pyais.messages import (
     MessageType26BroadcastStructured,
     MessageType26BroadcastUnstructured,
 )
-from pyais.stream import ByteStream
+from pyais.stream import ByteStream, IterMessages
 from pyais.util import b64encode_str, bits2bytes, bytes2bits, decode_into_bit_array
 from pyais.exceptions import MissingPayloadException
 
@@ -1804,3 +1805,14 @@ class TestAIS(unittest.TestCase):
         decoded = decode(raw)
 
         assert decoded.full_name == "NNG-OSS-S OFFSHORE WINDFARM"
+
+    def test_decode_fragment_count_0(self):
+        msg = b"!AAVDM,0,1,,B,16UK7Fi0?w4tQF0l4Q@>401v1PS;,0*0F"
+
+        # decode() should raise a TooManyMessagesException
+        with self.assertRaises(TooManyMessagesException):
+            decode(msg)
+
+        # IterMessages should just skip it
+        decoded = list(IterMessages([msg]))
+        self.assertEqual(decoded, [])

@@ -188,7 +188,7 @@ class AssembleMessages(ABC):
 
                 # Check if all fragments are found
                 not_none_parts = [m for m in msg_parts if m is not None]
-                if len(not_none_parts) == msg.fragment_count:
+                if not_none_parts and len(not_none_parts) == msg.fragment_count:
                     msg = NMEAMessage.assemble_from_iterable(not_none_parts)
                     yield self.__insert_wrapper_msg(msg)
                     del buffer[slot]
