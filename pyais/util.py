@@ -29,9 +29,9 @@ def decode_into_bit_array(data: bytes, fill_bits: int = 0) -> bitarray:
     :param fill_bits:   Number of trailing fill bits to be ignored
     :return:
     """
-    bit_str = ''
     length = len(data)
-
+    bits = bitarray(len(data) * 6 - fill_bits)
+    bit_pos = 0
     for i, c in enumerate(data):
         if not 0x20 <= c <= 0x7e:
             raise NonPrintableCharacterException(f"Non printable character: '{hex(c)}'")
@@ -43,12 +43,20 @@ def decode_into_bit_array(data: bytes, fill_bits: int = 0) -> bitarray:
         if i == length - 1 and fill_bits:
             # The last part be shorter than 6 bits and contain fill bits
             c = c >> fill_bits
-            bit_str += f'{c:b}'.zfill(6 - fill_bits)
+            bits_to_write = 6 - fill_bits
+            for bit_idx in range(bits_to_write - 1, -1, -1):
+                bits[bit_pos] = (c & (1 << bit_idx)) > 0
+                bit_pos += 1
         else:
-            bit_str += f'{c:06b}'
+            bits[bit_pos] = (c & (1 << 5)) > 0
+            bits[bit_pos + 1] = (c & (1 << 4)) > 0
+            bits[bit_pos + 2] = (c & (1 << 3)) > 0
+            bits[bit_pos + 3] = (c & (1 << 2)) > 0
+            bits[bit_pos + 4] = (c & (1 << 1)) > 0
+            bits[bit_pos + 5] = (c & 1) > 0
+            bit_pos += 6
 
-    bit_arr = bitarray(bit_str)
-    return bit_arr
+    return bits
 
 
 def chunks(sequence: typing.Sequence[T], n: int) -> Generator[typing.Sequence[T], None, None]:
