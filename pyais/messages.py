@@ -583,7 +583,6 @@ class AISSentence(NMEASentence):
         @return: A dictionary that holds all fields, defined in __slots__ + the decoded msg
         """
         rlt = self.asdict()
-        del rlt['bit_array']
         decoded = self.decode()
         rlt.update(decoded.asdict(enum_as_int))
         return rlt
@@ -606,8 +605,8 @@ class AISSentence(NMEASentence):
         raw = b''
         payload = b''
         data = b''
-        # bit_array = bitarray()
         is_valid = True
+        total_bits = 0
 
         for i, msg in enumerate(sorted(messages, key=lambda m: m.frag_num)):
             if i > 0:
@@ -615,13 +614,14 @@ class AISSentence(NMEASentence):
             raw += msg.raw
             payload += msg.payload
             data += msg.data
-            # bit_array += msg.bit_array
+            total_bits += msg.total_bits
             is_valid &= msg.is_valid
 
         messages[0].raw = raw
         messages[0].payload = payload
         messages[0].data = data
         messages[0].is_valid = is_valid
+        messages[0].total_bits = total_bits
         return messages[0]
 
     @property
@@ -647,7 +647,6 @@ class AISSentence(NMEASentence):
         if not self.payload:
             raise MissingPayloadException(self.raw.decode())
         try:
-            # return MSG_CLASS[self.ais_id].from_bitarray(self.bit_array)
             return MSG_CLASS[self.ais_id].from_bytes(self.data, self.total_bits)
         except KeyError as e:
             raise UnknownMessageException(f"The message {self} is not supported!") from e
@@ -763,12 +762,11 @@ class Payload(abc.ABC):
     @classmethod
     def from_bytes(cls, data: bytes, total_bits: int) -> "ANY_MESSAGE":
         cur: int = 0
-        length: int = len(data) * 8
         kwargs: typing.Dict[str, typing.Any] = {}
 
         # Iterate over the bits until the last bit of the bitarray or all fields are fully decoded
         for field in cls.fields():
-            if cur >= length:
+            if cur >= total_bits:
                 # All fields that did not fit into the bit array are None
                 kwargs[field.name] = None
                 continue
