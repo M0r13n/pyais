@@ -22,6 +22,115 @@ from_bytes_signed = partial(int.from_bytes, byteorder="big", signed=True)
 T = typing.TypeVar('T')
 
 
+class SixBitNibleDecoder:
+    """Ultra-efficient 6-bit AIS decoder optimized for maximum speed"""
+
+    def __init__(self):
+        self._buffer = bytearray(256)  # Pre-allocated buffer
+
+    def decode_fast(self, payload: bytes, fill_bits: int = 0) -> tuple[bytes, int]:
+        """Ultra-fast 6-bit to binary conversion"""
+        payload_len = len(payload)
+        if payload_len == 0:
+            return b'', 0
+
+        # Calculate output size (6 bits per char, packed into bytes)
+        bit_count = payload_len * 6 - fill_bits
+        byte_count = math.ceil(bit_count / 8)
+
+        # Ensure buffer is large enough
+        if byte_count > len(self._buffer):
+            self._buffer = bytearray(byte_count + 64)
+
+        # Clear output buffer
+        for i in range(byte_count):
+            self._buffer[i] = 0
+
+        # Ultra-fast bit packing loop
+        bit_pos = 0
+        for i, char_byte in enumerate(payload):
+            if not 0x20 <= char_byte <= 0x7e:
+                raise NonPrintableCharacterException(f"Non printable character: '{hex(char_byte)}'")
+
+            if char_byte >= 120:  # Out of range
+                continue
+
+            # Convert 8 bit binary to 6 bit binary
+            char_byte -= 0x30 if (char_byte < 0x60) else 0x38
+            char_byte &= 0x3F
+
+            # Handle fill bits in the last character
+            if i == payload_len - 1 and fill_bits > 0:
+                char_byte = char_byte >> fill_bits
+                bits_to_pack = 6 - fill_bits
+            else:
+                bits_to_pack = 6
+
+            # Calculate byte and bit positions
+            byte_idx = bit_pos // 8
+            bit_offset = bit_pos % 8
+
+            # Pack bits into buffer
+            if bit_offset + bits_to_pack <= 8:
+                # Fits in current byte
+                self._buffer[byte_idx] |= char_byte << (8 - bit_offset - bits_to_pack)
+            else:
+                # Spans two bytes
+                remaining_bits = 8 - bit_offset
+                self._buffer[byte_idx] |= char_byte >> (bits_to_pack - remaining_bits)
+                if byte_idx + 1 < byte_count:
+                    self._buffer[byte_idx + 1] |= (char_byte << (8 - (bits_to_pack - remaining_bits))) & 0xFF
+
+            bit_pos += bits_to_pack
+
+        return bytes(self._buffer[:byte_count]), bit_count
+
+
+def extract_bits(data: bytes, start_bit: int, num_bits: int, total_bit_length: int = -1, signed=False) -> int:
+    """Ultra-fast bit extraction"""
+    if total_bit_length == -1:
+        total_bit_length = len(data) * 8
+
+    if num_bits == 0:
+        return 0
+
+    if start_bit >= total_bit_length:
+        return 0
+
+    # Limit extraction to available bits
+    available_bits = total_bit_length - start_bit
+    bits_to_read = min(num_bits, available_bits)
+
+    if bits_to_read == 0:
+        return 0
+
+    result = 0
+    bits_read = 0
+
+    while bits_read < bits_to_read:
+        byte_idx = (start_bit + bits_read) // 8
+        if byte_idx >= len(data):
+            break
+
+        bit_offset = (start_bit + bits_read) % 8
+        bits_in_byte = min(8 - bit_offset, bits_to_read - bits_read)
+
+        # Extract bits from current byte
+        mask = (1 << bits_in_byte) - 1
+        byte_value = (data[byte_idx] >> (8 - bit_offset - bits_in_byte)) & mask
+
+        result = (result << bits_in_byte) | byte_value
+        bits_read += bits_in_byte
+
+    # Handle signed interpretation
+    if signed and num_bits > 0:
+        sign_bit_mask = 1 << (num_bits - 1)
+        if result & sign_bit_mask:
+            result = result - (1 << num_bits)
+
+    return result
+
+
 def decode_into_bit_array(data: bytes, fill_bits: int = 0) -> bitarray:
     """
     Decodes a raw AIS message into a bitarray.
@@ -54,6 +163,53 @@ def decode_into_bit_array(data: bytes, fill_bits: int = 0) -> bitarray:
 def chunks(sequence: typing.Sequence[T], n: int) -> Generator[typing.Sequence[T], None, None]:
     """Yield successive n-sized chunks from sequence."""
     return (sequence[i:i + n] for i in range(0, len(sequence), n))
+
+
+def decode_bytes_as_ascii6(data: bytes, start_bit: int = 0, total_bits: int = -1) -> str:
+    """
+    Decode binary data as 6-bit ASCII.
+
+    Args:
+        data: Binary data to decode
+        start_bit: Starting bit position (default: 0)
+        total_bits: Total number of bits to process (default: all available)
+
+    Returns:
+        ASCII String
+    """
+    if total_bits == -1:
+        total_bits = len(data) * 8 - start_bit
+
+    string = ""
+    bit_pos = start_bit
+
+    while bit_pos < start_bit + total_bits:
+        # Calculate how many bits are available for this chunk
+        remaining_bits = (start_bit + total_bits) - bit_pos
+        chunk_bits = min(6, remaining_bits)
+
+        if chunk_bits == 0:
+            break
+
+        # Extract the 6-bit chunk (or less if at the end)
+        n = extract_bits(data, bit_pos, chunk_bits, signed=False)
+
+        # Handle incomplete chunks (less than 6 bits)
+        if chunk_bits < 6:
+            n <<= (6 - chunk_bits)  # Left-shift to align to 6-bit boundary
+
+        # Convert to ASCII character
+        if n < 0x20:
+            n += 0x40
+
+        # Break if there is an @ (ASCII 64)
+        if n == 64:
+            break
+
+        string += chr(n)
+        bit_pos += chunk_bits
+
+    return string.strip()
 
 
 def decode_bin_as_ascii6(bit_arr: bitarray) -> str:
@@ -430,3 +586,74 @@ def get_first_three_digits(num: int) -> int:
 
 def get_country(mmsi: int) -> typing.Tuple[str, str]:
     return COUNTRY_MAPPING.get(get_first_three_digits(mmsi), ('NA', 'Unknown'))
+
+
+def get_bytes(data: bytes, start_bit: int, length_bits: int) -> bytes:
+    """
+    Extract raw bytes from binary data starting at a specific bit position.
+
+    Args:
+        data: Source binary data
+        start_bit: Starting bit position (0-indexed)
+        length_bits: Number of bits to extract
+
+    Returns:
+        bytes object containing the extracted bits, padded to byte boundaries
+
+    Examples:
+        >>> decoder.get_bytes(b'\xFF\x00\xAA', 4, 8)  # Extract 8 bits starting at bit 4
+        b'\xF0'
+        >>> decoder.get_bytes(b'\xFF\x00\xAA', 0, 12)  # Extract 12 bits starting at bit 0
+        b'\xFF\x00'
+    """
+    if length_bits <= 0:
+        return b''
+
+    # Check boundaries
+    data_bit_length = len(data) * 8
+    if start_bit >= data_bit_length:
+        return b''
+
+    # Limit to available bits
+    available_bits = data_bit_length - start_bit
+    actual_bits = min(length_bits, available_bits)
+
+    if actual_bits <= 0:
+        return b''
+
+    # Calculate output byte count
+    output_bytes = (actual_bits + 7) // 8
+
+    result_buffer = bytearray(output_bytes)
+
+    # Extract bits and pack into bytes
+    bits_copied = 0
+
+    while bits_copied < actual_bits:
+        # Source position
+        src_byte_idx = (start_bit + bits_copied) // 8
+        src_bit_offset = (start_bit + bits_copied) % 8
+
+        # Destination position
+        dst_byte_idx = bits_copied // 8
+        dst_bit_offset = bits_copied % 8
+
+        # How many bits can we copy from current source byte?
+        src_bits_available = 8 - src_bit_offset
+        dst_bits_available = 8 - dst_bit_offset
+        remaining_bits = actual_bits - bits_copied
+
+        bits_to_copy = min(src_bits_available, dst_bits_available, remaining_bits)
+
+        if src_byte_idx < len(data) and dst_byte_idx < output_bytes:
+            # Extract bits from source
+            src_mask = ((1 << bits_to_copy) - 1) << (src_bits_available - bits_to_copy)
+            src_bits = (data[src_byte_idx] & src_mask) >> (src_bits_available - bits_to_copy)
+
+            # Place bits in destination
+            dst_shift = dst_bits_available - bits_to_copy
+            result_buffer[dst_byte_idx] |= src_bits << dst_shift
+
+        bits_copied += bits_to_copy
+
+    return bytes(result_buffer[:output_bytes])

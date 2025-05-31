@@ -13,7 +13,7 @@ from pyais.constants import TalkerID, NavigationStatus, ManeuverIndicator, EpfdT
     TransmitMode, StationIntervals, TurnRate, InlandLoadedType
 from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitializedException, UnknownMessageException, UnknownPartNoException, \
     InvalidDataTypeException, MissingPayloadException
-from pyais.util import checksum, decode_into_bit_array, compute_checksum, get_itdma_comm_state, get_sotdma_comm_state, int_to_bin, str_to_bin, \
+from pyais.util import SixBitNibleDecoder, checksum, decode_bytes_as_ascii6, decode_into_bit_array, compute_checksum, extract_bits, get_bytes, get_itdma_comm_state, get_sotdma_comm_state, int_to_bin, str_to_bin, \
     encode_ascii_6, from_bytes, from_bytes_signed, decode_bin_as_ascii6, get_int, chk_to_int, coerce_val, \
     bits2bytes, bytes2bits, b64encode_str
 
@@ -496,6 +496,9 @@ class GatehouseSentence(NMEASentence):
         self.timestamp = t
 
 
+_decoder = SixBitNibleDecoder()
+
+
 class AISSentence(NMEASentence):
     TYPE = 'AIS'
 
@@ -505,8 +508,9 @@ class AISSentence(NMEASentence):
         'frag_num',
         'seq_id',
         'payload',
-        'bit_array',
+        'data',
         'ais_id',
+        'total_bits',
         'channel',
     )
 
@@ -544,8 +548,11 @@ class AISSentence(NMEASentence):
             raise InvalidNMEAMessageException("Too many fragments")
 
         # Finally decode bytes into bits
-        self.bit_array: bitarray = decode_into_bit_array(self.payload, self.fill_bits)
-        self.ais_id: int = get_int(self.bit_array, 0, 6)
+        # self.bit_array: bitarray = decode_into_bit_array(self.payload, self.fill_bits)
+        # self.ais_id: int = get_int(self.bit_array, 0, 6)
+
+        self.data, self.total_bits = _decoder.decode_fast(self.payload, self.fill_bits)
+        self.ais_id = extract_bits(self.data, 0, 6, self.total_bits)
 
     def asdict(self) -> Dict[str, Any]:
         """
@@ -564,7 +571,7 @@ class AISSentence(NMEASentence):
             'payload': self.payload.decode('ascii'),  # str
             'fill_bits': self.fill_bits,  # int
             'checksum': self.checksum,  # int
-            'bit_array': self.bit_array.to01(),  # str
+            # 'bit_array': self.bit_array.to01(),  # str
             'is_valid': self.is_valid,  # bool
         }
 
@@ -597,21 +604,23 @@ class AISSentence(NMEASentence):
         :return: Single message
         """
         raw = b''
+        payload = b''
         data = b''
-        bit_array = bitarray()
+        # bit_array = bitarray()
         is_valid = True
 
         for i, msg in enumerate(sorted(messages, key=lambda m: m.frag_num)):
             if i > 0:
                 raw += b'\n'
             raw += msg.raw
-            data += msg.payload
-            bit_array += msg.bit_array
+            payload += msg.payload
+            data += msg.data
+            # bit_array += msg.bit_array
             is_valid &= msg.is_valid
 
         messages[0].raw = raw
-        messages[0].payload = data
-        messages[0].bit_array = bit_array
+        messages[0].payload = payload
+        messages[0].data = data
         messages[0].is_valid = is_valid
         return messages[0]
 
@@ -638,7 +647,8 @@ class AISSentence(NMEASentence):
         if not self.payload:
             raise MissingPayloadException(self.raw.decode())
         try:
-            return MSG_CLASS[self.ais_id].from_bitarray(self.bit_array)
+            # return MSG_CLASS[self.ais_id].from_bitarray(self.bit_array)
+            return MSG_CLASS[self.ais_id].from_bytes(self.data, self.total_bits)
         except KeyError as e:
             raise UnknownMessageException(f"The message {self} is not supported!") from e
 
@@ -749,6 +759,46 @@ class Payload(abc.ABC):
                 if default is not None:
                     args[key] = default
         return cls(**args)  # type:ignore
+
+    @classmethod
+    def from_bytes(cls, data: bytes, total_bits: int) -> "ANY_MESSAGE":
+        cur: int = 0
+        length: int = len(data) * 8
+        kwargs: typing.Dict[str, typing.Any] = {}
+
+        # Iterate over the bits until the last bit of the bitarray or all fields are fully decoded
+        for field in cls.fields():
+            if cur >= length:
+                # All fields that did not fit into the bit array are None
+                kwargs[field.name] = None
+                continue
+
+            width = field.metadata['width']
+            d_type = field.metadata['d_type']
+            converter = field.metadata['to_converter']
+
+            val: typing.Any
+            # Get the correct data type and decoding function
+            if d_type == int or d_type == bool or d_type == float:
+                val = extract_bits(data, cur, width, total_bit_length=total_bits, signed=field.metadata['signed'])
+
+                if d_type == float:
+                    val = float(val)
+                elif d_type == bool:
+                    val = bool(val)
+
+            elif d_type == str:
+                val = decode_bytes_as_ascii6(data, cur, width)
+            elif d_type == bytes:
+                val = get_bytes(data, cur, width)
+            else:
+                raise InvalidDataTypeException(d_type)
+
+            val = converter(val) if converter is not None else val
+            kwargs[field.name] = val
+            cur += width
+
+        return cls(**kwargs)  # type:ignore
 
     @classmethod
     def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
@@ -1100,13 +1150,13 @@ class MessageType8(Payload):
             return MessageType8Default.create(**kwargs)
 
     @classmethod
-    def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
-        dac: int = get_int(bit_arr, 40, 50)
-        fid: int = get_int(bit_arr, 50, 56)
+    def from_bytes(cls, data: bytes, total_bits: int) -> "ANY_MESSAGE":
+        dac: int = extract_bits(data, 40, 10)
+        fid: int = extract_bits(data, 50, 6)
         if dac == 200 and fid == 10:
-            return MessageType8Dac200Fid10.from_bitarray(bit_arr)
+            return MessageType8Dac200Fid10.from_bytes(data, total_bits)
         else:
-            return MessageType8Default.from_bitarray(bit_arr)
+            return MessageType8Default.from_bytes(data, total_bits)
 
 
 @attr.s(slots=True)
@@ -1546,11 +1596,11 @@ class MessageType22(Payload):
             return MessageType22Broadcast.create(**kwargs)
 
     @classmethod
-    def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
-        if get_int(bit_arr, 139, 140):
-            return MessageType22Addressed.from_bitarray(bit_arr)
+    def from_bytes(cls, data: bytes, total_bits: int) -> "ANY_MESSAGE":
+        if extract_bits(data, 139, 1):
+            return MessageType22Addressed.from_bytes(data, total_bits)
         else:
-            return MessageType22Broadcast.from_bitarray(bit_arr)
+            return MessageType22Broadcast.from_bytes(data, total_bits)
 
 
 @attr.s(slots=True)
@@ -1636,12 +1686,12 @@ class MessageType24(Payload):
             raise UnknownPartNoException(f"Partno {partno} is not allowed!")
 
     @classmethod
-    def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
-        partno: int = get_int(bit_arr, 38, 40)
+    def from_bytes(cls, data: bytes, total_bits: int) -> "ANY_MESSAGE":
+        partno: int = extract_bits(data, 38, 2)
         if partno == 0:
-            return MessageType24PartA.from_bitarray(bit_arr)
+            return MessageType24PartA.from_bytes(data, total_bits)
         elif partno == 1:
-            return MessageType24PartB.from_bitarray(bit_arr)
+            return MessageType24PartB.from_bytes(data, total_bits)
         else:
             raise UnknownPartNoException(f"Partno {partno} is not allowed!")
 
@@ -1725,20 +1775,20 @@ class MessageType25(Payload):
                 return MessageType25BroadcastUnstructured.create(**kwargs)
 
     @classmethod
-    def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
-        addressed: int = get_int(bit_arr, 38, 39)
-        structured: int = get_int(bit_arr, 39, 40)
+    def from_bytes(cls, data: bytes, total_bits: int) -> "ANY_MESSAGE":
+        addressed: int = extract_bits(data, 38, 1)
+        structured: int = extract_bits(data, 39, 1)
 
         if addressed:
             if structured:
-                return MessageType25AddressedStructured.from_bitarray(bit_arr)
+                return MessageType25AddressedStructured.from_bytes(data, total_bits)
             else:
-                return MessageType25AddressedUnstructured.from_bitarray(bit_arr)
+                return MessageType25AddressedUnstructured.from_bytes(data, total_bits)
         else:
             if structured:
-                return MessageType25BroadcastStructured.from_bitarray(bit_arr)
+                return MessageType25BroadcastStructured.from_bytes(data, total_bits)
             else:
-                return MessageType25BroadcastUnstructured.from_bitarray(bit_arr)
+                return MessageType25BroadcastUnstructured.from_bytes(data, total_bits)
 
 
 @attr.s(slots=True)
@@ -1825,20 +1875,20 @@ class MessageType26(Payload):
                 return MessageType26BroadcastUnstructured.create(**kwargs)
 
     @classmethod
-    def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
-        addressed: int = get_int(bit_arr, 38, 39)
-        structured: int = get_int(bit_arr, 39, 40)
+    def from_bytes(cls, data: bytes, total_bits: int) -> "ANY_MESSAGE":
+        addressed: int = extract_bits(data, 38, 1)
+        structured: int = extract_bits(data, 39, 1)
 
         if addressed:
             if structured:
-                return MessageType26AddressedStructured.from_bitarray(bit_arr)
+                return MessageType26AddressedStructured.from_bytes(data, total_bits)
             else:
-                return MessageType26BroadcastStructured.from_bitarray(bit_arr)
+                return MessageType26BroadcastStructured.from_bytes(data, total_bits)
         else:
             if structured:
-                return MessageType26AddressedUnstructured.from_bitarray(bit_arr)
+                return MessageType26AddressedUnstructured.from_bytes(data, total_bits)
             else:
-                return MessageType26BroadcastUnstructured.from_bitarray(bit_arr)
+                return MessageType26BroadcastUnstructured.from_bytes(data, total_bits)
 
 
 @attr.s(slots=True)
