@@ -13,9 +13,9 @@ from pyais.constants import TalkerID, NavigationStatus, ManeuverIndicator, EpfdT
     TransmitMode, StationIntervals, TurnRate, InlandLoadedType
 from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitializedException, UnknownMessageException, UnknownPartNoException, \
     InvalidDataTypeException, MissingPayloadException
-from pyais.util import SixBitNibleDecoder, checksum, decode_bytes_as_ascii6, decode_into_bit_array, compute_checksum, extract_bits, get_bytes, get_itdma_comm_state, get_sotdma_comm_state, int_to_bin, str_to_bin, \
+from pyais.util import SIX_BIT_ENCODING, SixBitNibleDecoder, checksum, decode_bytes_as_ascii6, decode_into_bit_array, compute_checksum, extract_bits, get_bytes, get_itdma_comm_state, get_sotdma_comm_state, int_to_bin, str_to_bin, \
     encode_ascii_6, from_bytes, from_bytes_signed, decode_bin_as_ascii6, get_int, chk_to_int, coerce_val, \
-    bits2bytes, bytes2bits, b64encode_str
+    bits2bytes, bytes2bits, b64encode_str, to_six_bit
 
 NMEA_VALUE = typing.Union[str, float, int, bool, bytes]
 
@@ -687,6 +687,66 @@ class Payload(abc.ABC):
         A list of all fields that were added to this class using attrs.
         """
         return attr.fields(cls)  # type:ignore
+
+    def to_bytes(self):
+        output = bytearray()
+        bit_buffer = 0
+        bits_in_buffer = 0
+
+        for field in self.fields():
+            width = field.metadata['width']
+            d_type = field.metadata['d_type']
+            converter = field.metadata['from_converter']
+            variable_length = field.metadata['variable_length']
+
+            val = getattr(self, field.name)
+            if val is None:
+                continue
+
+            val = converter(val) if converter is not None else val
+
+            if d_type in (bool, int, float):
+                # Convert number to bits
+                val = int(val)
+                bit_buffer = (bit_buffer << width) | (val & ((1 << width) - 1))
+                bits_in_buffer += width
+            elif d_type == str:
+                trailing_spaces = not variable_length
+                num_chars = int(width / 6)
+                if trailing_spaces:
+                    # Add trailing '@' if the string is shorter than `width`
+                    for _ in range(num_chars - len(val)):
+                        val += "@"
+                for char in val[:num_chars]:
+                    # Convert each char to six-bit ASCII vector
+                    txt = SIX_BIT_ENCODING[char.upper()]
+                    bit_buffer = (bit_buffer << 6) | (txt & ((1 << width) - 1))
+                    bits_in_buffer += 6
+            elif d_type == bytes:
+                # Convert bytes to bits
+                if not val:
+                    bit_buffer = (bit_buffer << width)
+                    bits_in_buffer += width
+                else:
+                    required_bits = min(width, len(val) * 8)
+                    int_value = int.from_bytes(val, 'big')
+                    bit_buffer = (bit_buffer << required_bits) | int_value
+                    bits_in_buffer += required_bits
+            else:
+                raise InvalidDataTypeException(d_type)
+
+            # Flush out bytes
+            while bits_in_buffer >= 8:
+                bits_in_buffer -= 8
+                byte = (bit_buffer >> bits_in_buffer) & 0xFF
+                output.append(byte)
+
+        # Handle remaining bits (if any)
+        if bits_in_buffer > 0:
+            byte = (bit_buffer << (8 - bits_in_buffer)) & 0xFF
+            output.append(byte)
+
+        return bytes(output)
 
     def to_bitarray(self) -> bitarray:
         """
