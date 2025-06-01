@@ -548,9 +548,6 @@ class AISSentence(NMEASentence):
             raise InvalidNMEAMessageException("Too many fragments")
 
         # Finally decode bytes into bits
-        # self.bit_array: bitarray = decode_into_bit_array(self.payload, self.fill_bits)
-        # self.ais_id: int = get_int(self.bit_array, 0, 6)
-
         self.data, self.total_bits = _decoder.decode_fast(self.payload, self.fill_bits)
         self.ais_id = extract_bits(self.data, 0, 6, self.total_bits)
 
@@ -602,26 +599,26 @@ class AISSentence(NMEASentence):
         :param messages: Sequence of NMEA messages
         :return: Single message
         """
+        if len(messages) == 1:
+            return messages[0]
+
         raw = b''
         payload = b''
-        data = b''
         is_valid = True
-        total_bits = 0
 
         for i, msg in enumerate(sorted(messages, key=lambda m: m.frag_num)):
             if i > 0:
                 raw += b'\n'
             raw += msg.raw
             payload += msg.payload
-            data += msg.data
-            total_bits += msg.total_bits
             is_valid &= msg.is_valid
 
         messages[0].raw = raw
         messages[0].payload = payload
+        data, total_bits = _decoder.decode_fast(payload, fill_bits=messages[-1].fill_bits)
         messages[0].data = data
-        messages[0].is_valid = is_valid
         messages[0].total_bits = total_bits
+        messages[0].is_valid = is_valid
         return messages[0]
 
     @property
