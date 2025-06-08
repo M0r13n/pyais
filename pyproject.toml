@@ -31,8 +31,7 @@ classifiers = [
 ]
 
 dependencies = [
-  "bitarray",
-  "attrs"
+  "attrs",
 ]
 
 [project.optional-dependencies]

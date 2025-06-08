@@ -1,6 +1,5 @@
 import unittest
 
-from bitarray import bitarray
 from pyais.decode import _assemble_messages
 
 from pyais.exceptions import InvalidNMEAMessageException

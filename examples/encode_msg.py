@@ -17,8 +17,11 @@ Now to the actual encoding of messages: It is possible to create a payload class
 For the following example, let's assume that we want to create a type 1 AIS message.
 """
 # Required imports
-from pyais.encode import encode_msg
+import math
+from pyais.decode import decode
+from pyais.encode import encode_dict, encode_msg
 from pyais.messages import MessageType1
+from pyais.util import SixBitNibleDecoder
 
 # You do not need to pass every attribute to the class.
 # All field other than `mmsi` do have default values.
@@ -32,7 +35,19 @@ msg = MessageType1.create(course=219.3, lat=37.802, lon=-122.341, mmsi='36605320
 # This is done, because you may never know if a message fits into the 82 character
 # size limit of payloads
 encoded = encode_msg(msg)
-print(encoded)
 
-# You can also change the NMEA fields like the radio channel:
-print(encode_msg(msg, radio_channel="B"))
+msg = MessageType1.create(mmsi="123", lon=1 << 30)
+encoded = encode_msg(msg)
+decoded = decode(encoded[0])
+
+data = {
+    'dest_mmsi': '271002111',
+    'mmsi': '271002099',
+    'repeat': 0,
+    'retransmit': 1,
+    'seqno': 0,
+    'text': 'MSG FROM 271002099',
+    'type': 12
+}
+actual = encode_dict(data)
+print(actual)

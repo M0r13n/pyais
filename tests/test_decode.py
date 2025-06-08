@@ -50,7 +50,7 @@ from pyais.messages import (
     MessageType26BroadcastUnstructured,
 )
 from pyais.stream import ByteStream, IterMessages
-from pyais.util import b64encode_str, bits2bytes, bytes2bits, decode_into_bit_array
+from pyais.util import b64encode_str
 from pyais.exceptions import MissingPayloadException
 
 
@@ -1653,10 +1653,11 @@ class TestAIS(unittest.TestCase):
         """Refer to https://github.com/M0r13n/pyais/issues/86"""
         nmea = NMEAMessage(b"!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23")
         ais = nmea.decode()
-        orig_bits = nmea.bit_array.to01()
-        actual_bits = ais.to_bitarray().to01()
 
-        self.assertEqual(orig_bits, actual_bits)
+        orig_bytes = nmea.data
+        after_bytes = ais.to_bytes()
+
+        self.assertEqual(orig_bytes, after_bytes)
 
     def test_issue_88(self):
         """There was a decoding bug when the NMEA payload contains special characters"""

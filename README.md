@@ -539,13 +539,7 @@ with pyais.AISTracker() as tracker:
 
 # Performance Considerations
 
-You may refer to
-the [Code Review Stack Exchange question](https://codereview.stackexchange.com/questions/230258/decoding-of-binary-data-ais-from-socket)
-. After a some research I decided to use the bitarray module as foundation. This module uses a C extension under the
-hood and has a nice user interface in Python. Performance is also great. Decoding
-this [sample](https://www.aishub.net/ais-dispatcher) with roughly 85k messages takes **less than 6 seconds** on my
-machine. For comparison, the C++ based [libais module](https://github.com/schwehr/libais) parses the same file in \~ 2
-seconds.
+#TODO
 
 # Disclaimer
 
@@ -558,29 +552,6 @@ Currently, this module is able to decode most message types. There are only a fe
 only occur in very rare cases and that you will probably never observe. The module was able to completely decode a 4
 hour stream with real-time data from San Francisco Bay Area without any errors or problems. If you find a bug or missing
 feature, please create an issue.
-
-# Known Issues
-
-During installation, you may encounter problems due to missing header files. The error looks like this:
-
-```sh
-...
-
-    bitarray/_bitarray.c:13:10: fatal error: Python.h: No such file or directory
-       13 | #include "Python.h"
-          |          ^~~~~~~~~~
-    compilation terminated.
-    error: command 'x86_64-linux-gnu-gcc' failed with exit status 1
-
-...
-
-```
-
-In order to solve this issue, you need to install header files and static libraries for python dev:
-
-```sh
-$ sudo apt install python3-dev
-```
 
 # For developers
 

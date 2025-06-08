@@ -7,15 +7,13 @@ import typing
 from typing import Any, Dict, Optional, Sequence, Union
 
 import attr
-from bitarray import bitarray
 
 from pyais.constants import TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
     TransmitMode, StationIntervals, TurnRate, InlandLoadedType
 from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitializedException, UnknownMessageException, UnknownPartNoException, \
     InvalidDataTypeException, MissingPayloadException
-from pyais.util import SIX_BIT_ENCODING, SixBitNibleDecoder, checksum, decode_bytes_as_ascii6, decode_into_bit_array, compute_checksum, extract_bits, get_bytes, get_itdma_comm_state, get_sotdma_comm_state, int_to_bin, str_to_bin, \
-    encode_ascii_6, from_bytes, from_bytes_signed, decode_bin_as_ascii6, get_int, chk_to_int, coerce_val, \
-    bits2bytes, bytes2bits, b64encode_str, to_six_bit
+from pyais.util import SIX_BIT_ENCODING, SixBitNibleDecoder, SixBitNibleEncoder, checksum, decode_bytes_as_ascii6, compute_checksum, extract_bits, get_bytes, get_itdma_comm_state, get_sotdma_comm_state, \
+    chk_to_int, coerce_val, b64encode_str
 
 NMEA_VALUE = typing.Union[str, float, int, bool, bytes]
 
@@ -436,7 +434,7 @@ class NMEASentence(object):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}<{self.raw.decode('ascii')}>"
 
-    def __getitem__(self, item: str) -> Union[int, str, bytes, bitarray]:
+    def __getitem__(self, item: str) -> Union[int, str, bytes]:
         if isinstance(item, str):
             try:
                 return getattr(self, item)  # type: ignore
@@ -497,6 +495,7 @@ class GatehouseSentence(NMEASentence):
 
 
 _decoder = SixBitNibleDecoder()
+_encoder = SixBitNibleEncoder()
 
 
 class AISSentence(NMEASentence):
@@ -692,6 +691,7 @@ class Payload(abc.ABC):
         output = bytearray()
         bit_buffer = 0
         bits_in_buffer = 0
+        total_bits = 0
 
         for field in self.fields():
             width = field.metadata['width']
@@ -740,56 +740,21 @@ class Payload(abc.ABC):
                 bits_in_buffer -= 8
                 byte = (bit_buffer >> bits_in_buffer) & 0xFF
                 output.append(byte)
+                total_bits += 8
 
         # Handle remaining bits (if any)
         if bits_in_buffer > 0:
             byte = (bit_buffer << (8 - bits_in_buffer)) & 0xFF
             output.append(byte)
+            total_bits += bits_in_buffer
 
-        return bytes(output)
-
-    def to_bitarray(self) -> bitarray:
-        """
-        Convert all attributes of a given Payload/Message to binary.
-        """
-        out = bitarray()
-        for field in self.fields():
-            width = field.metadata['width']
-            d_type = field.metadata['d_type']
-            converter = field.metadata['from_converter']
-            signed = field.metadata['signed']
-            variable_length = field.metadata['variable_length']
-
-            val = getattr(self, field.name)
-            if val is None:
-                continue
-
-            val = converter(val) if converter is not None else val
-
-            if d_type in (bool, int):
-                bits = int_to_bin(val, width, signed=signed)
-            elif d_type == float:
-                val = int(val)
-                bits = int_to_bin(val, width, signed=signed)
-            elif d_type == str:
-                trailing_spaces = not variable_length
-                bits = str_to_bin(val, width, trailing_spaces=trailing_spaces)
-            elif d_type == bytes:
-                bits = bytes2bits(val, default=bitarray('0' * width))
-            else:
-                raise InvalidDataTypeException(d_type)
-
-            bits = bits[:width]
-            out += bits
-
-        return out
+        return bytes(output), total_bits
 
     def encode(self) -> typing.Tuple[str, int]:
         """
         Encode a payload as an ASCII encoded bit vector. The second returned value is the number of fill bits.
         """
-        bit_arr = self.to_bitarray()
-        return encode_ascii_6(bit_arr)
+        return _encoder.encode(*self.to_bytes())
 
     @classmethod
     def create(cls, **kwargs: NMEA_VALUE) -> "ANY_MESSAGE":
@@ -821,7 +786,7 @@ class Payload(abc.ABC):
         cur: int = 0
         kwargs: typing.Dict[str, typing.Any] = {}
 
-        # Iterate over the bits until the last bit of the bitarray or all fields are fully decoded
+        # Iterate over fields and data
         for field in cls.fields():
             if cur >= total_bits:
                 # All fields that did not fit into the bit array are None
@@ -852,55 +817,6 @@ class Payload(abc.ABC):
             val = converter(val) if converter is not None else val
             kwargs[field.name] = val
             cur += width
-
-        return cls(**kwargs)  # type:ignore
-
-    @classmethod
-    def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
-        cur: int = 0
-        end: int = 0
-        length: int = len(bit_arr)
-        kwargs: typing.Dict[str, typing.Any] = {}
-
-        # Iterate over the bits until the last bit of the bitarray or all fields are fully decoded
-        for field in cls.fields():
-
-            if end >= length:
-                # All fields that did not fit into the bit array are None
-                kwargs[field.name] = None
-                continue
-
-            width = field.metadata['width']
-            d_type = field.metadata['d_type']
-            converter = field.metadata['to_converter']
-
-            end = min(length, cur + width)
-            bits = bit_arr[cur: end]
-
-            val: typing.Any
-            # Get the correct data type and decoding function
-            if d_type == int or d_type == bool or d_type == float:
-                shift = (8 - ((end - cur) % 8)) % 8
-                if field.metadata['signed']:
-                    val = from_bytes_signed(bits) >> shift
-                else:
-                    val = from_bytes(bits) >> shift
-
-                if d_type == float:
-                    val = float(val)
-                elif d_type == bool:
-                    val = bool(val)
-
-            elif d_type == str:
-                val = decode_bin_as_ascii6(bits)
-            elif d_type == bytes:
-                val = bits2bytes(bits)
-            else:
-                raise InvalidDataTypeException(d_type)
-
-            val = converter(val) if converter is not None else val
-            kwargs[field.name] = val
-            cur = end
 
         return cls(**kwargs)  # type:ignore
 

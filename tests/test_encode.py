@@ -1,7 +1,5 @@
 import unittest
 
-import bitarray
-
 from pyais import encode_dict, encode_msg
 from pyais.constants import InlandLoadedType, NavigationStatus
 from pyais.decode import decode
@@ -14,8 +12,7 @@ from pyais.messages import MessageType1, MessageType26BroadcastUnstructured, Mes
     MessageType23, MessageType21, MessageType20, MessageType19, MessageType18, MessageType17, MessageType16, \
     MessageType15, MessageType4, MessageType5, MessageType6, MessageType7, MessageType8Default, MessageType2, MessageType3, \
     MSG_CLASS
-from pyais.util import decode_bin_as_ascii6, decode_into_bit_array, str_to_bin, int_to_bin, to_six_bit, encode_ascii_6, \
-    int_to_bytes, bits2bytes
+from pyais.util import to_six_bit, int_to_bytes
 
 
 def test_widths():
@@ -1179,19 +1176,6 @@ def test_to_six_bit():
 
     with unittest.TestCase().assertRaises(ValueError):
         to_six_bit('ä')
-
-
-def test_encode_ascii_6_bit():
-    input_val = '001000000101001100001100001111100000010111001111010010001100000100100001'
-    b = bitarray.bitarray(input_val)
-    ascii6, padding = encode_ascii_6(b)
-
-    assert ascii6 == "85<<?PG?B<4Q"
-    assert padding == 0
-
-    bit_arr = decode_into_bit_array(ascii6.encode())
-    assert bit_arr.to01() == input_val
-    assert decode_bin_as_ascii6(bit_arr) == "HELLO WORLD!"
 
 
 def test_encode_does_not_exceed_nmea_sentence_length_limit():
