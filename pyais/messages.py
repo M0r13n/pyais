@@ -687,7 +687,7 @@ class Payload(abc.ABC):
         """
         return attr.fields(cls)  # type:ignore
 
-    def to_bytes(self):
+    def to_bytes(self) -> tuple[bytes, int]:
         output = bytearray()
         bit_buffer = 0
         bits_in_buffer = 0

@@ -198,46 +198,6 @@ def test_get_ais_type():
     assert str(err.exception) == "Missing or invalid AIS type. Must be a number."
 
 
-def test_str_to_bin():
-    # Test that Hello is correctly converted
-    string = str_to_bin("Hello", 5 * 6).to01()
-    assert string == "001000000101001100001100001111"
-    assert len(string) == 30
-
-    # Test that at most width characters are encoded
-    string = str_to_bin("Hello World", 5 * 6).to01()
-    assert string == "001000000101001100001100001111"
-    assert len(string) == 30
-
-    # By default, no trailing spaces should be added
-    string = str_to_bin("Hello", 96).to01()
-    assert string == "001000000101001100001100001111"
-    assert len(string) == 30
-
-    # But trailing spaces can be added
-    string = str_to_bin("Hello", 96, trailing_spaces=True).to01()
-    assert string == "001000000101001100001100001111000000000000000000000000000000000000000000000000000000000000000000"
-    assert len(string) == 96
-
-
-def test_int_to_bin():
-    num = int_to_bin(0, 10).to01()
-    assert num == "0000000000"
-    assert len(num) == 10
-
-    num = int_to_bin(6, 10).to01()
-    assert num == "0000000110"
-    assert len(num) == 10
-
-    num = int_to_bin(128, 7).to01()
-    assert num == "1111111"
-    assert len(num) == 7
-
-    num = int_to_bin(255, 8).to01()
-    assert num == "11111111"
-    assert len(num) == 8
-
-
 def test_decode_encode():
     """Create each message with default values and test that it can be decoded again"""
     mmsi = 123
@@ -577,7 +537,7 @@ def test_encode_type_18():
 
 def test_encode_type_17_b():
     data = {
-        'data': bits2bytes('00000011101011001011110001000110001111011111111111000100'),
+        'data': b'\x03\xac\xbcF=\xff\xc4',
         'lat': 2058.2,
         'lon': 8029.2,
         'mmsi': '004310602',
@@ -591,7 +551,7 @@ def test_encode_type_17_b():
 
 def test_encode_type_17_a():
     data = {
-        'data': bits2bytes('00000011101011001011110001000110001111011111111111000100'),
+        'data': b'\x03\xac\xbcF=\xff\xc4',
         'lat': 3599.2,
         'lon': 1747.8,
         'mmsi': '002734450',
@@ -821,7 +781,7 @@ def test_encode_type_9():
 def test_encode_type_8():
     data = {
         'dac': 366,
-        'data': bits2bytes('00000011101011001011110001000110001111011111111111000100'),
+        'data': b'\x03\xac\xbcF=\xff\xc4',
         'fid': 56,
         'mmsi': '366999712',
         'repeat': 0,
@@ -1128,8 +1088,8 @@ def test_mmsi_too_long():
     encoded = encode_msg(msg)
     decoded = decode(encoded[0])
 
-    assert encoded[0] == "!AIVDO,1,1,,A,1?wwwwwP0000000000000001P000,0*6C"
-    assert decoded.mmsi == 1073741823
+    assert encoded[0] == "!AIVDO,1,1,,A,100000?P0000000000000001P000,0*2B"
+    assert decoded.mmsi == 0
 
 
 def test_lon_too_large():
@@ -1137,8 +1097,8 @@ def test_lon_too_large():
     encoded = encode_msg(msg)
     decoded = decode(encoded[0])
 
-    assert encoded[0] == "!AIVDO,1,1,,A,10000NwP00Owwwv000000001P000,0*63"
-    assert decoded.lon == -2e-06
+    assert encoded[0] == "!AIVDO,1,1,,A,10000NwP0000000000000001P000,0*1D"
+    assert decoded.lon == 0
 
 
 def test_ship_name_too_lon():

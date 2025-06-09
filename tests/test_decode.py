@@ -50,7 +50,7 @@ from pyais.messages import (
     MessageType26BroadcastUnstructured,
 )
 from pyais.stream import ByteStream, IterMessages
-from pyais.util import b64encode_str
+from pyais.util import SixBitNibleDecoder, b64encode_str
 from pyais.exceptions import MissingPayloadException
 
 
@@ -484,10 +484,8 @@ class TestAIS(unittest.TestCase):
         assert msg["lat"] == 3599.2
 
         data = msg["data"]
-        bits = bytes2bits(data).to01()
 
         assert data == b'|\x05V\xc0p1\xfe\xbb\xf5)$\xfe3\xfa)3\xff\xa0\xfd)2\xfd\xb7\x06)"\xfe8\t)*\xfd\xe9\x12))\xfc\xf7\x00)#\xff\xd2\x0c)\xaa\xaa'
-        assert bits == "0111110000000101010101101100000001110000001100011111111010111011111101010010100100100100111111100011001111111010001010010011001111111111101000001111110100101001001100101111110110110111000001100010100100100010111111100011100000001001001010010010101011111101111010010001001000101001001010011111110011110111000000000010100100100011111111111101001000001100001010011010101010101010"
 
         ensure_type_for_msg_dict(msg)
 
@@ -502,10 +500,8 @@ class TestAIS(unittest.TestCase):
         assert msg["lon"] == 8029.0
 
         data = msg["data"]
-        bits = bytes2bits(data).to01()
 
         assert data == b"&\xb8`\xa1 \x00\xfc\x90\x0bY\x15\xfc\x8a\rR\x00TWn~\xc8\x00"
-        assert bits == "00100110101110000110000010100001001000000000000011111100100100000000101101011001000101011111110010001010000011010101001000000000010101000101011101101110011111101100100000000000"
 
         ensure_type_for_msg_dict(msg)
 
@@ -1201,34 +1197,6 @@ class TestAIS(unittest.TestCase):
                 else:
                     types[f_name] = d_type
 
-    def test_bits2bytes(self):
-        self.assertEqual(bits2bytes("00100110"), b"&")
-        self.assertEqual(bits2bytes(""), b"")
-        self.assertEqual(bits2bytes("0010011000100110"), b"&&")
-        self.assertEqual(bits2bytes("11111111"), b"\xff")
-        self.assertEqual(bits2bytes("111100001111"), b"\xf0\xf0")
-        self.assertEqual(bits2bytes("1111000011110000"), b"\xf0\xf0")
-        self.assertEqual(bits2bytes("1"), b"\x80")
-        self.assertEqual(bits2bytes("10000000"), b"\x80")
-        self.assertEqual(bits2bytes("0" * 64), b"\x00\x00\x00\x00\x00\x00\x00\x00")
-        self.assertEqual(bits2bytes("1" * 64), b"\xff\xff\xff\xff\xff\xff\xff\xff")
-        self.assertEqual(bits2bytes("10" * 32), b"\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa")
-
-    def test_bytes2bits(self):
-        self.assertEqual(bytes2bits(b"&").to01(), "00100110")
-        self.assertEqual(bytes2bits(b"").to01(), "")
-        self.assertEqual(bytes2bits(b"&&").to01(), "0010011000100110")
-        self.assertEqual(bytes2bits(b"\xff").to01(), "11111111")
-        self.assertEqual(
-            bytes2bits(b"\x00\x00\x00\x00\x00\x00\x00\x00").to01(), "0" * 64
-        )
-        self.assertEqual(
-            bytes2bits(b"\xff\xff\xff\xff\xff\xff\xff\xff").to01(), "1" * 64
-        )
-        self.assertEqual(
-            bytes2bits(b"\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa").to01(), "10" * 32
-        )
-
     def test_b64encode_str(self):
         in_val = b"\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa"
         cipher = b64encode_str(in_val)
@@ -1655,7 +1623,7 @@ class TestAIS(unittest.TestCase):
         ais = nmea.decode()
 
         orig_bytes = nmea.data
-        after_bytes = ais.to_bytes()
+        after_bytes, _ = ais.to_bytes()
 
         self.assertEqual(orig_bytes, after_bytes)
 
@@ -1666,14 +1634,14 @@ class TestAIS(unittest.TestCase):
         ais = nmea.decode()
         self.assertIsNotNone(ais)
 
-    def test_decode_into_bit_array_with_non_printable_characters(self):
+    def test_decode_with_non_printable_characters(self):
         payload = b"3815;`100!Phmn\x1fPPwL=3OmUd0Dg:"
         with self.assertRaises(NonPrintableCharacterException):
-            _ = decode_into_bit_array(payload)
+            _ = SixBitNibleDecoder().decode_fast(payload)
 
         payload = b"3815;`100!Phmn\x7fPPwL=3OmUd0Dg:"
         with self.assertRaises(NonPrintableCharacterException):
-            _ = decode_into_bit_array(payload)
+            _ = SixBitNibleDecoder().decode_fast(payload)
 
     def test_gh_ais_message_decode(self):
         a = b"$PGHP,1,2008,5,9,0,0,0,10,338,2,,1,09*17"

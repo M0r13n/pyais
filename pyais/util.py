@@ -2,7 +2,7 @@ import base64
 import math
 import typing
 from collections import OrderedDict
-from functools import partial, reduce
+from functools import reduce
 from operator import xor
 from typing import Any, Generator, Hashable, TYPE_CHECKING, Union, Dict
 
@@ -20,7 +20,7 @@ T = typing.TypeVar('T')
 class SixBitNibleDecoder:
     """Ultra-efficient 6-bit AIS decoder optimized for maximum speed"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._buffer = bytearray(256)  # Pre-allocated buffer
 
     def decode_fast(self, payload: bytes, fill_bits: int = 0) -> tuple[bytes, int]:
@@ -84,7 +84,7 @@ class SixBitNibleDecoder:
 class SixBitNibleEncoder:
     """Ultra-efficient 6-bit AIS encoder optimized for maximum speed"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._buffer = bytearray(256)  # Pre-allocated buffer
 
     def encode(self, data: bytes, total_bits: int) -> tuple[str, int]:
@@ -157,7 +157,7 @@ class SixBitNibleEncoder:
         return bytes(self._buffer[:char_count]).decode('ascii'), fill_bits
 
 
-def extract_bits(data: bytes, start_bit: int, num_bits: int, total_bit_length: int = -1, signed=False) -> int:
+def extract_bits(data: bytes, start_bit: int, num_bits: int, total_bit_length: int = -1, signed: bool = False) -> int:
     """Ultra-fast bit extraction"""
     if total_bit_length == -1:
         total_bit_length = len(data) * 8

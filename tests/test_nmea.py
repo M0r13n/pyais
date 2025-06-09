@@ -111,13 +111,6 @@ class TestNMEA(unittest.TestCase):
         msg = b"!AIVDM,1,1,,A,15Mj23P000G?q7fK>g:o7@1:0L3S,0*1B"
         msg = NMEAMessage(msg)
 
-        def serializable(o: object):
-            if isinstance(o, bytes):
-                return o.decode('utf-8')
-            elif isinstance(o, bitarray):
-                return o.to01()
-            return o
-
         actual = msg.asdict()
         self.assertEqual(1, actual["ais_id"])
         self.assertEqual("!AIVDM,1,1,,A,15Mj23P000G?q7fK>g:o7@1:0L3S,0*1B", actual["raw"])
