@@ -1637,11 +1637,11 @@ class TestAIS(unittest.TestCase):
     def test_decode_with_non_printable_characters(self):
         payload = b"3815;`100!Phmn\x1fPPwL=3OmUd0Dg:"
         with self.assertRaises(NonPrintableCharacterException):
-            _ = SixBitNibleDecoder().decode_fast(payload)
+            _ = SixBitNibleDecoder().decode(payload)
 
         payload = b"3815;`100!Phmn\x7fPPwL=3OmUd0Dg:"
         with self.assertRaises(NonPrintableCharacterException):
-            _ = SixBitNibleDecoder().decode_fast(payload)
+            _ = SixBitNibleDecoder().decode(payload)
 
     def test_gh_ais_message_decode(self):
         a = b"$PGHP,1,2008,5,9,0,0,0,10,338,2,,1,09*17"
@@ -1785,3 +1785,43 @@ class TestAIS(unittest.TestCase):
         # IterMessages should just skip it
         decoded = list(IterMessages([msg]))
         self.assertEqual(decoded, [])
+
+    def test_basic_decoding(self):
+        """Test basic 6-bit decoding functionality."""
+        decoder = SixBitNibleDecoder()
+
+        # Test with simple AIS payload
+        payload = b"15M5N7"
+        result, bit_count = decoder.decode(payload)
+
+        assert bit_count == 36  # 6 characters × 6 bits
+        assert len(result) == 5  # ceil(36/8) = 5 bytes
+        assert isinstance(result, bytes)
+        assert result == b'\x04WExp'  # verified against old pyais
+
+    def test_fill_bits_handling(self):
+        """Test handling of fill bits in last character."""
+        decoder = SixBitNibleDecoder()
+
+        # Test with 2 fill bits
+        payload = b"15M5N7"
+        result_no_fill, bits_no_fill = decoder.decode(payload, fill_bits=0)
+        result_with_fill, bits_with_fill = decoder.decode(payload, fill_bits=2)
+
+        assert bits_with_fill == bits_no_fill - 2  # 2 fewer bits
+        assert len(result_with_fill) == len(result_no_fill)  # Same byte count
+        assert result_no_fill == b'\x04WExp'  # verified against old pyais
+        assert result_with_fill == b'\x04WEx@'  # verified against old pyais
+
+    def test_empty_and_error_cases(self):
+        """Test edge cases and error handling."""
+        decoder = SixBitNibleDecoder()
+
+        # Test empty payload
+        result, bit_count = decoder.decode(b"")
+        assert result == b''
+        assert bit_count == 0
+
+        # Test non-printable character
+        with self.assertRaises(NonPrintableCharacterException):
+            decoder.decode(b"\x01\x02")  # Control characters

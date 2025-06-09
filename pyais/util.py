@@ -18,147 +18,222 @@ T = typing.TypeVar('T')
 
 
 class SixBitNibleDecoder:
-    """Ultra-efficient 6-bit AIS decoder optimized for maximum speed"""
+    """
+    6-bit nible decoder.
+
+    This class decodes AIS message payloads that use 6-bit ASCII encoding.
+    AIS messages pack 6-bit values into ASCII characters for transmission,
+    and this decoder converts them back to binary data.
+
+    The decoder handles:
+    - 6-bit to 8-bit conversion
+    - Fill bits in the last character
+    - Efficient bit packing into bytes
+
+    Example:
+        decoder = SixBitNibleDecoder()
+        binary_data, bit_count = decoder.decode_fast(b"15M5N7001H")
+    """
 
     def __init__(self) -> None:
         self._buffer = bytearray(256)  # Pre-allocated buffer
 
-    def decode_fast(self, payload: bytes, fill_bits: int = 0) -> tuple[bytes, int]:
-        """Ultra-fast 6-bit to binary conversion"""
+    def decode(self, payload: bytes, fill_bits: int = 0) -> tuple[bytes, int]:
+        """
+        Convert 6-bit AIS payload to binary data.
+
+        Args:
+            payload: 6-bit encoded AIS payload as bytes
+            fill_bits: Number of padding bits in the last character (0-5)
+
+        Returns:
+            Tuple of (binary_data, total_bit_count)
+
+        Raises:
+            NonPrintableCharacterException: If payload contains invalid characters
+        """
         payload_len = len(payload)
         if payload_len == 0:
             return b'', 0
 
-        # Calculate output size (6 bits per char, packed into bytes)
-        bit_count = payload_len * 6 - fill_bits
-        byte_count = math.ceil(bit_count / 8)
+        # Calculate total bits and required bytes
+        total_bits = payload_len * 6 - fill_bits
+        required_bytes = math.ceil(total_bits / 8)
 
-        # Ensure buffer is large enough
-        if byte_count > len(self._buffer):
-            self._buffer = bytearray(byte_count + 64)
+        # Ensure buffer capacity
+        if required_bytes > len(self._buffer):
+            self._buffer = bytearray(required_bytes + 64)
 
-        # Clear output buffer
-        for i in range(byte_count):
+        # Initialize output buffer
+        for i in range(required_bytes):
             self._buffer[i] = 0
 
-        # Ultra-fast bit packing loop
-        bit_pos = 0
-        for i, char_byte in enumerate(payload):
+        current_bit_position = 0
+        for char_index, char_byte in enumerate(payload):
+            # Validate character is printable
             if not 0x20 <= char_byte <= 0x7e:
                 raise NonPrintableCharacterException(f"Non printable character: '{hex(char_byte)}'")
 
-            if char_byte >= 120:  # Out of range
+            # Skip out-of-range characters
+            if char_byte >= 120:
                 continue
 
-            # Convert 8 bit binary to 6 bit binary
-            char_byte -= 0x30 if (char_byte < 0x60) else 0x38
-            char_byte &= 0x3F
+            # Convert ASCII to 6-bit value
+            six_bit_value = self._ascii_to_six_bit(char_byte)
 
-            # Handle fill bits in the last character
-            if i == payload_len - 1 and fill_bits > 0:
-                char_byte = char_byte >> fill_bits
+            # Handle fill bits in last character
+            if char_index == payload_len - 1 and fill_bits > 0:
+                six_bit_value = six_bit_value >> fill_bits
                 bits_to_pack = 6 - fill_bits
             else:
                 bits_to_pack = 6
 
-            # Calculate byte and bit positions
-            byte_idx = bit_pos // 8
-            bit_offset = bit_pos % 8
-
             # Pack bits into buffer
-            if bit_offset + bits_to_pack <= 8:
-                # Fits in current byte
-                self._buffer[byte_idx] |= char_byte << (8 - bit_offset - bits_to_pack)
-            else:
-                # Spans two bytes
-                remaining_bits = 8 - bit_offset
-                self._buffer[byte_idx] |= char_byte >> (bits_to_pack - remaining_bits)
-                if byte_idx + 1 < byte_count:
-                    self._buffer[byte_idx + 1] |= (char_byte << (8 - (bits_to_pack - remaining_bits))) & 0xFF
+            self._pack_bits_into_buffer(six_bit_value, bits_to_pack, current_bit_position, required_bytes)
+            current_bit_position += bits_to_pack
 
-            bit_pos += bits_to_pack
+        return bytes(self._buffer[:required_bytes]), total_bits
 
-        return bytes(self._buffer[:byte_count]), bit_count
+    def _ascii_to_six_bit(self, char_byte: int) -> int:
+        """Convert ASCII character to 6-bit value."""
+        if char_byte < 0x60:
+            char_byte -= 0x30
+        else:
+            char_byte -= 0x38
+        return char_byte & 0x3F
+
+    def _pack_bits_into_buffer(self, value: int, bits_to_pack: int, bit_position: int, buffer_size: int) -> None:
+        """Pack bits into the internal buffer at specified position."""
+        byte_index = bit_position // 8
+        bit_offset = bit_position % 8
+
+        if bit_offset + bits_to_pack <= 8:
+            # Fits entirely in current byte
+            shift_amount = 8 - bit_offset - bits_to_pack
+            self._buffer[byte_index] |= value << shift_amount
+        else:
+            # Spans across two bytes
+            bits_in_first_byte = 8 - bit_offset
+            bits_in_second_byte = bits_to_pack - bits_in_first_byte
+
+            # Pack into first byte
+            self._buffer[byte_index] |= value >> bits_in_second_byte
+
+            # Pack into second byte if within bounds
+            if byte_index + 1 < buffer_size:
+                remaining_value = value << (8 - bits_in_second_byte)
+                self._buffer[byte_index + 1] |= remaining_value & 0xFF
 
 
 class SixBitNibleEncoder:
-    """Ultra-efficient 6-bit AIS encoder optimized for maximum speed"""
+    """
+    6-bit AIS (Automatic Identification System) encoder.
+
+    Converts binary data into 6-bit AIS payload format using ASCII character encoding.
+    The AIS standard uses a specific 6-bit encoding scheme where values 0-39 are encoded
+    as ASCII characters 48-87 (0x30-0x57) and values 40-63 are encoded as ASCII
+    characters 96-119 (0x60-0x77).
+
+    The encoder handles bit padding automatically to ensure the output aligns to
+    6-bit boundaries.
+    """
 
     def __init__(self) -> None:
         self._buffer = bytearray(256)  # Pre-allocated buffer
 
     def encode(self, data: bytes, total_bits: int) -> tuple[str, int]:
-        """Ultra-fast binary to 6-bit AIS payload conversion"""
-        data_len = len(data)
-        if data_len == 0:
+        """
+        Convert binary data to 6-bit AIS payload format.
+
+        Args:
+            data: Binary data to encode
+            total_bits: Number of bits to process from the data
+
+        Returns:
+            Tuple of (encoded_string, fill_bits_count)
+        """
+        if len(data) == 0:
             return '', 0
 
-        # Calculate total bits and output size
-        # total_bits = data_len * 8
-        fill_bits = (6 - (total_bits % 6)) % 6
-
-        # Calculate number of 6-bit characters needed
+        fill_bits = self._calculate_fill_bits(total_bits)
         char_count = math.ceil(total_bits / 6)
+        self._ensure_buffer_size(char_count)
 
-        # Ensure buffer is large enough
-        if char_count > len(self._buffer):
-            self._buffer = bytearray(char_count + 64)
-
-        # Extract 6-bit values and convert to ASCII
         bit_pos = 0
         char_idx = 0
 
         while bit_pos < total_bits and char_idx < char_count:
-            # Extract 6 bits from data
-            byte_idx = bit_pos // 8
-            bit_offset = bit_pos % 8
-
-            # Determine how many bits to extract (max 6)
-            bits_to_extract = min(6, total_bits - bit_pos)
-
-            # Handle last character fill bits
-            if char_idx == char_count - 1 and fill_bits > 0:
-                bits_to_extract = 6 - fill_bits
-
-            # Extract bits
-            if bit_offset + bits_to_extract <= 8:
-                # All bits in current byte
-                if byte_idx < data_len:
-                    six_bit_val = (data[byte_idx] >> (8 - bit_offset - bits_to_extract)) & ((1 << bits_to_extract) - 1)
-                else:
-                    six_bit_val = 0
-            else:
-                # Bits span two bytes
-                if byte_idx < data_len:
-                    six_bit_val = (data[byte_idx] << (bits_to_extract - (8 - bit_offset))) & ((1 << bits_to_extract) - 1)
-                    if byte_idx + 1 < data_len:
-                        remaining_bits = bits_to_extract - (8 - bit_offset)
-                        six_bit_val |= data[byte_idx + 1] >> (8 - remaining_bits)
-                else:
-                    six_bit_val = 0
-
-            # Handle fill bits in last character
-            if char_idx == char_count - 1 and fill_bits > 0:
-                six_bit_val = six_bit_val << fill_bits
-
-            # Ensure we have a valid 6-bit value
-            six_bit_val &= 0x3F
-
-            # # Convert 6-bit value to ASCII character (reverse of decoder)
-            if six_bit_val < 40:  # 0x28
-                ascii_char = six_bit_val + 0x30  # Add 48
-            else:
-                ascii_char = six_bit_val + 0x38  # Add 56
+            six_bit_val = self._extract_six_bits(data, bit_pos, total_bits, char_idx, char_count, fill_bits)
+            ascii_char = self._six_bit_to_ascii(six_bit_val)
 
             self._buffer[char_idx] = ascii_char
             char_idx += 1
-            bit_pos += bits_to_extract
+            bit_pos += self._get_bits_extracted(bit_pos, total_bits, char_idx, char_count, fill_bits)
 
         return bytes(self._buffer[:char_count]).decode('ascii'), fill_bits
 
+    def _calculate_fill_bits(self, total_bits: int) -> int:
+        """Calculate number of fill bits needed for 6-bit alignment."""
+        return (6 - (total_bits % 6)) % 6
+
+    def _ensure_buffer_size(self, char_count: int) -> None:
+        """Ensure buffer is large enough for the encoded output."""
+        if char_count > len(self._buffer):
+            self._buffer = bytearray(char_count + 64)
+
+    def _extract_six_bits(self, data: bytes, bit_pos: int, total_bits: int,
+                          char_idx: int, char_count: int, fill_bits: int) -> int:
+        """Extract up to 6 bits from the data at the given bit position."""
+        byte_idx = bit_pos // 8
+        bit_offset = bit_pos % 8
+        bits_to_extract = min(6, total_bits - bit_pos)
+
+        # Handle last character fill bits
+        if char_idx == char_count - 1 and fill_bits > 0:
+            bits_to_extract = 6 - fill_bits
+
+        six_bit_val = self._get_bits_from_data(data, byte_idx, bit_offset, bits_to_extract)
+
+        # Handle fill bits in last character
+        if char_idx == char_count - 1 and fill_bits > 0:
+            six_bit_val = six_bit_val << fill_bits
+
+        return six_bit_val & 0x3F
+
+    def _get_bits_from_data(self, data: bytes, byte_idx: int, bit_offset: int, bits_to_extract: int) -> int:
+        """Extract bits from data, handling byte boundaries."""
+        if bit_offset + bits_to_extract <= 8:
+            # All bits in current byte
+            if byte_idx < len(data):
+                return (data[byte_idx] >> (8 - bit_offset - bits_to_extract)) & ((1 << bits_to_extract) - 1)
+            return 0
+        else:
+            # Bits span two bytes
+            if byte_idx < len(data):
+                six_bit_val = (data[byte_idx] << (bits_to_extract - (8 - bit_offset))) & ((1 << bits_to_extract) - 1)
+                if byte_idx + 1 < len(data):
+                    remaining_bits = bits_to_extract - (8 - bit_offset)
+                    six_bit_val |= data[byte_idx + 1] >> (8 - remaining_bits)
+                return six_bit_val
+            return 0
+
+    def _six_bit_to_ascii(self, six_bit_val: int) -> int:
+        """Convert 6-bit value to AIS ASCII character."""
+        if six_bit_val < 40:  # 0x28
+            return six_bit_val + 0x30  # Add 48
+        else:
+            return six_bit_val + 0x38  # Add 56
+
+    def _get_bits_extracted(self, bit_pos: int, total_bits: int, char_idx: int, char_count: int, fill_bits: int) -> int:
+        """Calculate how many bits were extracted in this iteration."""
+        bits_to_extract = min(6, total_bits - bit_pos)
+        if char_idx == char_count and fill_bits > 0:
+            bits_to_extract = 6 - fill_bits
+        return bits_to_extract
+
 
 def extract_bits(data: bytes, start_bit: int, num_bits: int, total_bit_length: int = -1, signed: bool = False) -> int:
-    """Ultra-fast bit extraction"""
+    """bit extraction from bytes"""
     if total_bit_length == -1:
         total_bit_length = len(data) * 8
 

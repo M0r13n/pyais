@@ -547,7 +547,7 @@ class AISSentence(NMEASentence):
             raise InvalidNMEAMessageException("Too many fragments")
 
         # Finally decode bytes into bits
-        self.data, self.total_bits = _decoder.decode_fast(self.payload, self.fill_bits)
+        self.data, self.total_bits = _decoder.decode(self.payload, self.fill_bits)
         self.ais_id = extract_bits(self.data, 0, 6, self.total_bits)
 
     def asdict(self) -> Dict[str, Any]:
@@ -567,7 +567,6 @@ class AISSentence(NMEASentence):
             'payload': self.payload.decode('ascii'),  # str
             'fill_bits': self.fill_bits,  # int
             'checksum': self.checksum,  # int
-            # 'bit_array': self.bit_array.to01(),  # str
             'is_valid': self.is_valid,  # bool
         }
 
@@ -614,7 +613,7 @@ class AISSentence(NMEASentence):
 
         messages[0].raw = raw
         messages[0].payload = payload
-        data, total_bits = _decoder.decode_fast(payload, fill_bits=messages[-1].fill_bits)
+        data, total_bits = _decoder.decode(payload, fill_bits=messages[-1].fill_bits)
         messages[0].data = data
         messages[0].total_bits = total_bits
         messages[0].is_valid = is_valid
