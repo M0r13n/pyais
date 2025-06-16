@@ -36,7 +36,7 @@ class SixBitNibleDecoder:
     """
 
     def __init__(self) -> None:
-        self._buffer = bytearray(256)  # Pre-allocated buffer
+        self._buffer = bytearray(256)
 
     def decode(self, payload: bytes, fill_bits: int = 0) -> tuple[bytes, int]:
         """
@@ -230,6 +230,32 @@ class SixBitNibleEncoder:
         if char_idx == char_count and fill_bits > 0:
             bits_to_extract = 6 - fill_bits
         return bits_to_extract
+
+
+def get_num(num: int, start_bit: int, num_bits: int, total_bits: int, signed: bool = False) -> int:
+    # Handle edge cases
+    if num_bits == 0 or start_bit >= total_bits:
+        return 0
+
+    # Calculate actual bits to read
+    available_bits = total_bits - start_bit
+    bits_to_read = min(num_bits, available_bits)
+    shift = total_bits - start_bit - bits_to_read
+
+    if bits_to_read == 0:
+        return 0
+
+    # Create mask and extract value
+    mask = ((1 << bits_to_read) - 1) << shift
+    val = (num & mask) >> shift
+
+    # Handle signed interpretation
+    if signed:
+        sign_bit_mask = 1 << (num_bits - 1)
+        if val & sign_bit_mask:
+            val = val - (1 << num_bits)
+
+    return val
 
 
 def extract_bits(data: bytes, start_bit: int, num_bits: int, total_bit_length: int = -1, signed: bool = False) -> int:

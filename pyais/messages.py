@@ -12,7 +12,7 @@ from pyais.constants import TalkerID, NavigationStatus, ManeuverIndicator, EpfdT
     TransmitMode, StationIntervals, TurnRate, InlandLoadedType
 from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitializedException, UnknownMessageException, UnknownPartNoException, \
     InvalidDataTypeException, MissingPayloadException
-from pyais.util import SIX_BIT_ENCODING, SixBitNibleDecoder, SixBitNibleEncoder, checksum, decode_bytes_as_ascii6, compute_checksum, extract_bits, get_bytes, get_itdma_comm_state, get_sotdma_comm_state, \
+from pyais.util import SIX_BIT_ENCODING, SixBitNibleDecoder, SixBitNibleEncoder, checksum, decode_bytes_as_ascii6, compute_checksum, extract_bits, get_bytes, get_itdma_comm_state, get_num, get_sotdma_comm_state, \
     chk_to_int, coerce_val, b64encode_str
 
 NMEA_VALUE = typing.Union[str, float, int, bool, bytes]
@@ -785,6 +785,9 @@ class Payload(abc.ABC):
         cur: int = 0
         kwargs: typing.Dict[str, typing.Any] = {}
 
+        large_number = int.from_bytes(data)
+        large_number = large_number >> (8 - (total_bits % 8)) % 8
+
         # Iterate over fields and data
         for field in cls.fields():
             if cur >= total_bits:
@@ -799,7 +802,7 @@ class Payload(abc.ABC):
             val: typing.Any
             # Get the correct data type and decoding function
             if d_type == int or d_type == bool or d_type == float:
-                val = extract_bits(data, cur, width, total_bit_length=total_bits, signed=field.metadata['signed'])
+                val = get_num(large_number, cur, width, total_bits, signed=field.metadata['signed'])
 
                 if d_type == float:
                     val = float(val)
