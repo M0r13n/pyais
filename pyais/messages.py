@@ -494,10 +494,6 @@ class GatehouseSentence(NMEASentence):
         self.timestamp = t
 
 
-_decoder = SixBitNibleDecoder()
-_encoder = SixBitNibleEncoder()
-
-
 class AISSentence(NMEASentence):
     TYPE = 'AIS'
 
@@ -547,7 +543,7 @@ class AISSentence(NMEASentence):
             raise InvalidNMEAMessageException("Too many fragments")
 
         # Finally decode bytes into bits
-        self.data, self.total_bits = _decoder.decode(self.payload, self.fill_bits)
+        self.data, self.total_bits = SixBitNibleDecoder().decode(self.payload, self.fill_bits)
         self.ais_id = extract_bits(self.data, 0, 6, self.total_bits)
 
     def asdict(self) -> Dict[str, Any]:
@@ -613,7 +609,7 @@ class AISSentence(NMEASentence):
 
         messages[0].raw = raw
         messages[0].payload = payload
-        data, total_bits = _decoder.decode(payload, fill_bits=messages[-1].fill_bits)
+        data, total_bits = SixBitNibleDecoder().decode(payload, fill_bits=messages[-1].fill_bits)
         messages[0].data = data
         messages[0].total_bits = total_bits
         messages[0].is_valid = is_valid
@@ -753,7 +749,7 @@ class Payload(abc.ABC):
         """
         Encode a payload as an ASCII encoded bit vector. The second returned value is the number of fill bits.
         """
-        return _encoder.encode(*self.to_bytes())
+        return SixBitNibleEncoder().encode(*self.to_bytes())
 
     @classmethod
     def create(cls, **kwargs: NMEA_VALUE) -> "ANY_MESSAGE":

@@ -36,7 +36,7 @@ class SixBitNibleDecoder:
     """
 
     def __init__(self) -> None:
-        self._buffer = bytearray(256)
+        self._buffer = bytearray(0)
 
     def decode(self, payload: bytes, fill_bits: int = 0) -> tuple[bytes, int]:
         """
@@ -60,13 +60,8 @@ class SixBitNibleDecoder:
         total_bits = payload_len * 6 - fill_bits
         required_bytes = math.ceil(total_bits / 8)
 
-        # Ensure buffer capacity
-        if required_bytes > len(self._buffer):
-            self._buffer = bytearray(required_bytes + 64)
-
-        # Initialize output buffer
-        for i in range(required_bytes):
-            self._buffer[i] = 0
+        # Create a new buffer
+        self._buffer = bytearray(required_bytes + 1)
 
         current_bit_position = 0
         for char_index, char_byte in enumerate(payload):
