@@ -62,6 +62,8 @@ The project is available at [PyPI](https://pypi.org/project/pyais/) and can be i
 $ pip install pyais
 ```
 
+**NOTE**: There is an experimental version on a branch [`experimental-version-without-bit-array`](https://github.com/M0r13n/pyais/tree/experimental-version-without-bit-array). This version does not depend on the bitarray module. It is as fast as the regular version of pyais when using CPython. But it is ~4 times faster when using PyPy.
+
 # Usage
 
 There are many examples in the [examples directory](https://github.com/M0r13n/pyais/tree/master/examples).
