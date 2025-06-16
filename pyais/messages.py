@@ -781,7 +781,7 @@ class Payload(abc.ABC):
         cur: int = 0
         kwargs: typing.Dict[str, typing.Any] = {}
 
-        large_number = int.from_bytes(data)
+        large_number = int.from_bytes(data, byteorder='big')
         large_number = large_number >> (8 - (total_bits % 8)) % 8
 
         # Iterate over fields and data
