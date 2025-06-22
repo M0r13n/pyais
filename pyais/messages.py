@@ -65,13 +65,13 @@ def bit_field(width: int, d_type: typing.Type[typing.Any],
 ENUM_FIELDS = {'status', 'maneuver', 'epfd', 'ship_type', 'aid_type', 'station_type', 'txrx', 'interval'}
 
 
-class JSONEncoder(json.JSONEncoder):
+class AISJSONEncoder(json.JSONEncoder):
     """Custom JSON encoder to handle bytes objects"""
 
-    def default(self, obj: typing.Any) -> typing.Any:
-        if isinstance(obj, bytes):
-            return b64encode_str(obj)
-        return json.JSONEncoder.default(self, obj)
+    def default(self, o: typing.Any) -> typing.Any:
+        if isinstance(o, bytes):
+            return b64encode_str(o)
+        return json.JSONEncoder.default(self, o)
 
 
 class NMEASentenceFactory:
@@ -836,7 +836,7 @@ class Payload(abc.ABC):
             return {slt: getattr(self, slt) for slt in self.__slots__}  # type: ignore
 
     def to_json(self) -> str:
-        return JSONEncoder(indent=4).encode(self.asdict())
+        return AISJSONEncoder(indent=4).encode(self.asdict())
 
 
 #
@@ -1196,7 +1196,7 @@ class MessageType8Dac200Fid10(Payload):
     speed_q = bit_field(1, bool, default=False)
     course_q = bit_field(1, bool, default=False)
     heading_q = bit_field(1, bool, default=False)
-    spare = bit_field(8, bytes)
+    spare = bit_field(8, bytes, default=0)
 
 
 @attr.s(slots=True)

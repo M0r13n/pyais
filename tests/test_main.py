@@ -1,7 +1,8 @@
+from io import StringIO
 import sys
 import unittest
 
-from pyais.main import decode_single, decode_from_file, arg_parser, decode_from_socket
+from pyais.main import decode_single, decode_from_file, create_parser, decode_from_socket
 
 
 class TestMainApp(unittest.TestCase):
@@ -9,7 +10,8 @@ class TestMainApp(unittest.TestCase):
     def test_decode_single(self):
         class DemoNamespace:
             messages = ["!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*30"]
-            out_file = None
+            out_file = StringIO()
+            json = False
 
         assert decode_single(DemoNamespace()) == 0
 
@@ -21,19 +23,21 @@ class TestMainApp(unittest.TestCase):
                 '!AIVDM,2,1,9,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*0F',
                 '!AIVDM,2,2,9,A,F@V@00000000000,2*3D',
             ]
-            out_file = None
+            out_file = StringIO()
+            json = False
 
         assert decode_single(DemoNamespace()) == 0
 
     def test_decode_from_file(self):
         class DemoNamespace:
             in_file = open("tests/ais_test_messages", "rb")
-            out_file = None
+            out_file = StringIO()
+            json = False
 
         assert decode_from_file(DemoNamespace()) == 0
 
     def test_parser(self):
-        parser = arg_parser()
+        parser = create_parser()
 
         # By default the program should read from stdin (which is None)
         ns = parser.parse_args([])

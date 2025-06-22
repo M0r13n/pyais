@@ -50,17 +50,19 @@ This AIS sentence is known as a "Position Report" message and is used to transmi
 - : This field is left blank. This field can contain the sequence number.
 - **B**: This field indicates the communication channel being used to transmit the message. In this case, the channel is "B".
 - **15MwkT1P37G?fl0EJbR0OwT0@MS**: This field contains the payload of the message, which is encoded using a variant of ASCII known as "Six-bit ASCII". The payload contains information such as the vessel's identification, position, course, and speed.
-  0\*4E: This field is a checksum that is used to verify the integrity of the sentence.
+- **0\*4E**: This field is a checksum that is used to verify the integrity of the sentence.
 
-**pyais** is a Python modul to encode and decode AIS messages.
+**pyais** is a Python module to encode and decode AIS messages.
 
 # Installation
 
-The project is available at Pypi:
+The project is available at [PyPI](https://pypi.org/project/pyais/) and can be installed with pip:
 
 ```shell
 $ pip install pyais
 ```
+
+**NOTE**: There is an experimental version on a branch [`experimental-version-without-bit-array`](https://github.com/M0r13n/pyais/tree/experimental-version-without-bit-array). This version does not depend on the bitarray module. It is as fast as the regular version of pyais when using CPython. But it is ~4 times faster when using PyPy.
 
 # Usage
 
@@ -207,6 +209,10 @@ encoded = encode_msg(payload)
 print(encoded)
 ```
 
+### CLI encoder
+
+There is also a AIS JSON to NMEA Encoder: [examples/ais-encode](examples/ais-encode). It reads JSON from stdin and outputs encoded NMEA AIS messages to stdout.
+
 # Under the hood
 
 ```mermaid
@@ -267,7 +273,7 @@ Regarding the key value pairs:
   - **n**: Line count (e.g. `123`)
   - **r**: Relative time
   - **s**: Source station (e.g. `APIDSSRC1`)
-  - **t**: Text (e.g.g `Hello World!`)
+  - **t**: Text (e.g. `Hello World!`)
 
 Some things to keep in mind when working with **tag blocks** and **pyais**:
 
