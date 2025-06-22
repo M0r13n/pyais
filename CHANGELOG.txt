@@ -2,6 +2,12 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 2.10.0 22 Jun 2025
+-------------------------------------------------------------------------------
+* renamed custom `JSONEncoder` to `AISJSONEncoder` to avoid confusion with `json.JSONEncoder`
+* refactored main.py (`ais-decode`) for better error handling
+* added examples/ais-encode
+-------------------------------------------------------------------------------
  Version 2.9.4 24 May 2025
 -------------------------------------------------------------------------------
 * better error handling of invalid fragment counts
