@@ -22,6 +22,7 @@ def create_parser() -> argparse.ArgumentParser:
                "  ais-decode -f input.txt                    # Decode from file\n"
                "  ais-decode -j < input.txt                  # Decode from stdin with JSON output\n"
                "  ais-decode socket localhost 5000           # Decode from UDP socket\n"
+               "  ais-decode socket localhost 5000 -t tcp    # Decode from TCP socket\n"
                "  ais-decode single '!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23'\n"
                "  nc 153.44.253.27 5631 | ais-decode --json | jq",
         formatter_class=argparse.RawDescriptionHelpFormatter
