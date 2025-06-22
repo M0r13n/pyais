@@ -1177,7 +1177,7 @@ class MessageType8Dac200Fid10(Payload):
     speed_q = bit_field(1, bool, default=False)
     course_q = bit_field(1, bool, default=False)
     heading_q = bit_field(1, bool, default=False)
-    spare = bit_field(8, bytes)
+    spare = bit_field(8, bytes, default=0)
 
 
 @attr.s(slots=True)
