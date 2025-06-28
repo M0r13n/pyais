@@ -461,7 +461,7 @@ class TestAIS(unittest.TestCase):
 
         ensure_type_for_msg_dict(msg)
 
-    def test_msg_type_16(self):
+    def test_msg_type_16_short(self):
         msg = decode(b"!AIVDM,1,1,,A,@01uEO@mMk7P<P00,0*18").asdict()
 
         assert msg["msg_type"] == 16
@@ -470,9 +470,24 @@ class TestAIS(unittest.TestCase):
         assert msg["mmsi1"] == 224251000
         assert msg["offset1"] == 200
         assert msg["increment1"] == 0
-        assert msg["mmsi2"] == 0
-        assert msg["offset2"] is None
-        assert msg["increment2"] is None
+        assert 'mmsi2' not in msg
+        assert 'offset2' not in msg
+        assert 'increment2' not in msg
+
+        ensure_type_for_msg_dict(msg)
+
+    def test_msg_type_16_long(self):
+        msg = decode(b"!AIVDO,1,1,,A,@@07Ql@01Qat005h0gN<@00e,0*46").asdict()
+
+        assert msg["msg_type"] == 16
+        assert msg["repeat"] == 1
+        assert msg["mmsi"] == 123345
+        assert msg["mmsi1"] == 99999
+        assert msg["offset1"] == 0
+        assert msg["increment1"] == 23
+        assert msg["mmsi2"] == 777777
+        assert msg["offset2"] == 0
+        assert msg["increment2"] == 45
 
         ensure_type_for_msg_dict(msg)
 
@@ -1813,3 +1828,7 @@ class TestAIS(unittest.TestCase):
         # IterMessages should just skip it
         decoded = list(IterMessages([msg]))
         self.assertEqual(decoded, [])
+
+
+if __name__ == '__main__':
+    unittest.main()
