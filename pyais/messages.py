@@ -389,6 +389,9 @@ class TagBlock:
         if self._text is not None:
             fields.append(f"t:{self._text}")
 
+        if not fields:
+            raise ValueError('can not convert empty tag block to bytes (forgot to call .init()?)')
+
         payload_str = ','.join(fields)
         payload = payload_str.encode()
 

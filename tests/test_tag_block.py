@@ -301,6 +301,12 @@ class TagBlockTestCase(unittest.TestCase):
         expected = checksum(payload)
         self.assertEqual(int(actual, 16), expected)
 
+    def test_to_raw(self):
+        tb = TagBlock(b's:APIDSSRC1,g:2-2-05628,n:08795,c:0002780323*0C')
+        tb.init()
+        raw = tb.to_raw()
+        self.assertEqual(raw, b"g:2-2-5628,s:APIDSSRC1,c:0002780323,n:08795*3C")
+
 
 if __name__ == '__main__':
     unittest.main()
