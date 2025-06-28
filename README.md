@@ -28,10 +28,7 @@ Binary releases (Debian packages) are provided by the [pyais-debian](https://git
 
 # Acknowledgements
 
-![Jetbrains Logo](./docs/jetbrains_logo.svg)
-
-This project is a grateful recipient of
-the [free Jetbrains Open Source sponsorship](https://www.jetbrains.com/?from=pyais). Thank you. 🙇
+The HolAdo framework (https://gitlab.com/holado_framework/python) provides BDD features for multiple libraries, including an AIS module that utilizes pyais and has been deployed at [Kineis](https://www.kineis.com/en/about-us/) for space-based AIS message decoding.
 
 # General
 

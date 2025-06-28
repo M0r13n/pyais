@@ -33,7 +33,13 @@ def data_to_payload(ais_type: int, data: DATA_DICT) -> Payload:
         raise ValueError(f"AIS message type {ais_type} is not supported") from err
 
 
-def ais_to_nmea_0183(payload: str, ais_talker_id: str, radio_channel: str, fill_bits: int) -> AIS_SENTENCES:
+def ais_to_nmea_0183(
+        payload: str,
+        ais_talker_id: str,
+        radio_channel: str,
+        fill_bits: int,
+        seq_id: typing.Optional[typing.Union[str, int]] = None
+) -> AIS_SENTENCES:
     """
     Splits the AIS payload into sentences, ASCII encodes the payload, creates
     and sends the relevant NMEA 0183 sentences. Messages have a maximum length
@@ -49,12 +55,17 @@ def ais_to_nmea_0183(payload: str, ais_talker_id: str, radio_channel: str, fill_
     @param ais_talker_id:   AIS talker ID (AIVDO or AIVDM)
     @param radio_channel:   Radio channel (either A or B)
     @param fill_bits:       The number of fill bits requires to pad the data payload to a 6 bit boundary.
+    @param seq_id:          Optional sequence ID
     @return:                A list of relevant AIS sentences.
     """
     messages = []
     max_len = 60
     frag_cnt = math.ceil(len(payload) / max_len)
-    seq_id = '0' if frag_cnt > 1 else ''
+
+    if seq_id is None:
+        seq_id = '0' if frag_cnt > 1 else ''
+    elif frag_cnt == 1:
+        seq_id = ''
 
     if len(ais_talker_id) != 5:
         raise ValueError("AIS talker is must have exactly 6 characters. E.g. AIVDO")
@@ -73,7 +84,12 @@ def ais_to_nmea_0183(payload: str, ais_talker_id: str, radio_channel: str, fill_
     return messages
 
 
-def encode_dict(data: DATA_DICT, talker_id: str = "AIVDO", radio_channel: str = "A") -> AIS_SENTENCES:
+def encode_dict(
+    data: DATA_DICT,
+    talker_id: str = "AIVDO",
+    radio_channel: str = "A",
+    seq_id: typing.Optional[typing.Union[str, int]] = None
+) -> AIS_SENTENCES:
     """
     Takes a dictionary of data and some NMEA specific kwargs and returns the NMEA 0183 encoded AIS sentence.
 
@@ -86,6 +102,7 @@ def encode_dict(data: DATA_DICT, talker_id: str = "AIVDO", radio_channel: str = 
     @param talker_id: AIS packets have the introducer "AIVDM" or "AIVDO";
                       AIVDM packets are reports from other ships and AIVDO packets are reports from your own ship.
     @param radio_channel: The radio channel. Can be either 'A' (default) or 'B'.
+    @param seq_id: Optional sequence ID
     @return: NMEA 0183 encoded AIS sentences.
 
     """
@@ -98,10 +115,15 @@ def encode_dict(data: DATA_DICT, talker_id: str = "AIVDO", radio_channel: str = 
     ais_type = get_ais_type(data)
     payload = data_to_payload(ais_type, data)
     armored_payload, fill_bits = payload.encode()
-    return ais_to_nmea_0183(armored_payload, talker_id, radio_channel, fill_bits)
+    return ais_to_nmea_0183(armored_payload, talker_id, radio_channel, fill_bits, seq_id=seq_id)
 
 
-def encode_msg(msg: Payload, talker_id: str = "AIVDO", radio_channel: str = "A") -> AIS_SENTENCES:
+def encode_msg(
+        msg: Payload,
+        talker_id: str = "AIVDO",
+        radio_channel: str = "A",
+        seq_id: typing.Optional[typing.Union[str, int]] = None
+) -> AIS_SENTENCES:
     if talker_id not in ("AIVDM", "AIVDO"):
         raise ValueError("talker_id must be any of ['AIVDM', 'AIVDO']")
 
@@ -109,4 +131,4 @@ def encode_msg(msg: Payload, talker_id: str = "AIVDO", radio_channel: str = "A")
         raise ValueError("radio_channel must be any of ['A', 'B']")
 
     armored_payload, fill_bits = msg.encode()
-    return ais_to_nmea_0183(armored_payload, talker_id, radio_channel, fill_bits)
+    return ais_to_nmea_0183(armored_payload, talker_id, radio_channel, fill_bits, seq_id=seq_id)
