@@ -56,7 +56,14 @@ from pyais.exceptions import MissingPayloadException
 
 def ensure_type_for_msg_dict(msg_dict: typing.Dict[str, typing.Any]) -> None:
     cls = MSG_CLASS[msg_dict["msg_type"]]
-    for field, attr in zip(cls.fields(), msg_dict.values()):
+    for field in cls.fields():
+        try:
+            attr = msg_dict[field.name]
+        except KeyError:
+            if field.name.startswith('spare'):
+                # spare fields may be missing
+                continue
+            raise
         if attr is None:
             continue
         err_msg = (
@@ -84,7 +91,7 @@ class TestAIS(unittest.TestCase):
     maxDiff = None
 
     def test_to_json(self):
-        json_dump = decode(b"!AIVDM,1,1,,A,15NPOOPP00o?b=bE`UNv4?w428D;,0*24").to_json()
+        json_dump = decode(b"!AIVDM,1,1,,A,15NPOOPP00o?b=bE`UNv4?w428D;,0*24").to_json(ignore_spare=False)
         text = textwrap.dedent(
             """{
     "msg_type": 1,
@@ -100,7 +107,6 @@ class TestAIS(unittest.TestCase):
     "heading": 511,
     "second": 34,
     "maneuver": 0,
-    "spare_1": "AA==",
     "raim": true,
     "radio": 34059
 }"""
@@ -146,7 +152,6 @@ class TestAIS(unittest.TestCase):
             "maneuver": ManeuverIndicator.NotAvailable,
             "raim": False,
             "radio": 2281,
-            "spare_1": b"\x00",
         }
 
     def test_msg_type_1_b(self):
@@ -572,7 +577,7 @@ class TestAIS(unittest.TestCase):
         ensure_type_for_msg_dict(msg)
 
     def test_msg_type_20(self):
-        msg = decode(b"!AIVDM,1,1,,A,D028rqP<QNfp000000000000000,2*0C").asdict()
+        msg = decode(b"!AIVDM,1,1,,A,D028rqP<QNfp000000000000000,2*0C").asdict(ignore_spare=False)
         assert msg["msg_type"] == 20
         assert msg["mmsi"] == 2243302
         assert msg["offset1"] == 200
@@ -707,21 +712,21 @@ class TestAIS(unittest.TestCase):
         ensure_type_for_msg_dict(msg)
 
     def test_msg_type_24_with_160_bits(self):
-        msg = decode(b"!AIVDO,1,1,,A,H1mg=5@EP4m0hF1<PU000000000,2*77").asdict()
+        msg = decode(b"!AIVDO,1,1,,A,H1mg=5@EP4m0hF1<PU000000000,2*77").asdict(ignore_spare=False)
         assert msg["msg_type"] == 24
         assert msg["partno"] == 0
         assert msg["mmsi"] == 123456789
         assert msg["spare_1"] is None
 
     def test_msg_type_24_with_168_bits(self):
-        msg = decode(b"!AIVDO,1,1,,A,H1mg=5@EP4m0hF1<PU0000000000,0*45").asdict()
+        msg = decode(b"!AIVDO,1,1,,A,H1mg=5@EP4m0hF1<PU0000000000,0*45").asdict(ignore_spare=False)
         assert msg["msg_type"] == 24
         assert msg["partno"] == 0
         assert msg["mmsi"] == 123456789
         assert msg["spare_1"] == b"\x00"
 
     def test_msg_type_25_a(self):
-        msg = decode(b"!AIVDM,1,1,,A,I6SWo?8P00a3PKpEKEVj0?vNP<65,0*73").asdict()
+        msg = decode(b"!AIVDM,1,1,,A,I6SWo?8P00a3PKpEKEVj0?vNP<65,0*73").asdict(ignore_spare=False)
 
         assert msg["msg_type"] == 25
         assert msg["addressed"]
@@ -1002,7 +1007,6 @@ class TestAIS(unittest.TestCase):
                 "repeat": 0,
                 "second": 60,
                 "name": "STDB CUT 2",
-                "spare_1": None,
                 "to_bow": 0,
                 "to_port": 0,
                 "to_starboard": 0,
@@ -1045,7 +1049,6 @@ class TestAIS(unittest.TestCase):
                 "second": 60,
                 "seq_id": None,
                 "name": "STDB CUT 2",
-                "spare_1": None,
                 "talker": "AI",
                 "to_bow": 0,
                 "to_port": 0,
@@ -1086,7 +1089,6 @@ class TestAIS(unittest.TestCase):
                 "second": 60,
                 "seq_id": None,
                 "name": "STDB CUT 2",
-                "spare_1": None,
                 "talker": "AI",
                 "to_bow": 0,
                 "to_port": 0,
@@ -1259,7 +1261,6 @@ class TestAIS(unittest.TestCase):
             "seqno": 3,
             "dest_mmsi": 313240222,
             "retransmit": false,
-            "spare_1": "AA==",
             "dac": 669,
             "fid": 11,
             "data": "6y8Rj3/x"
@@ -1280,7 +1281,6 @@ class TestAIS(unittest.TestCase):
             "msg_type": 8,
             "repeat": 0,
             "mmsi": 366999712,
-            "spare_1": "AA==",
             "dac": 366,
             "fid": 56,
             "data": "OlPbt75KdzE3+H17BEXwQN6gXZP1k3gxlK6bnZ2+Bfs="
@@ -1302,10 +1302,8 @@ class TestAIS(unittest.TestCase):
             "msg_type": 17,
             "repeat": 0,
             "mmsi": 2734450,
-            "spare_1": "AA==",
             "lon": 1747.8,
             "lat": 3599.2,
-            "spare_2": "AA==",
             "data": "fAVWwHAx/rv1KST+M/opM/+g/Sky/bcGKSL+OAkpKv3pEikp/PcAKSP/0gwpqqo="
         }
         """
@@ -1364,7 +1362,6 @@ class TestAIS(unittest.TestCase):
             "seqno": 3,
             "dest_mmsi": "313240222",
             "retransmit": false,
-            "spare_1": "AA==",
             "dac": 669,
             "fid": 11,
             "data": "6y8Rj3/x"

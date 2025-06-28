@@ -2,6 +2,11 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 2.11.0 28 Jun 2025
+-------------------------------------------------------------------------------
+* apply fixes from https://gitlab.com/holado_framework/python (@gassho)
+* closes: https://github.com/M0r13n/pyais/issues/183
+-------------------------------------------------------------------------------
  Version 2.10.0 22 Jun 2025
 -------------------------------------------------------------------------------
 * renamed custom `JSONEncoder` to `AISJSONEncoder` to avoid confusion with `json.JSONEncoder`
