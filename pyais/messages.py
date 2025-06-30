@@ -1379,6 +1379,9 @@ class MessageType16DestinationAB(Payload):
 
 @attr.s(slots=True)
 class MessageType16(Payload):
+    """If the message is 96 bits long, it should be interpreted as an assignment for a single station (92 bits)
+    followed by 4 bits of padding reserved for future use. If the message is 144 bits long it should be
+    interpreted as a channel assignment for two stations; no padding follows."""
     @classmethod
     def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
         if 'mmsi2' in kwargs:
