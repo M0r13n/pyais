@@ -18,7 +18,6 @@ For the following example, let's assume that we want to create a type 1 AIS mess
 """
 # Required imports
 from pyais.decode import decode
-from pyais.decode import decode
 from pyais.encode import encode_msg
 from pyais.messages import MessageType1, MessageType16
 

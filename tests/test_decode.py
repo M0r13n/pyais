@@ -1860,3 +1860,7 @@ class TestAIS(unittest.TestCase):
         # Test non-printable character
         with self.assertRaises(NonPrintableCharacterException):
             decoder.decode(b"\x01\x02")  # Control characters
+
+
+if __name__ == '__main__':
+    unittest.main()

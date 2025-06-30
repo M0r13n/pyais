@@ -1408,10 +1408,10 @@ class MessageType16(Payload):
         return MessageType16DestinationA.create(**kwargs)
 
     @classmethod
-    def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
-        if len(bit_arr) > 96:
-            return MessageType16DestinationAB.from_bitarray(bit_arr)
-        return MessageType16DestinationA.from_bitarray(bit_arr)
+    def from_bytes(cls, data: bytes, total_bits: int) -> "ANY_MESSAGE":
+        if total_bits > 96:
+            return MessageType16DestinationAB.from_bytes(data, total_bits)
+        return MessageType16DestinationA.from_bytes(data, total_bits)
 
 
 @attr.s(slots=True)
