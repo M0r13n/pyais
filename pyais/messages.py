@@ -1360,9 +1360,26 @@ class MessageType15(Payload):
 
 
 @attr.s(slots=True)
-class MessageType16(Payload):
+class MessageType16DestinationA(Payload):
     """
-    Assignment Mode Command
+    Assignment Mode Command (short)
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_16_assignment_mode_command
+    """
+    msg_type = bit_field(6, int, default=16, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+
+    mmsi1 = bit_field(30, int, default=0, from_converter=from_mmsi)
+    offset1 = bit_field(12, int, default=0, signed=False)
+    increment1 = bit_field(10, int, default=0, signed=False)
+    spare_2 = bit_field(4, bytes, default=b'', is_spare=True)
+
+
+@attr.s(slots=True)
+class MessageType16DestinationAB(Payload):
+    """
+    Assignment Mode Command (long)
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_16_assignment_mode_command
     """
     msg_type = bit_field(6, int, default=16, signed=False)
@@ -1377,6 +1394,24 @@ class MessageType16(Payload):
     mmsi2 = bit_field(30, int, default=0, from_converter=from_mmsi)
     offset2 = bit_field(12, int, default=0, signed=False)
     increment2 = bit_field(10, int, default=0, signed=False)
+
+
+@attr.s(slots=True)
+class MessageType16(Payload):
+    """If the message is 96 bits long, it should be interpreted as an assignment for a single station (92 bits)
+    followed by 4 bits of padding reserved for future use. If the message is 144 bits long it should be
+    interpreted as a channel assignment for two stations; no padding follows."""
+    @classmethod
+    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
+        if 'mmsi2' in kwargs:
+            return MessageType16DestinationAB.create(**kwargs)
+        return MessageType16DestinationA.create(**kwargs)
+
+    @classmethod
+    def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
+        if len(bit_arr) > 96:
+            return MessageType16DestinationAB.from_bitarray(bit_arr)
+        return MessageType16DestinationA.from_bitarray(bit_arr)
 
 
 @attr.s(slots=True)
@@ -1982,7 +2017,8 @@ ANY_MESSAGE = typing.Union[
     MessageType13,
     MessageType14,
     MessageType15,
-    MessageType16,
+    MessageType16DestinationA,
+    MessageType16DestinationAB,
     MessageType17,
     MessageType18,
     MessageType19,

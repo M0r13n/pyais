@@ -33,6 +33,8 @@ from pyais.messages import (
     MSG_CLASS,
     AISSentence,
     GatehouseSentence,
+    MessageType16DestinationA,
+    MessageType16DestinationAB,
     MessageType5,
     MessageType6,
     MessageType8Dac200Fid10,
@@ -461,7 +463,7 @@ class TestAIS(unittest.TestCase):
 
         ensure_type_for_msg_dict(msg)
 
-    def test_msg_type_16(self):
+    def test_msg_type_16_short(self):
         msg = decode(b"!AIVDM,1,1,,A,@01uEO@mMk7P<P00,0*18").asdict()
 
         assert msg["msg_type"] == 16
@@ -470,11 +472,47 @@ class TestAIS(unittest.TestCase):
         assert msg["mmsi1"] == 224251000
         assert msg["offset1"] == 200
         assert msg["increment1"] == 0
-        assert msg["mmsi2"] == 0
-        assert msg["offset2"] is None
-        assert msg["increment2"] is None
+        assert 'mmsi2' not in msg
+        assert 'offset2' not in msg
+        assert 'increment2' not in msg
 
         ensure_type_for_msg_dict(msg)
+
+    def test_msg_type_16_long(self):
+        msg = decode(b"!AIVDO,1,1,,A,@@07Ql@01Qat005h0gN<@00e,0*46").asdict()
+
+        assert msg["msg_type"] == 16
+        assert msg["repeat"] == 1
+        assert msg["mmsi"] == 123345
+        assert msg["mmsi1"] == 99999
+        assert msg["offset1"] == 0
+        assert msg["increment1"] == 23
+        assert msg["mmsi2"] == 777777
+        assert msg["offset2"] == 0
+        assert msg["increment2"] == 45
+
+        ensure_type_for_msg_dict(msg)
+
+    def test_msg_type_16_types(self):
+        short = decode(b"!AIVDM,1,1,,A,@01uEO@mMk7P<P00,0*18")
+        long = decode(b"!AIVDO,1,1,,A,@@07Ql@01Qat005h0gN<@00e,0*46")
+
+        # Ensure each message has the expected class
+        self.assertIsInstance(short, MessageType16DestinationA)
+        self.assertIsInstance(long, MessageType16DestinationAB)
+
+        # Both instances have a MMSI
+        self.assertEqual(short.mmsi, 2053501)
+        self.assertEqual(long.mmsi, 123345)
+
+        # Both instances have a MMSI1
+        self.assertEqual(short.mmsi1, 224251000)
+        self.assertEqual(long.mmsi1, 99999)
+
+        # Only the "long" message has a MMSI2
+        self.assertFalse(hasattr(short, 'mmsi2'))
+        self.assertTrue(hasattr(long, 'mmsi2'))
+        self.assertEqual(long.mmsi2, 777777)
 
     def test_msg_type_17_a(self):
         msg = decode(

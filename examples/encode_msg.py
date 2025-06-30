@@ -18,8 +18,9 @@ For the following example, let's assume that we want to create a type 1 AIS mess
 """
 # Required imports
 from pyais.decode import decode
+from pyais.decode import decode
 from pyais.encode import encode_msg
-from pyais.messages import MessageType1
+from pyais.messages import MessageType1, MessageType16
 
 # You do not need to pass every attribute to the class.
 # All field other than `mmsi` do have default values.
@@ -34,6 +35,14 @@ msg = MessageType1.create(course=219.3, lat=37.802, lon=-122.341, mmsi='36605320
 # size limit of payloads
 encoded = encode_msg(msg)
 
-msg = MessageType1.create(mmsi="123", lon=1 << 30)
-encoded = encode_msg(msg)
-decoded = decode(encoded[0])
+# You can also change the NMEA fields like the radio channel:
+print(encode_msg(msg, radio_channel="B"))
+
+msg_16_short = encode_msg(MessageType16.create(repeat=1, mmsi=123345, mmsi1=99999, increment1=23))[0]
+msg_16_long = encode_msg(MessageType16.create(repeat=1, mmsi=123345, mmsi1=99999, increment1=23, mmsi2=777777, increment2=45))[0]
+print(msg_16_short)
+print(msg_16_long)
+
+
+print(decode(msg_16_short))
+print(decode(msg_16_long))

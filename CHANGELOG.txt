@@ -2,6 +2,12 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 2.11.1 30 Jun 2025
+-------------------------------------------------------------------------------
+* apply fix from https://gitlab.com/holado_framework/python (@gassho)
+* pyais now handles type 16 messages shorter than 96 bit correctly
+* breaking: added two classes for type 16 - `isinstance(msg, MessageType16)` checks will need updating
+-------------------------------------------------------------------------------
  Version 2.11.0 28 Jun 2025
 -------------------------------------------------------------------------------
 * apply fixes from https://gitlab.com/holado_framework/python (@gassho)

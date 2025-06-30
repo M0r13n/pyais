@@ -9,9 +9,9 @@ from pyais.messages import MessageType1, MessageType26BroadcastUnstructured, Mes
     MessageType26BroadcastStructured, MessageType26AddressedStructured, MessageType25BroadcastUnstructured, \
     MessageType25AddressedUnstructured, MessageType25BroadcastStructured, MessageType25AddressedStructured, \
     MessageType24PartB, MessageType24PartA, MessageType22Broadcast, MessageType22Addressed, MessageType27, \
-    MessageType23, MessageType21, MessageType20, MessageType19, MessageType18, MessageType17, MessageType16, \
+    MessageType23, MessageType21, MessageType20, MessageType19, MessageType18, MessageType17, MessageType16DestinationA, \
     MessageType15, MessageType4, MessageType5, MessageType6, MessageType7, MessageType8Default, MessageType2, MessageType3, \
-    MSG_CLASS
+    MSG_CLASS, MessageType16DestinationAB
 from pyais.util import to_six_bit, int_to_bytes
 
 
@@ -40,7 +40,10 @@ def test_widths():
     tot_width = sum(field.metadata['width'] for field in MessageType15.fields())
     assert tot_width == 160
 
-    tot_width = sum(field.metadata['width'] for field in MessageType16.fields())
+    tot_width = sum(field.metadata['width'] for field in MessageType16DestinationA.fields())
+    assert tot_width == 96
+
+    tot_width = sum(field.metadata['width'] for field in MessageType16DestinationAB.fields())
     assert tot_width == 144
 
     tot_width = sum(field.metadata['width'] for field in MessageType17.fields())
@@ -569,14 +572,27 @@ def test_encode_type_16():
         'increment2': 0,
         'mmsi': '002053501',
         'mmsi1': '224251000',
-        'mmsi2': '000000000',
+        'mmsi2': '123456',
         'offset1': 200,
         'offset2': 0,
         'repeat': 0,
         'type': 16
     }
     encoded = encode_dict(data)
-    assert encoded[0] == "!AIVDO,1,1,,A,@01uEO@mMk7P<P0000000000,0*1A"
+    assert encoded[0] == "!AIVDO,1,1,,A,@01uEO@mMk7P<P0007R@0000,0*0F"
+
+
+def test_encode_type_16_short():
+    data = {
+        'increment1': 0,
+        'mmsi': '002053501',
+        'mmsi1': '224251000',
+        'offset1': 200,
+        'repeat': 0,
+        'type': 16
+    }
+    encoded = encode_dict(data)
+    assert encoded[0] == "!AIVDO,1,1,,A,@01uEO@mMk7P<P00,0*1A"
 
 
 def test_encode_type_15_a():
