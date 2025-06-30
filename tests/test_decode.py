@@ -33,6 +33,8 @@ from pyais.messages import (
     MSG_CLASS,
     AISSentence,
     GatehouseSentence,
+    MessageType16DestinationA,
+    MessageType16DestinationAB,
     MessageType5,
     MessageType6,
     MessageType8Dac200Fid10,
@@ -490,6 +492,27 @@ class TestAIS(unittest.TestCase):
         assert msg["increment2"] == 45
 
         ensure_type_for_msg_dict(msg)
+
+    def test_msg_type_16_types(self):
+        short = decode(b"!AIVDM,1,1,,A,@01uEO@mMk7P<P00,0*18")
+        long = decode(b"!AIVDO,1,1,,A,@@07Ql@01Qat005h0gN<@00e,0*46")
+
+        # Ensure each message has the expected class
+        self.assertIsInstance(short, MessageType16DestinationA)
+        self.assertIsInstance(long, MessageType16DestinationAB)
+
+        # Both instances have a MMSI
+        self.assertEqual(short.mmsi, 2053501)
+        self.assertEqual(long.mmsi, 123345)
+
+        # Both instances have a MMSI1
+        self.assertEqual(short.mmsi1, 224251000)
+        self.assertEqual(long.mmsi1, 99999)
+
+        # Only the "long" message has a MMSI2
+        self.assertFalse(hasattr(short, 'mmsi2'))
+        self.assertTrue(hasattr(long, 'mmsi2'))
+        self.assertEqual(long.mmsi2, 777777)
 
     def test_msg_type_17_a(self):
         msg = decode(
