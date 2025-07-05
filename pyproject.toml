@@ -46,6 +46,7 @@ ais-decode = "pyais.main:main"
 
 [tool.setuptools]
 package-data = {"pyais" = ["py.typed"]}
+packages = ["pyais"]
 
 
 [build-system]

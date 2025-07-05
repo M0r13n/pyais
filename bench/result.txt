@@ -1,0 +1,9 @@
+Using python: /home/ubuntu/projects/pyais/.venv/bin/python3
+Python 3.11.11 (0253c85bf5f8, Feb 26 2025, 10:09:04)
+[PyPy 7.3.19 with GCC 10.2.1 20210130 (Red Hat 10.2.1-11)]
+>>> Bench pyais
+defaultdict(<function <lambda> at 0x0000efdfc9568a20>, {1: 61374, 3: 8785, 18: 1361, 5: 2221, 4: 4043, 2: 1973, 21: 380, 19: 109, 20: 276, 8: 1082, 17: 314, 6: 443, 16: 1, 24: 307, 10: 7, 9: 27, 22: 23, 11: 28, 'errors': 2, 25: 2})
+Decoded 82758 NMEA AIS messages in  0.58s
+>>> Bench libais
+defaultdict(<function <lambda> at 0x0000f5ca27a1b240>, {1: 60782, 3: 8643, 18: 1359, 4: 4014, 2: 1973, 21: 372, 19: 108, 20: 269, 8: 734, 17: 253, 6: 241, 16: 1, 24: 306, 10: 7, 9: 27, 5: 19, 22: 23, 11: 28})
+Decoded 79158 NMEA AIS messages in  0.36s
