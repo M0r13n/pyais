@@ -72,7 +72,7 @@ KNOWN_FIELDS = {
 
 
 class AISJSONDecoder(json.JSONDecoder):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(object_hook=self._filter_hook, *args, **kwargs)
 
     def _filter_hook(self, obj: Any) -> dict[str, Any]:
@@ -90,6 +90,22 @@ def create_parser() -> argparse.ArgumentParser:
         choices=['single', 'lines', 'stream', 'auto'],
         default='auto',
         help='JSON reading mode'
+    )
+
+    parser.add_argument(
+        '--talker',
+        choices=['AIVDM', 'AIVDO',],
+        default='AIVDM',
+        help='AIVDM (default) is used for reports from other ships. AIVDO is used for own ship.',
+        type=str.upper
+    )
+
+    parser.add_argument(
+        '--radio',
+        choices=['A', 'B',],
+        default='A',
+        help='The radio channel. Can be either "A" (default) or "B".',
+        type=str.upper
     )
     return parser
 
@@ -150,7 +166,7 @@ def main() -> int:
         for data in read(args.mode):
             try:
                 # encode NMEA AIS message
-                encoded = encode_dict(data)
+                encoded = encode_dict(data, talker_id=args.talker, radio_channel=args.radio)
             except Exception as e:
                 print(f'Failed to encode: {e}.', file=sys.stderr)
                 continue

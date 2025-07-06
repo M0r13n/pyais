@@ -208,7 +208,7 @@ print(encoded)
 
 ### CLI encoder
 
-There is also a AIS JSON to NMEA Encoder: [examples/ais-encode](examples/ais-encode). It reads JSON from stdin and outputs encoded NMEA AIS messages to stdout.
+There is also a AIS JSON to NMEA Encoder for your CLI: `ais-encode`. It reads JSON from stdin and outputs encoded NMEA AIS messages to stdout. Refer to `ais-encode --help`.
 
 # Under the hood
 
