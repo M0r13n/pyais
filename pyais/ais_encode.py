@@ -14,16 +14,16 @@ The encoder supports multiple input modes:
 Usage Examples:
 --------------
 1. Encode a single AIS position report:
-   $ echo '{"msg_type":1,"mmsi":231234000,"turn":5.0,"speed":10.1,"lon":5,"lat":59,"course":356.0}' | ./ais-encode
+   $ echo '{"msg_type":1,"mmsi":231234000,"turn":5.0,"speed":10.1,"lon":5,"lat":59,"course":356.0}' | ais-encode
 
 2. Encode multiple messages from line-delimited JSON:
-   $ cat ais_messages.jsonl | ./ais-encode --mode lines
+   $ cat ais_messages.jsonl | ais-encode --mode lines
 
 3. Process a continuous stream of AIS data:
-   $ nc 153.44.253.27 5631 | ais-decode --json | jq -c | ./ais-encode --mode stream
+   $ nc 153.44.253.27 5631 | ais-decode --json | jq -c | ais-encode --mode stream
 
 4. Convert decoded AIS messages back to NMEA:
-   $ ais-decode --json < nmea.txt | ./ais-encode
+   $ ais-decode --json < nmea.txt | ais-encode
 
 Input Format:
 ------------
