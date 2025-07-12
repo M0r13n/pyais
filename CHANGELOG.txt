@@ -2,6 +2,12 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 2.12.0 12 Jul 2025
+-------------------------------------------------------------------------------
+* BREAKING: Renamed pyais/main.py to pyais/ais_decode.py
+  * direct imports from pyais.main will fail
+* added ais-encode as installable CLI tool via pip install
+-------------------------------------------------------------------------------
  Version 2.11.1 30 Jun 2025
 -------------------------------------------------------------------------------
 * apply fix from https://gitlab.com/holado_framework/python (@gassho)
