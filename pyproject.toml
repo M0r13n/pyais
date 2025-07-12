@@ -56,9 +56,3 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.dynamic]
 version = {attr = "pyais.__version__"}
-
-[tool.coverage.run]
-omit = [
-    "pyais/ais_decode.py",
-    "pyais/ais_encode.py",
-]
