@@ -48,7 +48,6 @@ ais-encode = "pyais.ais_encode:main"
 [tool.setuptools]
 package-data = {"pyais" = ["py.typed"]}
 packages = ["pyais"]
-packages = ["pyais"]
 
 [build-system]
 requires = ["setuptools>=43.0.0", "wheel"]
