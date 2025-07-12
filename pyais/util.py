@@ -69,7 +69,7 @@ def decode_bin_as_ascii6(bit_arr: bitarray) -> str:
 
         # Last entry may not have 6 bits
         if len(c) != 6:
-            n >> (6 - len(c))
+            n >>= (6 - len(c))
 
         if n < 0x20:
             n += 0x40

@@ -2,7 +2,7 @@ from io import StringIO
 import sys
 import unittest
 
-from pyais.main import decode_single, decode_from_file, create_parser, decode_from_socket
+from pyais.ais_decode import decode_single, decode_from_file, create_parser, decode_from_socket
 
 
 class TestMainApp(unittest.TestCase):
