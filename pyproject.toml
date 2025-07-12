@@ -42,12 +42,13 @@ dev = ['mypy', 'flake8', 'coverage', 'twine', 'sphinx', 'pytest', 'pytest-cov']
 "Source" = "https://github.com/M0r13n/pyais"
 
 [project.scripts]
-ais-decode = "pyais.main:main"
+ais-decode = "pyais.ais_decode:main"
+ais-encode = "pyais.ais_encode:main"
 
 [tool.setuptools]
 package-data = {"pyais" = ["py.typed"]}
 packages = ["pyais"]
-
+packages = ["pyais"]
 
 [build-system]
 requires = ["setuptools>=43.0.0", "wheel"]
