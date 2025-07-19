@@ -744,13 +744,13 @@ class Payload(abc.ABC):
 
             if d_type in (bool, int):
                 bits = int_to_bin(val, width, signed=signed)
-            elif d_type == float:
+            elif d_type is float:
                 val = int(val)
                 bits = int_to_bin(val, width, signed=signed)
-            elif d_type == str:
+            elif d_type is str:
                 trailing_spaces = not variable_length
                 bits = str_to_bin(val, width, trailing_spaces=trailing_spaces)
-            elif d_type == bytes:
+            elif d_type is bytes:
                 bits = bytes2bits(val, default=bitarray('0' * width))
             else:
                 raise InvalidDataTypeException(d_type)
@@ -816,21 +816,21 @@ class Payload(abc.ABC):
 
             val: typing.Any
             # Get the correct data type and decoding function
-            if d_type == int or d_type == bool or d_type == float:
+            if d_type is int or d_type is bool or d_type is float:
                 shift = (8 - ((end - cur) % 8)) % 8
                 if field.metadata['signed']:
                     val = from_bytes_signed(bits) >> shift
                 else:
                     val = from_bytes(bits) >> shift
 
-                if d_type == float:
+                if d_type is float:
                     val = float(val)
-                elif d_type == bool:
+                elif d_type is bool:
                     val = bool(val)
 
-            elif d_type == str:
+            elif d_type is str:
                 val = decode_bin_as_ascii6(bits)
-            elif d_type == bytes:
+            elif d_type is bytes:
                 val = bits2bytes(bits)
             else:
                 raise InvalidDataTypeException(d_type)

@@ -1,8 +1,8 @@
 run_tests:
 	pytest --cov=pyais tests/
 
-flake:
-	flake8
+ruff:
+	ruff check
 
 .PHONY: build
 build:
@@ -26,7 +26,7 @@ clean:
 ensure-no-print:
 	grep -r --exclude ais_encode.py --exclude ais_decode.py --exclude '*.pyc' -i 'print(' ./pyais && (echo "Debug print statement found"; exit 1)||true
 
-test: run_tests flake type-check ensure-no-print
+test: run_tests ruff type-check ensure-no-print
 
 install:
 	pip install -U setuptools wheel build

@@ -231,7 +231,7 @@ def b64encode_str(val: bytes, encoding: str = 'utf-8') -> str:
 
 def coerce_val(val: typing.Any, d_type: typing.Type[T]) -> T:
     """Forces a given value in a given datatype"""
-    if d_type == bytes and not isinstance(val, bytes):
+    if d_type is bytes and not isinstance(val, bytes):
         raise ValueError(f"Expected bytes, but got: {type(val)}")
 
     return d_type(val)  # type: ignore
@@ -417,7 +417,6 @@ def get_itdma_comm_state(radio: int) -> Dict[str, typing.Optional[int]]:
         'sync_state': sync_state,
         'slot_increment': slot_increment,
         'num_slots': num_slots,
-        'keep_flag': keep_flag,
     }
 
 

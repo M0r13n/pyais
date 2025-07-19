@@ -35,9 +35,6 @@ dependencies = [
   "attrs"
 ]
 
-[project.optional-dependencies]
-dev = ['mypy', 'flake8', 'coverage', 'twine', 'sphinx', 'pytest', 'pytest-cov']
-
 [project.urls]
 "Homepage" = "https://github.com/M0r13n/pyais"
 "Source" = "https://github.com/M0r13n/pyais"
@@ -53,6 +50,17 @@ packages = ["pyais"]
 [build-system]
 requires = ["setuptools>=43.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "coverage>=7.6.1",
+    "mypy>=1.14.1",
+    "pytest>=8.3.5",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.12.4",
+    "sphinx>=7.1.2",
+    "twine>=6.1.0",
+]
 
 [tool.setuptools.dynamic]
 version = {attr = "pyais.__version__"}
