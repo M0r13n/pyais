@@ -34,8 +34,8 @@ jobs:
             token: ${{secrets.CODECOV_TOKEN}}
             file: coverage.xml
 
-      - name: Run Flake8
-        run: flake8
+      - name: Run Ruff
+        run: make ruff
 
       - name: Run Mypy
         run: mypy --strict ./pyais
