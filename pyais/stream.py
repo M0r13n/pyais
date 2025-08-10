@@ -1,8 +1,11 @@
+from collections import deque
+from dataclasses import dataclass
+import selectors
 import typing
 import pathlib
 import queue
 from abc import ABC, abstractmethod
-from socket import AF_INET, SOCK_DGRAM, SOCK_STREAM, socket
+from socket import AF_INET, SO_REUSEADDR, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, socket
 from typing import BinaryIO, Generator, Generic, Iterable, List, TypeVar, cast
 
 from pyais.exceptions import InvalidNMEAMessageException, NonPrintableCharacterException, UnknownMessageException
@@ -379,9 +382,9 @@ class UDPReceiver(SocketStream):
 
 class TCPConnection(SocketStream):
     """
-     Read AIS data from a remote TCP server
-     https://en.wikipedia.org/wiki/NMEA_0183
-     """
+    Read AIS data from a remote TCP server
+    https://en.wikipedia.org/wiki/NMEA_0183
+    """
 
     def recv(self) -> bytes:
         return self._fobj.recv(self.BUF_SIZE)
@@ -400,3 +403,139 @@ class TCPConnection(SocketStream):
             sock.close()
             raise ConnectionRefusedError(f"Failed to connect to {host}:{port}") from e
         super().__init__(sock, preprocessor=preprocessor, tbq=tbq)
+
+
+@dataclass
+class ClientConnection:
+    """Represents a connected client with its associated data."""
+    addr: tuple[str, int]
+    partial_buffer: bytes = b''
+
+
+class TCPServer(SocketStream):
+    """
+    TCP server that handles multiple connections.
+    It is based on the builtin selectors module for efficient I/O multiplexing.
+    """
+
+    def __init__(
+        self,
+        host: str,
+        port: int = 80,
+        preprocessor: typing.Optional[PreprocessorProtocol] = None,
+        tbq: typing.Optional[TagBlockQueue] = None
+    ) -> None:
+        # Create a socket and bind it
+        server_sock = socket(AF_INET, SOCK_STREAM)
+        server_sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+        server_sock.bind((host, port))
+        server_sock.listen()
+        server_sock.setblocking(False)
+
+        # Use the builtin selector for efficient I/O multiplexing
+        self.sel = selectors.DefaultSelector()
+        self.sel.register(server_sock, selectors.EVENT_READ)
+
+        # Queue for complete messages from all clients
+        self._message_queue: deque[bytes] = deque()
+
+        # Keep track of client sockets to clean them up later
+        self._client_sockets: typing.Set[socket] = set()
+
+        super().__init__(server_sock, preprocessor=preprocessor, tbq=tbq)
+
+    def recv(self) -> bytes:
+        """Override recv to handle multiple client connections with per-connection buffering"""
+        # First, return any queued complete messages
+        if self._message_queue:
+            return self._message_queue.popleft()
+
+        while True:
+            events = self.sel.select()
+            if not events:
+                # No data available
+                return b''
+
+            for key, mask in events:
+                if key.data is None:
+                    self.accept(key.fileobj)  # type: ignore
+                else:
+                    self.service(key, mask)
+                    # Check if we have any complete messages after processing
+                    if self._message_queue:
+                        return self._message_queue.popleft()
+
+    def read(self) -> typing.Generator[bytes, None, None]:
+        """Use custom implementation that handles multiple clients properly"""
+        try:
+            while True:
+                data = self.recv()
+                if data:
+                    yield data
+        finally:
+            self.sel.close()
+
+    def accept(self, sock: socket) -> None:
+        conn, addr = sock.accept()
+        conn.setblocking(False)
+        self._client_sockets.add(sock)
+
+        data = ClientConnection(
+            addr=addr,
+            partial_buffer=b''
+        )
+        self.sel.register(conn, selectors.EVENT_READ, data=data)
+
+    def service(self, key: selectors.SelectorKey, mask: int) -> None:
+        """Handle client data with per-connection buffering"""
+        sock: socket = typing.cast(socket, key.fileobj)
+        data = key.data
+
+        if mask & selectors.EVENT_READ:
+            try:
+                recv_data = sock.recv(self.BUF_SIZE)
+                if recv_data:
+                    # Process the received data with the connection's buffer
+                    self._process_client_data(data, recv_data)
+                else:
+                    # close
+                    self.sel.unregister(sock)
+                    sock.close()
+            except ConnectionResetError:
+                self.sel.unregister(sock)
+                sock.close()
+
+    def _process_client_data(self, client_data: ClientConnection, new_data: bytes) -> None:
+        """Process data from a specific client, handling partial messages"""
+        # Combine with any partial data from previous receives
+        full_data = client_data.partial_buffer + new_data
+
+        # Split into lines
+        lines = full_data.splitlines(keepends=True)
+
+        if not lines:
+            return
+
+        # Check if the last line is complete (ends with newline)
+        if lines[-1].endswith(b'\n'):
+            # All lines are complete
+            for line in lines:
+                self._message_queue.append(line)
+            client_data.partial_buffer = b''
+        else:
+            # Last line is incomplete, save it for next time
+            for line in lines[:-1]:
+                self._message_queue.append(line)
+            client_data.partial_buffer = lines[-1]
+
+    def close(self) -> None:
+        """Properly close all connections and selector"""
+        for sock in self._client_sockets.copy():
+            try:
+                self.sel.unregister(sock)
+            except (KeyError, ValueError):
+                pass
+            sock.close()
+            self._client_sockets.discard(sock)
+        self.sel.close()
+        super().close()
