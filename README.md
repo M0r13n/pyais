@@ -139,6 +139,11 @@ for msg in IterMessages(fake_stream):
     print(msg.decode())
 ```
 
+## TCP server
+
+pyais includes a [TCP server](./examples/tcp_server.py) capable of handling multiple concurrent client connections.
+Built on Python's selectors module for efficient I/O multiplexing, it accepts connections on a specified host and port, manages per-client buffering to handle partial messages, and queues complete messages from all clients for processing. The server automatically handles connection lifecycle management, including accepting new connections, processing client data with proper message boundary detection, and cleaning up closed connections, making it suitable for applications requiring concurrent TCP communication with multiple clients.
+
 ## Live feed
 
 The [Norwegian Coastal Administration](https://kystverket.no/en/navigation-and-monitoring/ais/access-to-ais-data/) offers real-time AIS data.
