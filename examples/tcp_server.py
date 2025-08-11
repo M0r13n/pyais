@@ -12,16 +12,7 @@ HOST = "0.0.0.0"
 PORT = 5678
 
 
-def main():
-    try:
-        while True:
-            # Accept an arbitrary number of clients
-            with TCPServer(HOST, PORT) as server:
-                for i, msg in enumerate(server, 1):
-                    print(i, msg)
-    except KeyboardInterrupt:
-        pass
-
-
-if __name__ == "__main__":
-    main()
+# Accept an arbitrary number of clients
+with TCPServer(HOST, PORT) as server:
+    for i, msg in enumerate(server, 1):
+        print(i, msg)

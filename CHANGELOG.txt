@@ -2,6 +2,11 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 2.13.0 11 Aug 2025
+-------------------------------------------------------------------------------
+* added a TCP server capable of handling multiple concurrent client connections
+  * https://github.com/M0r13n/pyais?tab=readme-ov-file#tcp-server
+-------------------------------------------------------------------------------
  Version 2.12.0 12 Jul 2025
 -------------------------------------------------------------------------------
 * BREAKING: Renamed pyais/main.py to pyais/ais_decode.py
