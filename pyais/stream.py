@@ -1,4 +1,5 @@
 import selectors
+import time
 import typing
 import pathlib
 import queue
@@ -429,7 +430,8 @@ class TCPServer(SocketStream):
         host: str,
         port: int = 80,
         preprocessor: typing.Optional[PreprocessorProtocol] = None,
-        tbq: typing.Optional[TagBlockQueue] = None
+        tbq: typing.Optional[TagBlockQueue] = None,
+        timeout: float = -1
     ) -> None:
         # Create a socket and bind it
         server_sock = socket(AF_INET, SOCK_STREAM)
@@ -447,6 +449,8 @@ class TCPServer(SocketStream):
 
         # Keep track of client sockets to clean them up later
         self._client_sockets: typing.Set[socket] = set()
+        self._client_last_activity: typing.Dict[socket, float] = {}
+        self.timeout = timeout
 
         super().__init__(server_sock, preprocessor=preprocessor, tbq=tbq)
 
@@ -456,13 +460,9 @@ class TCPServer(SocketStream):
         if self._message_queue:
             return self._message_queue.popleft()
 
+        last_cleanup = time.time()
         while True:
-            events = self.sel.select()
-            if not events:
-                # No data available
-                return b''
-
-            for key, mask in events:
+            for key, mask in self.sel.select(timeout=1.0):
                 if key.data is None:
                     self.accept(key.fileobj)  # type: ignore
                 else:
@@ -470,6 +470,26 @@ class TCPServer(SocketStream):
                     # Check if we have any complete messages after processing
                     if self._message_queue:
                         return self._message_queue.popleft()
+
+            # Periodic cleanup for connection timeouts
+            if self.timeout > 0 and time.time() - last_cleanup >= self.timeout:
+                self._cleanup_idle_connections()
+                last_cleanup = time.time()
+
+    def _cleanup_idle_connections(self) -> None:
+        current_time = time.time()
+        for sock, last_activity in self._client_last_activity.copy().items():
+            if current_time - last_activity > self.timeout:
+                self._close_client(sock)
+
+    def _close_client(self, client_sock: socket) -> None:
+        try:
+            self.sel.unregister(client_sock)
+        except (KeyError, ValueError):
+            pass
+        self._client_last_activity.pop(client_sock, None)
+        self._client_sockets.discard(client_sock)
+        client_sock.close()
 
     def read(self) -> typing.Generator[bytes, None, None]:
         """Use custom implementation that handles multiple clients properly"""
@@ -482,34 +502,35 @@ class TCPServer(SocketStream):
             self.sel.close()
 
     def accept(self, sock: socket) -> None:
-        conn, addr = sock.accept()
-        conn.setblocking(False)
-        self._client_sockets.add(sock)
+        client_sock, addr = sock.accept()
+        client_sock.setblocking(False)
+        self._client_sockets.add(client_sock)
 
         data = ClientConnection(
             addr=addr,
             partial_buffer=b''
         )
-        self.sel.register(conn, selectors.EVENT_READ, data=data)
+        self.sel.register(client_sock, selectors.EVENT_READ, data=data)
+        self._client_last_activity[client_sock] = time.time()
 
     def service(self, key: selectors.SelectorKey, mask: int) -> None:
         """Handle client data with per-connection buffering"""
-        sock: socket = typing.cast(socket, key.fileobj)
+        client_sock: socket = typing.cast(socket, key.fileobj)
         data = key.data
 
         if mask & selectors.EVENT_READ:
             try:
-                recv_data = sock.recv(self.BUF_SIZE)
+                recv_data = client_sock.recv(self.BUF_SIZE)
                 if recv_data:
                     # Process the received data with the connection's buffer
                     self._process_client_data(data, recv_data)
                 else:
                     # close
-                    self.sel.unregister(sock)
-                    sock.close()
+                    self._close_client(client_sock)
             except ConnectionResetError:
-                self.sel.unregister(sock)
-                sock.close()
+                self._close_client(client_sock)
+
+        self._client_last_activity[client_sock] = time.time()
 
     def _process_client_data(self, client_data: ClientConnection, new_data: bytes) -> None:
         """Process data from a specific client, handling partial messages"""
@@ -536,12 +557,7 @@ class TCPServer(SocketStream):
 
     def close(self) -> None:
         """Properly close all connections and selector"""
-        for sock in self._client_sockets.copy():
-            try:
-                self.sel.unregister(sock)
-            except (KeyError, ValueError):
-                pass
-            sock.close()
-            self._client_sockets.discard(sock)
+        for client_sock in self._client_sockets.copy():
+            self._close_client(client_sock)
         self.sel.close()
         super().close()
