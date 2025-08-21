@@ -423,6 +423,16 @@ class TCPServer(SocketStream):
     new connections, processing client data with proper message boundary detection,
     and cleaning up closed connections, making it suitable for applications requiring
     concurrent TCP communication with multiple clients.
+
+    Args:
+        host:           The hostname or IP address to bind to.
+        port:           The port number to bind to. Defaults to 80.
+        preprocessor:   Optional preprocessor for handling incoming data.
+                        If None, no preprocessing will be applied.
+        tbq:            Optional tag block queue for managing tagged data blocks.
+                        If None, no tag block queuing will be used.
+        timeout:        Connection timeout in seconds. Use -1 for no timeout.
+                        Defaults to -1.
     """
 
     def __init__(
