@@ -13,8 +13,7 @@ class TestMessageProcessing(unittest.TestCase):
 
     def setUp(self):
         """Set up server for message processing tests"""
-        with patch('socket.socket'), \
-                patch('selectors.DefaultSelector'):
+        with patch('socket.socket'), patch('selectors.DefaultSelector'):
 
             self.server = TCPServer('127.0.0.1', 8080)
             self.server._message_queue = deque()
