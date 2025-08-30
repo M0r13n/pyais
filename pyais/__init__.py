@@ -5,7 +5,7 @@ from pyais.decode import decode
 from pyais.tracker import AISTracker, AISTrack
 
 __license__ = 'MIT'
-__version__ = '2.13.1'
+__version__ = '2.13.2'
 __author__ = 'Leon Morten Richter'
 
 __all__ = (
