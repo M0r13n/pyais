@@ -172,8 +172,7 @@ def main() -> int:
                 continue
 
             # write result
-            sys.stdout.writelines(encoded)
-            sys.stdout.write('\n')
+            sys.stdout.write('\n'.join(encoded) + '\n')
     except (json.JSONDecodeError, ValueError) as e:
         print(f"Error parsing JSON: {e}", file=sys.stderr)
         return 1
