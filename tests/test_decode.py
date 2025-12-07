@@ -52,7 +52,7 @@ from pyais.messages import (
     MessageType26BroadcastUnstructured,
 )
 from pyais.stream import ByteStream, IterMessages
-from pyais.util import b64encode_str, bits2bytes, bytes2bits, decode_into_bit_array
+from pyais.util import b64encode_str, bits2bytes, bytes2bits, decode_into_bit_array, is_auxiliary_craft
 from pyais.exceptions import MissingPayloadException
 
 
@@ -762,6 +762,49 @@ class TestAIS(unittest.TestCase):
         assert msg["partno"] == 0
         assert msg["mmsi"] == 123456789
         assert msg["spare_1"] == b"\x00"
+
+    def test_msg_type_24_b_regular(self):
+        msg = decode(b"!AIVDO,1,1,,A,H8=;nnT000000000000000Wg8Jb0,0*26").asdict(ignore_spare=False)
+
+        assert msg["msg_type"] == 24
+        assert msg["partno"] == 1
+        assert msg["mmsi"] == 550696666
+        assert msg["to_bow"] == 317
+        assert msg["to_stern"] == 456
+        assert msg["to_port"] == 26
+        assert msg["to_starboard"] == 42
+        assert 'mothership_mmsi' not in msg
+
+    def test_msg_type_24_b_aux_craft(self):
+        msg = decode(b"!AIVDO,1,1,,A,H>W@vFTe6??406t2??21J0Wg8Jb0,0*6F").asdict(ignore_spare=False)
+
+        assert msg["msg_type"] == 24
+        assert msg["partno"] == 1
+        assert msg["mmsi"] == 980696666
+        assert msg["ship_type"] == 45
+        assert msg["vendorid"] == 'FOO'
+        assert msg["model"] == 1
+        assert msg["callsign"] == 'BOOBAZ'
+
+        assert 'to_bow' not in msg
+        assert 'to_stern' not in msg
+        assert 'to_port' not in msg
+        assert 'to_starboard' not in msg
+
+        assert msg["mothership_mmsi"] == 666666666
+
+    def test_is_auxiliary_craft_boundary_cases(self):
+        # Test lower boundary
+        assert is_auxiliary_craft(980000000)
+
+        # Test upper boundary
+        assert is_auxiliary_craft(989999999)
+
+        # Test just below range (should use regular PartB)
+        assert not is_auxiliary_craft(979999999)
+
+        # Test just above range (should use regular PartB)
+        assert not is_auxiliary_craft(990000000)
 
     def test_msg_type_25_a(self):
         msg = decode(b"!AIVDM,1,1,,A,I6SWo?8P00a3PKpEKEVj0?vNP<65,0*73").asdict(ignore_spare=False)

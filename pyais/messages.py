@@ -15,7 +15,7 @@ from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitialized
     InvalidDataTypeException, MissingPayloadException
 from pyais.util import checksum, decode_into_bit_array, compute_checksum, get_itdma_comm_state, get_sotdma_comm_state, int_to_bin, str_to_bin, \
     encode_ascii_6, from_bytes, from_bytes_signed, decode_bin_as_ascii6, get_int, chk_to_int, coerce_val, \
-    bits2bytes, bytes2bits, b64encode_str
+    bits2bytes, bytes2bits, b64encode_str, is_auxiliary_craft
 
 NMEA_VALUE = typing.Union[str, float, int, bool, bytes]
 
@@ -1701,6 +1701,32 @@ class MessageType24PartB(Payload):
     spare_1 = bit_field(6, bytes, default=b'', is_spare=True)
 
 
+@attr.s(slots=True)
+class MessageType24PartBAuxiliaryCraft(Payload):
+    """
+    Static Data Report - Part B (Auxiliary Craft Variant)
+
+    When the MMSI follows the pattern 98XXXYYYY (auxiliary craft),
+    bits 132-161 contain the mothership MMSI instead of vessel dimensions.
+
+    See ITU-R M.1371-5 for specification details.
+    """
+    msg_type = bit_field(6, int, default=24, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+
+    partno = bit_field(2, int, default=0, signed=False)
+    ship_type = bit_field(8, int, default=0, signed=False)
+    vendorid = bit_field(18, str, default='', signed=False)
+    model = bit_field(4, int, default=0, signed=False)
+    serial = bit_field(20, int, default=0, signed=False)
+    callsign = bit_field(42, str, default='')
+
+    mothership_mmsi = bit_field(30, int, from_converter=from_mmsi)
+
+    spare_1 = bit_field(6, bytes, default=b'', is_spare=True)
+
+
 class MessageType24(Payload):
     """
     Static Data Report
@@ -1714,20 +1740,26 @@ class MessageType24(Payload):
 
     @classmethod
     def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
+        mmsi: int = int(kwargs.get('mmsi', 0))
         partno: int = int(kwargs.get('partno', 0))
         if partno == 0:
             return MessageType24PartA.create(**kwargs)
         elif partno == 1:
+            if is_auxiliary_craft(mmsi):
+                return MessageType24PartBAuxiliaryCraft.create(**kwargs)
             return MessageType24PartB.create(**kwargs)
         else:
             raise UnknownPartNoException(f"Partno {partno} is not allowed!")
 
     @classmethod
     def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
+        mmsi: int = get_int(bit_arr, 8, 38)
         partno: int = get_int(bit_arr, 38, 40)
         if partno == 0:
             return MessageType24PartA.from_bitarray(bit_arr)
         elif partno == 1:
+            if is_auxiliary_craft(mmsi):
+                return MessageType24PartBAuxiliaryCraft.from_bitarray(bit_arr)
             return MessageType24PartB.from_bitarray(bit_arr)
         else:
             raise UnknownPartNoException(f"Partno {partno} is not allowed!")

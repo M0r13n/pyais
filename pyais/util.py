@@ -430,3 +430,11 @@ def get_first_three_digits(num: int) -> int:
 
 def get_country(mmsi: int) -> typing.Tuple[str, str]:
     return COUNTRY_MAPPING.get(get_first_three_digits(mmsi), ('NA', 'Unknown'))
+
+
+def is_auxiliary_craft(mmsi: int) -> bool:
+    # An auxiliary craft has a mmsi of the form 98XXXYYYY, where:
+    #   1. it starts with 98
+    #   2. is followed by a MID (XXX)
+    #   3. if followed by any decimal literal YYYY (0000 - 9999)
+    return 98_000_0000 <= mmsi <= 98_999_9999
