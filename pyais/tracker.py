@@ -194,7 +194,7 @@ class AISTracker:
         """Remove a callback. Every callback is identified by its event and callback-function."""
         self._broker.detach(event, callback)
 
-    def update(self, msg: AISSentence | ANY_MESSAGE, ts_epoch_ms: typing.Optional[float] = None) -> None:
+    def update(self, msg: typing.Union[AISSentence, ANY_MESSAGE], ts_epoch_ms: typing.Optional[float] = None) -> None:
         """Updates a track. If the track does not yet exist, a new track is created.
         NOTE: accepts raw AISSentences as well as decoded messages.
 
