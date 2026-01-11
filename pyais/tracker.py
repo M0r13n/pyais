@@ -194,13 +194,17 @@ class AISTracker:
         """Remove a callback. Every callback is identified by its event and callback-function."""
         self._broker.detach(event, callback)
 
-    def update(self, msg: AISSentence, ts_epoch_ms: typing.Optional[float] = None) -> None:
+    def update(self, msg: AISSentence | ANY_MESSAGE, ts_epoch_ms: typing.Optional[float] = None) -> None:
         """Updates a track. If the track does not yet exist, a new track is created.
+        NOTE: accepts raw AISSentences as well as decoded messages.
+
         :param msg: the message to add to the track.
         :param ts_epoch_ms: an optional timestamp to tell when the message was originally received."""
-        decoded = msg.decode()
-        mmsi = int(decoded.mmsi)
-        track = msg_to_track(decoded, ts_epoch_ms)
+        if isinstance(msg, AISSentence):
+            msg = msg.decode()
+
+        mmsi = int(msg.mmsi)
+        track = msg_to_track(msg, ts_epoch_ms)
         self.ensure_timestamp_constraints(track.last_updated)
         self.insert_or_update(mmsi, track)
         self.cleanup()
