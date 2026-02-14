@@ -8,11 +8,12 @@ from typing import Any, Dict, Optional, Sequence, Union
 
 import attr
 
+from pyais.bit_vector import BitVector
 from pyais.constants import TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
     TransmitMode, StationIntervals, TurnRate, InlandLoadedType
 from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitializedException, UnknownMessageException, UnknownPartNoException, \
     InvalidDataTypeException, MissingPayloadException
-from pyais.util import SIX_BIT_ENCODING, SixBitNibleDecoder, SixBitNibleEncoder, checksum, compute_checksum, decode_bytes_as_ascii6, extract_bits, get_bytes, get_itdma_comm_state, get_num, get_sotdma_comm_state, chk_to_int, coerce_val, b64encode_str, is_auxiliary_craft
+from pyais.util import SIX_BIT_ENCODING, SixBitNibleEncoder, checksum, compute_checksum, get_itdma_comm_state, get_sotdma_comm_state, chk_to_int, coerce_val, b64encode_str, is_auxiliary_craft
 
 NMEA_VALUE = typing.Union[str, float, int, bool, bytes]
 
@@ -575,8 +576,9 @@ class AISSentence(NMEASentence):
             raise InvalidNMEAMessageException("Too many fragments")
 
         # Finally decode bytes into bits
-        self.data, self.total_bits = SixBitNibleDecoder().decode(self.payload, self.fill_bits)
-        self.ais_id = extract_bits(self.data, 0, 6, self.total_bits)
+        self.data = BitVector(self.payload, self.fill_bits)
+        self.total_bits = len(self.data)
+        self.ais_id = self.data.get(0, 6)
 
     def asdict(self) -> Dict[str, Any]:
         """
@@ -641,9 +643,9 @@ class AISSentence(NMEASentence):
 
         messages[0].raw = raw
         messages[0].payload = payload
-        data, total_bits = SixBitNibleDecoder().decode(payload, fill_bits=messages[-1].fill_bits)
+        data = BitVector(payload, messages[-1].fill_bits)
         messages[0].data = data
-        messages[0].total_bits = total_bits
+        messages[0].total_bits = len(data)
         messages[0].is_valid = is_valid
         return messages[0]
 
@@ -818,12 +820,9 @@ class Payload(abc.ABC):
         return cls(**args)  # type:ignore
 
     @classmethod
-    def from_bytes(cls, data: bytes, total_bits: int) -> "ANY_MESSAGE":
+    def from_bytes(cls, data: BitVector, total_bits: int) -> "ANY_MESSAGE":
         cur: int = 0
         kwargs: typing.Dict[str, typing.Any] = {}
-
-        large_number = int.from_bytes(data, byteorder='big')
-        large_number = large_number >> (8 - (total_bits % 8)) % 8
 
         # Iterate over fields and data
         for field in cls.fields():
@@ -839,7 +838,7 @@ class Payload(abc.ABC):
             val: typing.Any
             # Get the correct data type and decoding function
             if d_type == int or d_type == bool or d_type == float:
-                val = get_num(large_number, cur, width, total_bits, signed=field.metadata['signed'])
+                val = data.get_num(cur, width, field.metadata['signed'])
 
                 if d_type == float:
                     val = float(val)
@@ -847,9 +846,10 @@ class Payload(abc.ABC):
                     val = bool(val)
 
             elif d_type == str:
-                val = decode_bytes_as_ascii6(data, cur, width)
+                val = data.get_str(cur, width)
             elif d_type == bytes:
-                val = get_bytes(data, cur, width)
+                # val = data.get_bytes(data, cur, width)
+                val = data.get_bytes(cur, width)
             else:
                 raise InvalidDataTypeException(d_type)
 
@@ -1170,9 +1170,9 @@ class MessageType8(Payload):
             return MessageType8Default.create(**kwargs)
 
     @classmethod
-    def from_bytes(cls, data: bytes, total_bits: int) -> "ANY_MESSAGE":
-        dac: int = extract_bits(data, 40, 10)
-        fid: int = extract_bits(data, 50, 6)
+    def from_bytes(cls, data: BitVector, total_bits: int) -> "ANY_MESSAGE":
+        dac: int = data.get(40, 10)
+        fid: int = data.get(50, 6)
         if dac == 200 and fid == 10:
             return MessageType8Dac200Fid10.from_bytes(data, total_bits)
         else:
@@ -1407,7 +1407,7 @@ class MessageType16(Payload):
         return MessageType16DestinationA.create(**kwargs)
 
     @classmethod
-    def from_bytes(cls, data: bytes, total_bits: int) -> "ANY_MESSAGE":
+    def from_bytes(cls, data: BitVector, total_bits: int) -> "ANY_MESSAGE":
         if total_bits > 96:
             return MessageType16DestinationAB.from_bytes(data, total_bits)
         return MessageType16DestinationA.from_bytes(data, total_bits)
@@ -1651,8 +1651,8 @@ class MessageType22(Payload):
             return MessageType22Broadcast.create(**kwargs)
 
     @classmethod
-    def from_bytes(cls, data: bytes, total_bits: int) -> "ANY_MESSAGE":
-        if extract_bits(data, 139, 1):
+    def from_bytes(cls, data: BitVector, total_bits: int) -> "ANY_MESSAGE":
+        if data.get(139, 1):
             return MessageType22Addressed.from_bytes(data, total_bits)
         else:
             return MessageType22Broadcast.from_bytes(data, total_bits)
@@ -1767,9 +1767,9 @@ class MessageType24(Payload):
             raise UnknownPartNoException(f"Partno {partno} is not allowed!")
 
     @classmethod
-    def from_bytes(cls, data: bytes, total_bits: int) -> "ANY_MESSAGE":
-        mmsi: int = extract_bits(data, 8, 30)
-        partno: int = extract_bits(data, 38, 2)
+    def from_bytes(cls, data: BitVector, total_bits: int) -> "ANY_MESSAGE":
+        mmsi: int = data.get(8, 30)
+        partno: int = data.get(38, 2)
         if partno == 0:
             return MessageType24PartA.from_bytes(data, total_bits)
         elif partno == 1:
@@ -1859,9 +1859,9 @@ class MessageType25(Payload):
                 return MessageType25BroadcastUnstructured.create(**kwargs)
 
     @classmethod
-    def from_bytes(cls, data: bytes, total_bits: int) -> "ANY_MESSAGE":
-        addressed: int = extract_bits(data, 38, 1)
-        structured: int = extract_bits(data, 39, 1)
+    def from_bytes(cls, data: BitVector, total_bits: int) -> "ANY_MESSAGE":
+        addressed: int = data.get(38, 1)
+        structured: int = data.get(39, 1)
 
         if addressed:
             if structured:
@@ -1959,9 +1959,9 @@ class MessageType26(Payload):
                 return MessageType26BroadcastUnstructured.create(**kwargs)
 
     @classmethod
-    def from_bytes(cls, data: bytes, total_bits: int) -> "ANY_MESSAGE":
-        addressed: int = extract_bits(data, 38, 1)
-        structured: int = extract_bits(data, 39, 1)
+    def from_bytes(cls, data: BitVector, total_bits: int) -> "ANY_MESSAGE":
+        addressed: int = data.get(38, 1)
+        structured: int = data.get(39, 1)
 
         if addressed:
             if structured:

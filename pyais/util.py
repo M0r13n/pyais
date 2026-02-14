@@ -7,7 +7,6 @@ from operator import xor
 from typing import Any, Generator, Hashable, TYPE_CHECKING, Union, Dict
 
 from pyais.constants import COUNTRY_MAPPING, SyncState
-from pyais.exceptions import NonPrintableCharacterException
 
 if TYPE_CHECKING:
     BaseDict = OrderedDict[Hashable, Any]
@@ -15,109 +14,6 @@ else:
     BaseDict = OrderedDict
 
 T = typing.TypeVar('T')
-
-
-class SixBitNibleDecoder:
-    """
-    6-bit nible decoder.
-
-    This class decodes AIS message payloads that use 6-bit ASCII encoding.
-    AIS messages pack 6-bit values into ASCII characters for transmission,
-    and this decoder converts them back to binary data.
-
-    The decoder handles:
-    - 6-bit to 8-bit conversion
-    - Fill bits in the last character
-    - Efficient bit packing into bytes
-
-    Example:
-        decoder = SixBitNibleDecoder()
-        binary_data, bit_count = decoder.decode_fast(b"15M5N7001H")
-    """
-
-    def __init__(self) -> None:
-        self._buffer = bytearray(0)
-
-    def decode(self, payload: bytes, fill_bits: int = 0) -> tuple[bytes, int]:
-        """
-        Convert 6-bit AIS payload to binary data.
-
-        Args:
-            payload: 6-bit encoded AIS payload as bytes
-            fill_bits: Number of padding bits in the last character (0-5)
-
-        Returns:
-            Tuple of (binary_data, total_bit_count)
-
-        Raises:
-            NonPrintableCharacterException: If payload contains invalid characters
-        """
-        payload_len = len(payload)
-        if payload_len == 0:
-            return b'', 0
-
-        # Calculate total bits and required bytes
-        total_bits = payload_len * 6 - fill_bits
-        required_bytes = math.ceil(total_bits / 8)
-
-        # Create a new buffer
-        self._buffer = bytearray(required_bytes + 1)
-
-        current_bit_position = 0
-        for char_index, char_byte in enumerate(payload):
-            # Validate character is printable
-            if not 0x20 <= char_byte <= 0x7e:
-                raise NonPrintableCharacterException(f"Non printable character: '{hex(char_byte)}'")
-
-            # Skip out-of-range characters
-            if char_byte >= 120:
-                continue
-
-            # Convert ASCII to 6-bit value
-            six_bit_value = self._ascii_to_six_bit(char_byte)
-
-            # Handle fill bits in last character
-            if char_index == payload_len - 1 and fill_bits > 0:
-                six_bit_value = six_bit_value >> fill_bits
-                bits_to_pack = 6 - fill_bits
-            else:
-                bits_to_pack = 6
-
-            # Pack bits into buffer
-            self._pack_bits_into_buffer(six_bit_value, bits_to_pack, current_bit_position, required_bytes)
-            current_bit_position += bits_to_pack
-
-        return bytes(self._buffer[:required_bytes]), total_bits
-
-    def _ascii_to_six_bit(self, char_byte: int) -> int:
-        """Convert ASCII character to 6-bit value."""
-        if char_byte < 0x60:
-            char_byte -= 0x30
-        else:
-            char_byte -= 0x38
-        return char_byte & 0x3F
-
-    def _pack_bits_into_buffer(self, value: int, bits_to_pack: int, bit_position: int, buffer_size: int) -> None:
-        """Pack bits into the internal buffer at specified position."""
-        byte_index = bit_position // 8
-        bit_offset = bit_position % 8
-
-        if bit_offset + bits_to_pack <= 8:
-            # Fits entirely in current byte
-            shift_amount = 8 - bit_offset - bits_to_pack
-            self._buffer[byte_index] |= value << shift_amount
-        else:
-            # Spans across two bytes
-            bits_in_first_byte = 8 - bit_offset
-            bits_in_second_byte = bits_to_pack - bits_in_first_byte
-
-            # Pack into first byte
-            self._buffer[byte_index] |= value >> bits_in_second_byte
-
-            # Pack into second byte if within bounds
-            if byte_index + 1 < buffer_size:
-                remaining_value = value << (8 - bits_in_second_byte)
-                self._buffer[byte_index + 1] |= remaining_value & 0xFF
 
 
 class SixBitNibleEncoder:
