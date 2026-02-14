@@ -12,8 +12,7 @@ from pyais.constants import TalkerID, NavigationStatus, ManeuverIndicator, EpfdT
     TransmitMode, StationIntervals, TurnRate, InlandLoadedType
 from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitializedException, UnknownMessageException, UnknownPartNoException, \
     InvalidDataTypeException, MissingPayloadException
-from pyais.util import SIX_BIT_ENCODING, SixBitNibleDecoder, SixBitNibleEncoder, checksum, decode_bytes_as_ascii6, compute_checksum, extract_bits, get_bytes, get_itdma_comm_state, get_num, get_sotdma_comm_state, \
-    chk_to_int, coerce_val, b64encode_str
+from pyais.util import SIX_BIT_ENCODING, SixBitNibleDecoder, SixBitNibleEncoder, checksum, compute_checksum, decode_bytes_as_ascii6, extract_bits, get_bytes, get_itdma_comm_state, get_num, get_sotdma_comm_state, chk_to_int, coerce_val, b64encode_str, is_auxiliary_craft
 
 NMEA_VALUE = typing.Union[str, float, int, bool, bytes]
 
@@ -1675,15 +1674,12 @@ class MessageType23(Payload):
     sw_lon = bit_field(18, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
     sw_lat = bit_field(17, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
 
-    station_type = bit_field(4, int, default=0, from_converter=StationType.from_value,
-                             to_converter=StationType.from_value)
+    station_type = bit_field(4, int, default=0, from_converter=StationType.from_value, to_converter=StationType.from_value)
     ship_type = bit_field(8, int, default=0, from_converter=ShipType.from_value, to_converter=ShipType.from_value)
     spare_2 = bit_field(22, bytes, default=b'', is_spare=True)
 
-    txrx = bit_field(2, int, default=0, from_converter=TransmitMode.from_value, to_converter=TransmitMode.from_value,
-                     signed=False)
-    interval = bit_field(4, int, default=0, from_converter=StationIntervals.from_value,
-                         to_converter=StationIntervals.from_value)
+    txrx = bit_field(2, int, default=0, from_converter=TransmitMode.from_value, to_converter=TransmitMode.from_value, signed=False)
+    interval = bit_field(4, int, default=0, from_converter=StationIntervals.from_value, to_converter=StationIntervals.from_value)
     quiet = bit_field(4, int, default=0, signed=False)
     spare_3 = bit_field(6, bytes, default=b'', is_spare=True)
 
@@ -1720,6 +1716,32 @@ class MessageType24PartB(Payload):
     spare_1 = bit_field(6, bytes, default=b'', is_spare=True)
 
 
+@attr.s(slots=True)
+class MessageType24PartBAuxiliaryCraft(Payload):
+    """
+    Static Data Report - Part B (Auxiliary Craft Variant)
+
+    When the MMSI follows the pattern 98XXXYYYY (auxiliary craft),
+    bits 132-161 contain the mothership MMSI instead of vessel dimensions.
+
+    See ITU-R M.1371-5 for specification details.
+    """
+    msg_type = bit_field(6, int, default=24, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+
+    partno = bit_field(2, int, default=0, signed=False)
+    ship_type = bit_field(8, int, default=0, signed=False)
+    vendorid = bit_field(18, str, default='', signed=False)
+    model = bit_field(4, int, default=0, signed=False)
+    serial = bit_field(20, int, default=0, signed=False)
+    callsign = bit_field(42, str, default='')
+
+    mothership_mmsi = bit_field(30, int, from_converter=from_mmsi)
+
+    spare_1 = bit_field(6, bytes, default=b'', is_spare=True)
+
+
 class MessageType24(Payload):
     """
     Static Data Report
@@ -1733,20 +1755,26 @@ class MessageType24(Payload):
 
     @classmethod
     def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
+        mmsi: int = int(kwargs.get('mmsi', 0))
         partno: int = int(kwargs.get('partno', 0))
         if partno == 0:
             return MessageType24PartA.create(**kwargs)
         elif partno == 1:
+            if is_auxiliary_craft(mmsi):
+                return MessageType24PartBAuxiliaryCraft.create(**kwargs)
             return MessageType24PartB.create(**kwargs)
         else:
             raise UnknownPartNoException(f"Partno {partno} is not allowed!")
 
     @classmethod
     def from_bytes(cls, data: bytes, total_bits: int) -> "ANY_MESSAGE":
+        mmsi: int = extract_bits(data, 8, 30)
         partno: int = extract_bits(data, 38, 2)
         if partno == 0:
             return MessageType24PartA.from_bytes(data, total_bits)
         elif partno == 1:
+            if is_auxiliary_craft(mmsi):
+                return MessageType24PartBAuxiliaryCraft.from_bytes(data, total_bits)
             return MessageType24PartB.from_bytes(data, total_bits)
         else:
             raise UnknownPartNoException(f"Partno {partno} is not allowed!")

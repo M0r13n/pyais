@@ -2,7 +2,7 @@ import time
 import unittest
 
 from pyais.tracker import AISTracker, poplast
-from pyais.messages import AISSentence
+from pyais.messages import AISSentence, MessageType1
 
 
 class TrackerTestCase(unittest.TestCase):
@@ -309,3 +309,37 @@ class TrackerTestCase(unittest.TestCase):
             poplast(d)
 
         self.assertEqual(d, {'a': 1337, 'foo': 'bar'})
+
+    def test_update_with_ais_sentence(self):
+        tracker = AISTracker(ttl_in_seconds=None, stream_is_ordered=True)
+        msg = AISSentence(b"!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23")
+        tracker.update(msg, 1673259271.0)
+
+        self.assertEqual(len(tracker.tracks), 1)
+        self.assertEqual(tracker.tracks[0].mmsi, 227006760)
+
+    def test_update_with_ais_message(self):
+        tracker = AISTracker(ttl_in_seconds=None, stream_is_ordered=True)
+        msg = AISSentence(b"!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23").decode()
+        tracker.update(msg, 1673259271.0)
+
+        self.assertIsInstance(msg, MessageType1)
+        self.assertEqual(len(tracker.tracks), 1)
+        self.assertEqual(tracker.tracks[0].mmsi, 227006760)
+
+    def test_update_with_mixed(self):
+        tracker = AISTracker(ttl_in_seconds=None, stream_is_ordered=True)
+        tracker.update(AISSentence(b"!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23"))
+        tracker.update(AISSentence(b"!AIVDM,1,1,,B,100h00PP0@PHFV`Mg5gTH?vNPUIp,0*3B").decode())
+        tracker.update(AISSentence(b"!AIVDM,1,1,,A,133sVfPP00PD>hRMDH@jNOvN20S8,0*7F"))
+        tracker.update(AISSentence(b"!AIVDM,1,1,,B,13eaJF0P00Qd388Eew6aagvH85Ip,0*45").decode())
+
+        self.assertEqual(len(tracker.tracks), 4)
+        self.assertEqual(tracker.tracks[0].mmsi, 227006760)
+        self.assertEqual(tracker.tracks[1].mmsi, 786434)
+        self.assertEqual(tracker.tracks[2].mmsi, 205448890)
+        self.assertEqual(tracker.tracks[3].mmsi, 249191000)
+
+
+if __name__ == "__main__":
+    unittest.main()

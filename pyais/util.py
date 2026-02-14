@@ -652,3 +652,11 @@ def get_bytes(data: bytes, start_bit: int, length_bits: int) -> bytes:
         bits_copied += bits_to_copy
 
     return bytes(result_buffer[:output_bytes])
+
+
+def is_auxiliary_craft(mmsi: int) -> bool:
+    # An auxiliary craft has a mmsi of the form 98XXXYYYY, where:
+    #   1. it starts with 98
+    #   2. is followed by a MID (XXX)
+    #   3. if followed by any decimal literal YYYY (0000 - 9999)
+    return 98_000_0000 <= mmsi <= 98_999_9999
