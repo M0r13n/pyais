@@ -26,6 +26,7 @@ class bit_vector:
     __slots__ = ("_value", "_length")
 
     def __init__(self, data: bytes, pad: int = 0) -> None:
+        # Convert bytes into single large integer
         value = 0
         for byte in data:
             value = (value << 6) | _PAYLOAD_ARMOR[byte]
