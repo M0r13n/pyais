@@ -1719,7 +1719,7 @@ class TestAIS(unittest.TestCase):
         nmea = NMEAMessage(b"!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23")
         ais = nmea.decode()
 
-        orig_bytes = nmea.data.get_bytes(0, 168)
+        orig_bytes = nmea.bv.get_bytes(0, 168)
         after_bytes, _ = ais.to_bytes()
 
         self.assertEqual(orig_bytes, after_bytes)

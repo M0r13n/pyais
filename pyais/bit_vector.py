@@ -105,7 +105,7 @@ class bit_vector:
         return self._length
 
     def __repr__(self) -> str:
-        return f"BitVector(length={self._length})"
+        return f"bit_vector(length={self._length})"
 
     def __eq__(self, value: object) -> bool:
         try:
