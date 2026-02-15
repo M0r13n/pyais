@@ -8,7 +8,7 @@ import unittest
 
 from pyais import NMEAMessage, encode_dict, encode_msg
 from pyais.ais_types import AISType
-from pyais.bit_vector import BitVector
+from pyais.bit_vector import bit_vector
 from pyais.constants import (
     EpfdType,
     InlandLoadedType,
@@ -1877,7 +1877,7 @@ class TestAIS(unittest.TestCase):
     def test_basic_decoding(self):
         """Test basic 6-bit decoding functionality."""
         payload = b"15M5N7"
-        bv = BitVector(payload)
+        bv = bit_vector(payload)
 
         assert len(bv) == 36  # 6 characters × 6 bits
         assert bv.get_bytes(0, 36) == b'\x04WExp'  # verified against old pyais
@@ -1886,8 +1886,8 @@ class TestAIS(unittest.TestCase):
         """Test handling of fill bits in last character."""
         # Test with 2 fill bits
         payload = b"15M5N7"
-        bv0 = BitVector(payload, 0)
-        bv2 = BitVector(payload, 2)
+        bv0 = bit_vector(payload, 0)
+        bv2 = bit_vector(payload, 2)
 
         assert len(bv2) == len(bv0) - 2  # 2 fewer bits
         assert bv0.get_bytes(0, 36) == b'\x04WExp'  # verified against old pyais
@@ -1895,7 +1895,7 @@ class TestAIS(unittest.TestCase):
 
     def test_empty_and_error_cases(self):
         """Test edge cases and error handling."""
-        bv = BitVector(b"")
+        bv = bit_vector(b"")
 
         # Test empty payload
         assert bv._value == 0

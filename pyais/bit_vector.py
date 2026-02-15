@@ -21,7 +21,7 @@ _SIXBIT_CHAR: t.Final[tuple[str, ...]] = tuple(
 _MASK: t.Final[tuple[int, ...]] = tuple((1 << n) - 1 for n in range(257))
 
 
-class BitVector:
+class bit_vector:
 
     __slots__ = ("_value", "_length")
 
@@ -109,7 +109,7 @@ class BitVector:
 
     def __eq__(self, value: object) -> bool:
         try:
-            if not isinstance(value, BitVector):
+            if not isinstance(value, bit_vector):
                 return False
             return self._length == value._length and self._value == value._value
         except ValueError:
