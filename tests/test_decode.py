@@ -8,6 +8,7 @@ import unittest
 
 from pyais import NMEAMessage, encode_dict, encode_msg
 from pyais.ais_types import AISType
+from pyais.bit_vector import bit_vector
 from pyais.constants import (
     EpfdType,
     InlandLoadedType,
@@ -27,7 +28,6 @@ from pyais.exceptions import (
     MissingMultipartMessageException,
     TooManyMessagesException,
     UnknownMessageException,
-    NonPrintableCharacterException,
 )
 from pyais.messages import (
     MSG_CLASS,
@@ -52,7 +52,7 @@ from pyais.messages import (
     MessageType26BroadcastUnstructured,
 )
 from pyais.stream import ByteStream, IterMessages
-from pyais.util import SixBitNibleDecoder, b64encode_str, is_auxiliary_craft
+from pyais.util import b64encode_str, is_auxiliary_craft
 from pyais.exceptions import MissingPayloadException
 
 
@@ -287,6 +287,25 @@ class TestAIS(unittest.TestCase):
         assert msg["data"] == b"\xeb/\x11\x8f\x7f\xf1"
 
         ensure_type_for_msg_dict(msg)
+
+    def test_msg_type_6_very_large(self):
+        msg = decode(
+            "!AIVDO,3,1,0,A,6007Ql@007V40011@T=4AD52@lA5@D93A4E1@T=4AD52@lA5@D93A4E1@T=4,0*22",
+            "!AIVDO,3,2,0,A,AD52@lA5@D93A4E1@T=4AD52@lA5@D93A4E1@T=4AD52@lA5@D93A4E1@T=4,0*5D",
+            "!AIVDO,3,3,0,A,AD52@lA5@D93A4E1@T=4AD52@lA5@D93A4E1@T=4AD52@lA5,0*4E"
+        )
+
+        self.assertEqual(msg.mmsi, 123345)
+        self.assertEqual(msg.dest_mmsi, 7777)
+
+        # 920 bits -> 115 Bytes
+        self.assertEqual(len(msg.data), 115)
+
+        # Repeated sequence "ABCDEF"
+        self.assertEqual(
+            msg.data,
+            b"ABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDE"
+        )
 
     def test_msg_type_7(self):
         msg = decode(b"!AIVDM,1,1,,A,702R5`hwCjq8,0*6B").asdict()
@@ -1700,7 +1719,7 @@ class TestAIS(unittest.TestCase):
         nmea = NMEAMessage(b"!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23")
         ais = nmea.decode()
 
-        orig_bytes = nmea.data
+        orig_bytes = nmea.bv.get_bytes(0, 168)
         after_bytes, _ = ais.to_bytes()
 
         self.assertEqual(orig_bytes, after_bytes)
@@ -1711,15 +1730,6 @@ class TestAIS(unittest.TestCase):
         nmea = NMEAMessage(raw)
         ais = nmea.decode()
         self.assertIsNotNone(ais)
-
-    def test_decode_with_non_printable_characters(self):
-        payload = b"3815;`100!Phmn\x1fPPwL=3OmUd0Dg:"
-        with self.assertRaises(NonPrintableCharacterException):
-            _ = SixBitNibleDecoder().decode(payload)
-
-        payload = b"3815;`100!Phmn\x7fPPwL=3OmUd0Dg:"
-        with self.assertRaises(NonPrintableCharacterException):
-            _ = SixBitNibleDecoder().decode(payload)
 
     def test_gh_ais_message_decode(self):
         a = b"$PGHP,1,2008,5,9,0,0,0,10,338,2,,1,09*17"
@@ -1866,43 +1876,30 @@ class TestAIS(unittest.TestCase):
 
     def test_basic_decoding(self):
         """Test basic 6-bit decoding functionality."""
-        decoder = SixBitNibleDecoder()
-
-        # Test with simple AIS payload
         payload = b"15M5N7"
-        result, bit_count = decoder.decode(payload)
+        bv = bit_vector(payload)
 
-        assert bit_count == 36  # 6 characters × 6 bits
-        assert len(result) == 5  # ceil(36/8) = 5 bytes
-        assert isinstance(result, bytes)
-        assert result == b'\x04WExp'  # verified against old pyais
+        assert len(bv) == 36  # 6 characters × 6 bits
+        assert bv.get_bytes(0, 36) == b'\x04WExp'  # verified against old pyais
 
     def test_fill_bits_handling(self):
         """Test handling of fill bits in last character."""
-        decoder = SixBitNibleDecoder()
-
         # Test with 2 fill bits
         payload = b"15M5N7"
-        result_no_fill, bits_no_fill = decoder.decode(payload, fill_bits=0)
-        result_with_fill, bits_with_fill = decoder.decode(payload, fill_bits=2)
+        bv0 = bit_vector(payload, 0)
+        bv2 = bit_vector(payload, 2)
 
-        assert bits_with_fill == bits_no_fill - 2  # 2 fewer bits
-        assert len(result_with_fill) == len(result_no_fill)  # Same byte count
-        assert result_no_fill == b'\x04WExp'  # verified against old pyais
-        assert result_with_fill == b'\x04WEx@'  # verified against old pyais
+        assert len(bv2) == len(bv0) - 2  # 2 fewer bits
+        assert bv0.get_bytes(0, 36) == b'\x04WExp'  # verified against old pyais
+        assert bv2.get_bytes(0, 36) == b'\x04WEx@'  # verified against old pyais
 
     def test_empty_and_error_cases(self):
         """Test edge cases and error handling."""
-        decoder = SixBitNibleDecoder()
+        bv = bit_vector(b"")
 
         # Test empty payload
-        result, bit_count = decoder.decode(b"")
-        assert result == b''
-        assert bit_count == 0
-
-        # Test non-printable character
-        with self.assertRaises(NonPrintableCharacterException):
-            decoder.decode(b"\x01\x02")  # Control characters
+        assert bv._value == 0
+        assert len(bv) == 0
 
 
 if __name__ == '__main__':
