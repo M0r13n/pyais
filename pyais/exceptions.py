@@ -33,7 +33,7 @@ class InvalidDataTypeException(AISBaseException):
 
 
 class NonPrintableCharacterException(AISBaseException):
-    """A non printable ASCII character (0x20 (space) to 0x7e (~)) can not be decoded"""
+    """Not used anymore. But remains for backwards compatibility."""
 
 
 class TagBlockNotInitializedException(Exception):

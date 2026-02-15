@@ -2,7 +2,7 @@
 import queue
 import typing
 
-from pyais.exceptions import InvalidNMEAMessageException, NonPrintableCharacterException, UnknownMessageException
+from pyais.exceptions import InvalidNMEAMessageException, UnknownMessageException
 from pyais.messages import AISSentence, GatehouseSentence, NMEASentence, NMEASentenceFactory
 from pyais.stream import TagBlockQueue
 
@@ -39,7 +39,7 @@ class NMEAQueue(queue.Queue[AISSentence]):
                 sentence = typing.cast(GatehouseSentence, sentence)
                 self.last_wrapper = sentence
                 return None
-        except (InvalidNMEAMessageException, NonPrintableCharacterException, UnknownMessageException, IndexError):
+        except (InvalidNMEAMessageException, UnknownMessageException, IndexError):
             # Be gentle and just skip invalid messages
             return None
 

@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from socket import AF_INET, SO_REUSEADDR, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, socket
 from typing import BinaryIO, Generator, Generic, Iterable, List, TypeVar, cast
 
-from pyais.exceptions import InvalidNMEAMessageException, NonPrintableCharacterException, UnknownMessageException
+from pyais.exceptions import InvalidNMEAMessageException, UnknownMessageException
 from pyais.messages import AISSentence, GatehouseSentence, NMEAMessage, NMEASentence, NMEASentenceFactory
 
 T = TypeVar("T")
@@ -164,7 +164,7 @@ class AssembleMessages(ABC):
                     sentence = cast(GatehouseSentence, sentence)
                     self.__set_last_wrapper_msg(sentence)
                     continue
-            except (InvalidNMEAMessageException, NonPrintableCharacterException, UnknownMessageException):
+            except (InvalidNMEAMessageException, UnknownMessageException):
                 # Be gentle and just skip invalid messages
                 continue
 

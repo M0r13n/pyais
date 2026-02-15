@@ -1901,6 +1901,13 @@ class TestAIS(unittest.TestCase):
         assert bv._value == 0
         assert len(bv) == 0
 
+    def test_decode_into_bit_array_with_non_printable_characters(self):
+        payload = b"3815;`100!Phmn\x1fPPwL=3OmUd0Dg:"
+        bit_vector(payload)
+
+        payload = b"3815;`100!Phmn\x7fPPwL=3OmUd0Dg:"
+        bit_vector(payload)
+
 
 if __name__ == '__main__':
     unittest.main()
