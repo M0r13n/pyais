@@ -288,6 +288,25 @@ class TestAIS(unittest.TestCase):
 
         ensure_type_for_msg_dict(msg)
 
+    def test_msg_type_6_very_large(self):
+        msg = decode(
+            "!AIVDO,3,1,0,A,6007Ql@007V40011@T=4AD52@lA5@D93A4E1@T=4AD52@lA5@D93A4E1@T=4,0*22",
+            "!AIVDO,3,2,0,A,AD52@lA5@D93A4E1@T=4AD52@lA5@D93A4E1@T=4AD52@lA5@D93A4E1@T=4,0*5D",
+            "!AIVDO,3,3,0,A,AD52@lA5@D93A4E1@T=4AD52@lA5@D93A4E1@T=4AD52@lA5,0*4E"
+        )
+
+        self.assertEqual(msg.mmsi, 123345)
+        self.assertEqual(msg.dest_mmsi, 7777)
+
+        # 920 bits -> 115 Bytes
+        self.assertEqual(len(msg.data), 115)
+
+        # Repeated sequence "ABCDEF"
+        self.assertEqual(
+            msg.data,
+            b"ABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDE"
+        )
+
     def test_msg_type_7(self):
         msg = decode(b"!AIVDM,1,1,,A,702R5`hwCjq8,0*6B").asdict()
         assert msg["mmsi"] == 2655651
