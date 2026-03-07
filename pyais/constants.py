@@ -265,6 +265,25 @@ class NavAid(int, ReprEnum):
     SAFE_WATER = 29
     SPECIAL_MARK = 30
     LIGHT_VESSEL = 31
+    ODAS = 32
+    WATER_SAMPLING_MONITORING = 33
+    RESEARCH_EQUIPMENT = 34
+    TOWED_CABLE_PIPE_MARKER = 35
+    TOWED_VESSEL_OR_OBJECT = 36
+    FLOTSAM_MARKER_LARGE = 37
+    FLOTSAM_MARKER_SMALL = 38
+    NAVIGATION_HAZARD = 39
+    SYNTHETIC_TARGET_MARKER = 40
+    PROTECTED_SPECIES_MARKER = 41
+    MILITARY_OPERATION_TARGET_MARKER = 42
+    DANGEROUS_OBJECT = 43
+    POLLUTION_SPILL_MARKER = 44
+    SEARCH_AND_RESCUE_DATUM_MARK = 45
+    DATUM_MARK = 46
+    OPERATING_UNDERWATER = 47
+    UNDERWATER_OPERATIONS_MARKER = 48
+    MILITARY_OPERATION_RESTRICTED_AREA = 49
+    DYNAMIC_AREA = 50
 
     @classmethod
     def _missing_(cls, value: object) -> int:
@@ -652,4 +671,29 @@ class InlandLoadedType(int, ReprEnum):
 
     @classmethod
     def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["InlandLoadedType"]:
+        return cls(v) if v is not None else None
+
+
+class AtoNRestrictedUseInidicator(int, ReprEnum):
+    UNRESTRICTED = 0
+    RESTRICTED_TERRITORIAL_WATER = 1
+    RESTRICTED_EEZ = 2
+    RESTRICTED_STATE = 3
+
+
+class AtoNSationType(int, ReprEnum):
+    PHYSICAL_FLOATING = 0
+    PHYSICAL_FIXED = 1
+    SYNTHETIC_PREDICTED = 2
+    SYNTHETIC_MONITORED = 3
+    VIRTUAL = 4
+    MOBILE = 5
+    RESERVED = 6
+
+    @classmethod
+    def _missing_(cls, value: object) -> int:
+        return AtoNSationType.RESERVED
+
+    @classmethod
+    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["AtoNSationType"]:
         return cls(v) if v is not None else None

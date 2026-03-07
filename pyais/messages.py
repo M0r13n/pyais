@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional, Sequence, Union
 import attr
 from bitarray import bitarray
 
-from pyais.constants import TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
+from pyais.constants import AtoNRestrictedUseInidicator, AtoNSationType, TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
     TransmitMode, StationIntervals, TurnRate, InlandLoadedType
 from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitializedException, UnknownMessageException, UnknownPartNoException, \
     InvalidDataTypeException, MissingPayloadException
@@ -1996,8 +1996,8 @@ class MessageType28(Payload):
     second = bit_field(6, int, default=0, signed=False)
     lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
     lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
-    restricted = bit_field(2, int, default=0, signed=False)
-    station_type = bit_field(3, int, default=0, from_converter=StationType.from_value, to_converter=StationType.from_value)
+    restricted = bit_field(2, int, default=0, signed=False, from_converter=AtoNRestrictedUseInidicator, to_converter=AtoNRestrictedUseInidicator)
+    station_type = bit_field(3, int, default=0, from_converter=AtoNSationType.from_value, to_converter=AtoNSationType.from_value)
     aid_type = bit_field(7, int, default=0, from_converter=NavAid.from_value, to_converter=NavAid.from_value, signed=False)
     iala_mrn = bit_field(17, int, default=0, signed=False)
 
