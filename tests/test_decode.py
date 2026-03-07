@@ -1,5 +1,6 @@
 import base64
 import datetime
+import functools
 import itertools
 import json
 import textwrap
@@ -35,6 +36,7 @@ from pyais.messages import (
     GatehouseSentence,
     MessageType16DestinationA,
     MessageType16DestinationAB,
+    MessageType28,
     MessageType5,
     MessageType6,
     MessageType8Dac200Fid10,
@@ -889,6 +891,33 @@ class TestAIS(unittest.TestCase):
         assert msg["lon"] == -13.368333
         assert msg["lat"] == -50.121667
 
+    def test_msg_type_28_total_bits(self):
+        """Ensure that the total sum of all fields equals 168 (single slot message)"""
+        tot = functools.reduce(lambda x, y: x + y.metadata['width'], MessageType28.fields(), 0)
+        self.assertEqual(tot, 168)
+
+    def test_msg_type_28_authed(self):
+        """Test decoding of type 28"""
+        msg = decode("!AIVDO,1,1,,A,L1mg=5@@G:uk?S:I0@ph>A5E>L@1,0*43")
+
+        assert isinstance(msg, MessageType28)
+        self.assertEqual(msg.mmsi, 123456789)
+        self.assertEqual(msg.second, 1)
+        self.assertEqual(msg.lon, 10.123712)
+        self.assertEqual(msg.lat, 54.349133)
+        self.assertEqual(msg.restricted, 0)
+        self.assertEqual(msg.station_type, 1)
+        self.assertEqual(msg.aid_type, 7)
+        self.assertEqual(msg.iala_mrn, 12345)
+        self.assertEqual(msg.dimension, 1)
+        self.assertEqual(msg.dimensions_a, 42)
+        self.assertEqual(msg.dimensions_b, 1337)
+        self.assertEqual(msg.dimension_additional_data, 1)
+        self.assertEqual(msg.charted_status, 1)
+        self.assertEqual(msg.station_status, 1)
+        self.assertEqual(msg.status_bits, 0)
+        self.assertEqual(msg.auth, 1)
+
     def test_broken_messages(self):
         # Undefined epfd
         assert decode(b"!AIVDM,1,1,,B,4>O7m7Iu@<9qUfbtm`vSnwvH20S8,0*46").asdict()["epfd"] == EpfdType.Undefined
@@ -976,8 +1005,8 @@ class TestAIS(unittest.TestCase):
 
     def test_nmea_decode_unknown_msg(self):
         with self.assertRaises(UnknownMessageException):
-            nmea = NMEAMessage(b"!AIVDO,1,1,,,B>qc:003wk?8mP=18D3Q3wgTiT;T,0*13")
-            nmea.ais_id = 28
+            nmea = NMEAMessage(b"!AIVDO,1,1,,,C>qc:003wk?8mP=18D3Q3wgTiT;T,0*13")
+            nmea.ais_id = 29
             nmea.decode()
 
     def test_decode_out_of_order(self):
