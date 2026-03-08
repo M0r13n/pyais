@@ -9,13 +9,52 @@ from typing import Any, Dict, Optional, Sequence, Union
 import attr
 from bitarray import bitarray
 
-from pyais.constants import AtoNRestrictedUseInidicator, AtoNSationType, TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
-    TransmitMode, StationIntervals, TurnRate, InlandLoadedType
-from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitializedException, UnknownMessageException, UnknownPartNoException, \
-    InvalidDataTypeException, MissingPayloadException
-from pyais.util import checksum, decode_into_bit_array, compute_checksum, get_itdma_comm_state, get_sotdma_comm_state, int_to_bin, str_to_bin, \
-    encode_ascii_6, from_bytes, from_bytes_signed, decode_bin_as_ascii6, get_int, chk_to_int, coerce_val, \
-    bits2bytes, bytes2bits, b64encode_str, is_auxiliary_craft
+from pyais.constants import (
+    AtoNDimensionType,
+    AtoNRestrictedUseInidicator,
+    AtoNSationType,
+    TalkerID,
+    NavigationStatus,
+    ManeuverIndicator,
+    EpfdType,
+    ShipType,
+    NavAid,
+    StationType,
+    TransmitMode,
+    StationIntervals,
+    TurnRate,
+    InlandLoadedType
+)
+from pyais.exceptions import (
+    InvalidNMEAMessageException,
+    TagBlockNotInitializedException,
+    UnknownMessageException,
+    UnknownPartNoException,
+    InvalidDataTypeException,
+    MissingPayloadException
+)
+from pyais.util import (
+    ParsedDimensions,
+    checksum,
+    decode_into_bit_array,
+    compute_checksum,
+    get_itdma_comm_state,
+    get_sotdma_comm_state,
+    int_to_bin,
+    parse_dimensions,
+    str_to_bin,
+    encode_ascii_6,
+    from_bytes,
+    from_bytes_signed,
+    decode_bin_as_ascii6,
+    get_int,
+    chk_to_int,
+    coerce_val,
+    bits2bytes,
+    bytes2bits,
+    b64encode_str,
+    is_auxiliary_craft
+)
 
 NMEA_VALUE = typing.Union[str, float, int, bool, bytes]
 
@@ -2001,7 +2040,7 @@ class MessageType28(Payload):
     aid_type = bit_field(7, int, default=0, from_converter=NavAid.from_value, to_converter=NavAid.from_value, signed=False)
     iala_mrn = bit_field(17, int, default=0, signed=False)
 
-    dimension = bit_field(4, int, default=0, signed=False)
+    dimension = bit_field(4, int, default=0, signed=False, from_converter=AtoNDimensionType, to_converter=AtoNDimensionType)
     dimensions_a = bit_field(9, int, default=0, signed=False)
     dimensions_b = bit_field(11, int, default=0, signed=False)
     dimension_additional_data = bit_field(1, int, default=0, signed=False)
@@ -2010,6 +2049,15 @@ class MessageType28(Payload):
     status_bits = bit_field(8, int, default=0, signed=False)
     spare = bit_field(1, int, default=0, signed=False)
     auth = bit_field(1, int, default=0, signed=False)
+
+    def parse_dimensions(self) -> ParsedDimensions:
+        """Parse the dimensions according to ITU-R M.1371-6 table 84"""
+        return parse_dimensions(self.dimension, self.dimensions_a, self.dimensions_b)
+
+    @property
+    def has_multiple_dimension_types(self) -> bool:
+        """Whether this AtoN uses multiple dimension types for the same MMSI"""
+        return bool(self.dimension_additional_data == 1)
 
 
 MSG_CLASS = {

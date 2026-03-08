@@ -697,3 +697,42 @@ class AtoNSationType(int, ReprEnum):
     @classmethod
     def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["AtoNSationType"]:
         return cls(v) if v is not None else None
+
+
+class AtoNDimensionType(int, ReprEnum):
+    DEFAULT = 0
+    HEIGHT_AND_AREA = 1
+    SWING_CIRCLE = 2
+    MOBILE_VECTOR = 3
+    AREA_POLYGON = 4
+    AREA_CIRCLE = 5
+    BOUNDARY_LINE_1 = 6
+    AREA_SECTOR = 7
+    BOUNDARY_LINE_2 = 8
+    AREA_QUADRILATERAL = 9
+    LARGE_BOUNDARY_LINE_1 = 10
+    LARGE_AREA_SECTOR = 11
+    LARGE_BOUNDARY_LINE_2 = 12
+    LARGE_AREA_QUADRILATERAL = 13
+    RESERVED_14 = 14
+    RESERVED_15 = 15
+
+    @classmethod
+    def _missing_(cls, value: object) -> int:
+        return AtoNSationType.RESERVED
+
+    @classmethod
+    def from_value(cls, val: int) -> "AtoNDimensionType":
+        try:
+            return cls(val)
+        except ValueError:
+            return cls(0)
+
+
+_COG_SPECIAL = {
+    360: 'unreported',
+    361: 'dynamically positioned',
+    362: 'purposely adrift',
+    363: 'tethered',
+    364: 'unknown',
+}
