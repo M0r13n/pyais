@@ -441,7 +441,7 @@ def is_auxiliary_craft(mmsi: int) -> bool:
     return 98_000_0000 <= mmsi <= 98_999_9999
 
 
-@dataclasses.dataclass(slots=True)
+@dataclasses.dataclass
 class ParsedDimensions:
     dim_type: AtoNDimensionType
     raw_a: int
