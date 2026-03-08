@@ -2,7 +2,7 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
- Version 2.2.0 08 Mar 2026
+ Version 2.20.0 08 Mar 2026
 -------------------------------------------------------------------------------
 * adds support for message type 28 (Aid-to-Navigation Report, single-slot)
   - defined in ITU-R M.1371-6
