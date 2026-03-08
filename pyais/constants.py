@@ -265,6 +265,25 @@ class NavAid(int, ReprEnum):
     SAFE_WATER = 29
     SPECIAL_MARK = 30
     LIGHT_VESSEL = 31
+    ODAS = 32
+    WATER_SAMPLING_MONITORING = 33
+    RESEARCH_EQUIPMENT = 34
+    TOWED_CABLE_PIPE_MARKER = 35
+    TOWED_VESSEL_OR_OBJECT = 36
+    FLOTSAM_MARKER_LARGE = 37
+    FLOTSAM_MARKER_SMALL = 38
+    NAVIGATION_HAZARD = 39
+    SYNTHETIC_TARGET_MARKER = 40
+    PROTECTED_SPECIES_MARKER = 41
+    MILITARY_OPERATION_TARGET_MARKER = 42
+    DANGEROUS_OBJECT = 43
+    POLLUTION_SPILL_MARKER = 44
+    SEARCH_AND_RESCUE_DATUM_MARK = 45
+    DATUM_MARK = 46
+    OPERATING_UNDERWATER = 47
+    UNDERWATER_OPERATIONS_MARKER = 48
+    MILITARY_OPERATION_RESTRICTED_AREA = 49
+    DYNAMIC_AREA = 50
 
     @classmethod
     def _missing_(cls, value: object) -> int:
@@ -653,3 +672,67 @@ class InlandLoadedType(int, ReprEnum):
     @classmethod
     def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["InlandLoadedType"]:
         return cls(v) if v is not None else None
+
+
+class AtoNRestrictedUseInidicator(int, ReprEnum):
+    UNRESTRICTED = 0
+    RESTRICTED_TERRITORIAL_WATER = 1
+    RESTRICTED_EEZ = 2
+    RESTRICTED_STATE = 3
+
+
+class AtoNSationType(int, ReprEnum):
+    PHYSICAL_FLOATING = 0
+    PHYSICAL_FIXED = 1
+    SYNTHETIC_PREDICTED = 2
+    SYNTHETIC_MONITORED = 3
+    VIRTUAL = 4
+    MOBILE = 5
+    RESERVED = 6
+
+    @classmethod
+    def _missing_(cls, value: object) -> int:
+        return AtoNSationType.RESERVED
+
+    @classmethod
+    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["AtoNSationType"]:
+        return cls(v) if v is not None else None
+
+
+class AtoNDimensionType(int, ReprEnum):
+    DEFAULT = 0
+    HEIGHT_AND_AREA = 1
+    SWING_CIRCLE = 2
+    MOBILE_VECTOR = 3
+    AREA_POLYGON = 4
+    AREA_CIRCLE = 5
+    BOUNDARY_LINE_1 = 6
+    AREA_SECTOR = 7
+    BOUNDARY_LINE_2 = 8
+    AREA_QUADRILATERAL = 9
+    LARGE_BOUNDARY_LINE_1 = 10
+    LARGE_AREA_SECTOR = 11
+    LARGE_BOUNDARY_LINE_2 = 12
+    LARGE_AREA_QUADRILATERAL = 13
+    RESERVED_14 = 14
+    RESERVED_15 = 15
+
+    @classmethod
+    def _missing_(cls, value: object) -> int:
+        return AtoNSationType.RESERVED
+
+    @classmethod
+    def from_value(cls, val: int) -> "AtoNDimensionType":
+        try:
+            return cls(val)
+        except ValueError:
+            return cls(0)
+
+
+_COG_SPECIAL = {
+    360: 'unreported',
+    361: 'dynamically positioned',
+    362: 'purposely adrift',
+    363: 'tethered',
+    364: 'unknown',
+}

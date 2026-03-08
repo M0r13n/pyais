@@ -9,13 +9,52 @@ from typing import Any, Dict, Optional, Sequence, Union
 import attr
 from bitarray import bitarray
 
-from pyais.constants import TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
-    TransmitMode, StationIntervals, TurnRate, InlandLoadedType
-from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitializedException, UnknownMessageException, UnknownPartNoException, \
-    InvalidDataTypeException, MissingPayloadException
-from pyais.util import checksum, decode_into_bit_array, compute_checksum, get_itdma_comm_state, get_sotdma_comm_state, int_to_bin, str_to_bin, \
-    encode_ascii_6, from_bytes, from_bytes_signed, decode_bin_as_ascii6, get_int, chk_to_int, coerce_val, \
-    bits2bytes, bytes2bits, b64encode_str, is_auxiliary_craft
+from pyais.constants import (
+    AtoNDimensionType,
+    AtoNRestrictedUseInidicator,
+    AtoNSationType,
+    TalkerID,
+    NavigationStatus,
+    ManeuverIndicator,
+    EpfdType,
+    ShipType,
+    NavAid,
+    StationType,
+    TransmitMode,
+    StationIntervals,
+    TurnRate,
+    InlandLoadedType
+)
+from pyais.exceptions import (
+    InvalidNMEAMessageException,
+    TagBlockNotInitializedException,
+    UnknownMessageException,
+    UnknownPartNoException,
+    InvalidDataTypeException,
+    MissingPayloadException
+)
+from pyais.util import (
+    ParsedDimensions,
+    checksum,
+    decode_into_bit_array,
+    compute_checksum,
+    get_itdma_comm_state,
+    get_sotdma_comm_state,
+    int_to_bin,
+    parse_dimensions,
+    str_to_bin,
+    encode_ascii_6,
+    from_bytes,
+    from_bytes_signed,
+    decode_bin_as_ascii6,
+    get_int,
+    chk_to_int,
+    coerce_val,
+    bits2bytes,
+    bytes2bits,
+    b64encode_str,
+    is_auxiliary_craft
+)
 
 NMEA_VALUE = typing.Union[str, float, int, bool, bytes]
 
@@ -1981,6 +2020,46 @@ class MessageType27(Payload):
     spare_1 = bit_field(1, bytes, default=b'', is_spare=True)
 
 
+@attr.s(slots=True)
+class MessageType28(Payload):
+    """
+    Aid-to-Navigation Report (Single-slot message)
+    Defined in ITU-R M.1371-6
+
+    NOTE: provides similar information as AIS Message 21, but in one slot versus two slot.
+    """
+    msg_type = bit_field(6, int, default=28, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+
+    second = bit_field(6, int, default=0, signed=False)
+    lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
+    lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
+    restricted = bit_field(2, int, default=0, signed=False, from_converter=AtoNRestrictedUseInidicator, to_converter=AtoNRestrictedUseInidicator)
+    station_type = bit_field(3, int, default=0, from_converter=AtoNSationType.from_value, to_converter=AtoNSationType.from_value)
+    aid_type = bit_field(7, int, default=0, from_converter=NavAid.from_value, to_converter=NavAid.from_value, signed=False)
+    iala_mrn = bit_field(17, int, default=0, signed=False)
+
+    dimension = bit_field(4, int, default=0, signed=False, from_converter=AtoNDimensionType, to_converter=AtoNDimensionType)
+    dimensions_a = bit_field(9, int, default=0, signed=False)
+    dimensions_b = bit_field(11, int, default=0, signed=False)
+    dimension_additional_data = bit_field(1, int, default=0, signed=False)
+    charted_status = bit_field(1, int, default=0, signed=False)
+    station_status = bit_field(4, int, default=0, signed=False)
+    status_bits = bit_field(8, int, default=0, signed=False)
+    spare = bit_field(1, int, default=0, signed=False)
+    auth = bit_field(1, int, default=0, signed=False)
+
+    def parse_dimensions(self) -> ParsedDimensions:
+        """Parse the dimensions according to ITU-R M.1371-6 table 84"""
+        return parse_dimensions(self.dimension, self.dimensions_a, self.dimensions_b)
+
+    @property
+    def has_multiple_dimension_types(self) -> bool:
+        """Whether this AtoN uses multiple dimension types for the same MMSI"""
+        return bool(self.dimension_additional_data == 1)
+
+
 MSG_CLASS = {
     0: MessageType1,  # there are messages with a zero (0) as an id. these seem to be the same as type 1 messages
     1: MessageType1,
@@ -2010,6 +2089,7 @@ MSG_CLASS = {
     25: MessageType25,
     26: MessageType26,
     27: MessageType27,
+    28: MessageType28,
 }
 
 # This is type hint for all messages
@@ -2051,6 +2131,7 @@ ANY_MESSAGE = typing.Union[
     MessageType26BroadcastStructured,
     MessageType26BroadcastUnstructured,
     MessageType27,
+    MessageType28,
 ]
 
 # This is only there for backwards compatibility

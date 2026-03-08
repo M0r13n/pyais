@@ -12,7 +12,7 @@ from pyais.messages import MessageType1, MessageType26BroadcastUnstructured, Mes
     MessageType25AddressedUnstructured, MessageType25BroadcastStructured, MessageType25AddressedStructured, \
     MessageType24PartB, MessageType24PartA, MessageType22Broadcast, MessageType22Addressed, MessageType27, \
     MessageType23, MessageType21, MessageType20, MessageType19, MessageType18, MessageType17, MessageType16DestinationA, \
-    MessageType15, MessageType4, MessageType5, MessageType6, MessageType7, MessageType8Default, MessageType2, MessageType3, \
+    MessageType15, MessageType28, MessageType4, MessageType5, MessageType6, MessageType7, MessageType8Default, MessageType2, MessageType3, \
     MSG_CLASS, MessageType16DestinationAB
 from pyais.util import decode_bin_as_ascii6, decode_into_bit_array, str_to_bin, int_to_bin, to_six_bit, encode_ascii_6, \
     int_to_bytes, bits2bytes
@@ -179,7 +179,7 @@ def test_data_to_payload():
     assert data_to_payload(8, {'mmsi': 123}).__class__ == MessageType8Default
 
     with unittest.TestCase().assertRaises(ValueError):
-        data_to_payload(28, {'mmsi': 123})
+        data_to_payload(29, {'mmsi': 123})
 
 
 def test_get_ais_type():
@@ -1225,3 +1225,29 @@ def test_encode_does_not_exceed_nmea_sentence_length_limit():
     assert len(encoded) == 2
     assert len(encoded[0]) == 82
     assert len(encoded[1]) == 33
+
+
+def test_encode_type_28():
+    msg = MessageType28.create(
+        mmsi=123456789,
+        second=1,
+        lon=10.123712,
+        lat=54.349133,
+        restricted=0,
+        station_type=1,
+        aid_type=7,
+        iala_mrn=12345,
+        dimension=1,
+        dimensions_a=42,
+        dimensions_b=1337,
+        dimension_additional_data=1,
+        charted_status=1,
+        station_status=1,
+        status_bits=0,
+        auth=1,
+    )
+
+    encoded = encode_msg(msg)
+
+    assert len(encoded) == 1
+    assert encoded[0] == "!AIVDO,1,1,,A,L1mg=5@@G:uk?S:I0@ph>A5E>L@1,0*43"

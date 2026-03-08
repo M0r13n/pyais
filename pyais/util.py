@@ -1,4 +1,5 @@
 import base64
+import dataclasses
 import math
 import typing
 from collections import OrderedDict
@@ -8,7 +9,7 @@ from typing import Any, Generator, Hashable, TYPE_CHECKING, Union, Dict
 
 from bitarray import bitarray
 
-from pyais.constants import COUNTRY_MAPPING, SyncState
+from pyais.constants import _COG_SPECIAL, COUNTRY_MAPPING, AtoNDimensionType, SyncState
 from pyais.exceptions import NonPrintableCharacterException
 
 if TYPE_CHECKING:
@@ -438,3 +439,101 @@ def is_auxiliary_craft(mmsi: int) -> bool:
     #   2. is followed by a MID (XXX)
     #   3. if followed by any decimal literal YYYY (0000 - 9999)
     return 98_000_0000 <= mmsi <= 98_999_9999
+
+
+@dataclasses.dataclass
+class ParsedDimensions:
+    dim_type: AtoNDimensionType
+    raw_a: int
+    raw_b: int
+    label_a: str = ""
+    label_b: str = ""
+    value_a: float = 0.0  # scaled / interpreted value of dimension A
+    value_b: float = 0.0  # scaled / interpreted value of dimension B
+    unit_a: str = ""
+    unit_b: str = ""
+
+    def pretty(self) -> Dict[str, str]:
+        if self.dim_type == AtoNDimensionType.SWING_CIRCLE:
+            return {'radius': f'{float(self.value_a + self.value_b)}m'}
+        elif self.dim_type == AtoNDimensionType.AREA_CIRCLE:
+            return {'radius': f'{float(self.value_a + self.value_b)}m'}
+        elif self.dim_type == AtoNDimensionType.MOBILE_VECTOR:
+            cog = _COG_SPECIAL.get(self.raw_a)
+            if cog is None:
+                cog = f'{float(self.raw_a)}deg' if self.raw_a <= 359 else 'reserved'
+
+            if self.raw_b <= 59:
+                sog = f'{float(self.raw_b)}kn'
+            elif self.raw_b == 60:
+                sog = 'unreported'
+            else:
+                sog = 'reserved'
+            return {'cog': cog, 'sog': sog}
+        else:
+            return {
+                self.label_a: f"{self.value_a}{self.unit_a}",
+                self.label_b: f"{self.value_b}{self.unit_b}"
+            }
+
+
+def parse_dimensions(dim_type: int, raw_a: int, raw_b: int) -> ParsedDimensions:
+    dtype = AtoNDimensionType.from_value(dim_type)
+    r = ParsedDimensions(dim_type=dtype, raw_a=raw_a, raw_b=raw_b)
+
+    if dtype == AtoNDimensionType.DEFAULT:
+        r.label_a = "dim_a"
+        r.label_b = "dim_b"
+        r.value_a, r.value_b = float(raw_a), float(raw_b)
+
+    elif dtype == AtoNDimensionType.HEIGHT_AND_AREA:
+        r.label_a, r.unit_a = "radius", "m"
+        r.label_b, r.unit_b = "height", "m"
+        r.value_a = float(raw_a)            # 1 m steps, 0–511
+        r.value_b = round(raw_b * 0.1, 1)   # 0.1 m steps, 0–204.7
+
+    elif dtype == AtoNDimensionType.SWING_CIRCLE:
+        r.label_a, r.unit_a = "radius_coarse", "m"
+        r.label_b, r.unit_b = "radius_fine", "m"
+        r.value_a = float(raw_a * 100)      # 100 m steps
+        r.value_b = float(raw_b)            # 1 m steps, total = a+b
+
+    elif dtype == AtoNDimensionType.MOBILE_VECTOR:
+        r.label_a, r.unit_a = "cog", "deg"
+        r.label_b, r.unit_b = "sog", "kn"
+        r.value_a = float(raw_a)            # 0–364 (360+ = special)
+        r.value_b = float(raw_b)            # 0–60 (60 = unreported)
+
+    elif dtype == AtoNDimensionType.AREA_POLYGON:
+        r.label_a = "vertex_sequence"
+        r.label_b = "total_lines"
+        r.value_a = float(raw_a)            # 0–8
+        r.value_b = float(raw_b)            # 0–8
+
+    elif dtype == AtoNDimensionType.AREA_CIRCLE:
+        r.label_a, r.unit_a = "radius_fine", "m"
+        r.label_b, r.unit_b = "radius_coarse", "m"
+        r.value_a = float(raw_a)            # 1 m steps
+        r.value_b = float(raw_b * 100)      # 100 m steps, total = a+b
+
+    elif dtype in _ORIENTED_LINE_TYPES:
+        step = _ORIENTED_LINE_TYPES[dtype]
+        r.label_a, r.unit_a = "orientation", "deg"
+        r.label_b, r.unit_b = "length", "m"
+        r.value_a = float(raw_a)            # 0–359
+        r.value_b = float(raw_b * step)
+
+    return r
+
+
+# Types 6–13 all share orientation + length, just different step sizes
+_ORIENTED_LINE_TYPES = {
+    AtoNDimensionType.BOUNDARY_LINE_1: 10,
+    AtoNDimensionType.AREA_SECTOR: 10,
+    AtoNDimensionType.BOUNDARY_LINE_2: 10,
+    AtoNDimensionType.AREA_QUADRILATERAL: 10,
+    AtoNDimensionType.LARGE_BOUNDARY_LINE_1: 200,
+    AtoNDimensionType.LARGE_AREA_SECTOR: 200,
+    AtoNDimensionType.LARGE_BOUNDARY_LINE_2: 200,
+    AtoNDimensionType.LARGE_AREA_QUADRILATERAL: 200,
+}
