@@ -1065,6 +1065,7 @@ class App:
             ("Last Msg Type", str(ship.msg_type)),
             ("Last Seen", ship.last_seen.strftime("%Y-%m-%d %H:%M:%S UTC") if ship.last_seen else "N/A"),
             ("Tracked", "Yes \u2605" if ship.tracked else "No"),
+            ("VesselFinder", f"https://www.vesselfinder.com/vessels/details/{ship.mmsi}"),
         ]
 
         y = 2
