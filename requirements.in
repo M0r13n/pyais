@@ -1,0 +1,22 @@
+# These are all requirements for development
+# These requirements are not needed for using the module
+
+# BASE
+bitarray
+
+# ENCODE
+attrs
+
+# TEST
+flake8
+coverage
+mypy
+pytest
+pytest-cov
+
+# DEPLOY
+twine
+wheel
+
+# DOCS
+sphinx
