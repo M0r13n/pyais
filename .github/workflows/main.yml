@@ -2,23 +2,30 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
-    types: [opened, reopened, review_requested, edited]
+    types: [opened, synchronize, reopened]
+
+permissions: {}
 
 jobs:
   build:
     name: Testing on ${{ matrix.os }} with Python version ${{ matrix.python }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.9', '3.10', '3.11', '3.12', '3.13']
+        python: ['3.10', '3.11', '3.12', '3.13', '3.14']
         os: ['ubuntu-latest']
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Setup python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  #v6.2.0
         with:
           python-version: ${{ matrix.python }}
 
@@ -27,12 +34,6 @@ jobs:
 
       - name: Run tests with coverage and create report as xml file
         run: make test
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v1
-        with:
-            token: ${{secrets.CODECOV_TOKEN}}
-            file: coverage.xml
 
       - name: Run Flake8
         run: flake8
