@@ -9,14 +9,6 @@ attrs
 
 # TEST
 flake8
-coverage
 mypy
 pytest
 pytest-cov
-
-# DEPLOY
-twine
-wheel
-
-# DOCS
-sphinx
