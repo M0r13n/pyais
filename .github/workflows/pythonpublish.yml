@@ -29,16 +29,23 @@ jobs:
 
       - name: Generate SHA256 checksums
         run: |
-          cd dist
-          sha256sum * > SHA256SUMS
+          cd dist && sha256sum * > ../SHA256SUMS
           echo "### SHA256 Checksums"
-          cat SHA256SUMS
+          cat ../SHA256SUMS
 
       - name: "Upload dists"
         uses: "actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f"  # v7.0.0
         with:
           name: "dist"
           path: "dist/"
+          if-no-files-found: error
+          retention-days: 5
+
+      - name: "Upload SHA256SUMS"
+        uses: "actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f"  # v7.0.0
+        with:
+          name: "SHA256SUMS"
+          path: "SHA256SUMS"
           if-no-files-found: error
           retention-days: 5
 
