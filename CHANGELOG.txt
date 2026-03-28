@@ -2,6 +2,14 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 2.20.1 28 Mar 2026
+-------------------------------------------------------------------------------
+* this release reduces the supply chain attack surface
+  * pins dependencies
+  * pins workflows
+  * adds a SHA256 hash sum for deployed artifacts
+  * migrates to PyPI trusted publishing
+-------------------------------------------------------------------------------
  Version 2.20.0 08 Mar 2026
 -------------------------------------------------------------------------------
 * adds support for message type 28 (Aid-to-Navigation Report, single-slot)
