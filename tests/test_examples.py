@@ -34,4 +34,4 @@ class TestExamples(unittest.TestCase):
         if csv_file.exists():
             csv_file.unlink()
 
-        assert i == 24
+        assert i == 26

@@ -668,7 +668,7 @@ class AISSentence(NMEASentence):
         if not self.payload:
             raise MissingPayloadException(self.raw.decode())
         try:
-            return MSG_CLASS[self.ais_id].from_bytes(self.bv)
+            return MSG_CLASS[self.ais_id].from_vector(self.bv)
         except KeyError as e:
             raise UnknownMessageException(f"The message {self} is not supported!") from e
 
@@ -816,7 +816,7 @@ class Payload(abc.ABC):
         return cls(**args)  # type:ignore
 
     @classmethod
-    def from_bytes(cls, bv: bit_vector) -> "ANY_MESSAGE":
+    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
         cur: int = 0
         kwargs: typing.Dict[str, typing.Any] = {}
 
@@ -1165,13 +1165,13 @@ class MessageType8(Payload):
             return MessageType8Default.create(**kwargs)
 
     @classmethod
-    def from_bytes(cls, bv: bit_vector) -> "ANY_MESSAGE":
+    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
         dac: int = bv.get(40, 10)
         fid: int = bv.get(50, 6)
         if dac == 200 and fid == 10:
-            return MessageType8Dac200Fid10.from_bytes(bv)
+            return MessageType8Dac200Fid10.from_vector(bv)
         else:
-            return MessageType8Default.from_bytes(bv)
+            return MessageType8Default.from_vector(bv)
 
 
 @attr.s(slots=True)
@@ -1402,10 +1402,10 @@ class MessageType16(Payload):
         return MessageType16DestinationA.create(**kwargs)
 
     @classmethod
-    def from_bytes(cls, bv: bit_vector) -> "ANY_MESSAGE":
+    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
         if len(bv) > 96:
-            return MessageType16DestinationAB.from_bytes(bv)
-        return MessageType16DestinationA.from_bytes(bv)
+            return MessageType16DestinationAB.from_vector(bv)
+        return MessageType16DestinationA.from_vector(bv)
 
 
 @attr.s(slots=True)
@@ -1646,11 +1646,11 @@ class MessageType22(Payload):
             return MessageType22Broadcast.create(**kwargs)
 
     @classmethod
-    def from_bytes(cls, bv: bit_vector) -> "ANY_MESSAGE":
+    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
         if bv.get(139, 1):
-            return MessageType22Addressed.from_bytes(bv)
+            return MessageType22Addressed.from_vector(bv)
         else:
-            return MessageType22Broadcast.from_bytes(bv)
+            return MessageType22Broadcast.from_vector(bv)
 
 
 @attr.s(slots=True)
@@ -1762,15 +1762,15 @@ class MessageType24(Payload):
             raise UnknownPartNoException(f"Partno {partno} is not allowed!")
 
     @classmethod
-    def from_bytes(cls, bv: bit_vector) -> "ANY_MESSAGE":
+    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
         mmsi: int = bv.get(8, 30)
         partno: int = bv.get(38, 2)
         if partno == 0:
-            return MessageType24PartA.from_bytes(bv)
+            return MessageType24PartA.from_vector(bv)
         elif partno == 1:
             if is_auxiliary_craft(mmsi):
-                return MessageType24PartBAuxiliaryCraft.from_bytes(bv)
-            return MessageType24PartB.from_bytes(bv)
+                return MessageType24PartBAuxiliaryCraft.from_vector(bv)
+            return MessageType24PartB.from_vector(bv)
         else:
             raise UnknownPartNoException(f"Partno {partno} is not allowed!")
 
@@ -1854,20 +1854,20 @@ class MessageType25(Payload):
                 return MessageType25BroadcastUnstructured.create(**kwargs)
 
     @classmethod
-    def from_bytes(cls, bv: bit_vector) -> "ANY_MESSAGE":
+    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
         addressed: int = bv.get(38, 1)
         structured: int = bv.get(39, 1)
 
         if addressed:
             if structured:
-                return MessageType25AddressedStructured.from_bytes(bv)
+                return MessageType25AddressedStructured.from_vector(bv)
             else:
-                return MessageType25AddressedUnstructured.from_bytes(bv)
+                return MessageType25AddressedUnstructured.from_vector(bv)
         else:
             if structured:
-                return MessageType25BroadcastStructured.from_bytes(bv)
+                return MessageType25BroadcastStructured.from_vector(bv)
             else:
-                return MessageType25BroadcastUnstructured.from_bytes(bv)
+                return MessageType25BroadcastUnstructured.from_vector(bv)
 
 
 @attr.s(slots=True)
@@ -1954,20 +1954,20 @@ class MessageType26(Payload):
                 return MessageType26BroadcastUnstructured.create(**kwargs)
 
     @classmethod
-    def from_bytes(cls, bv: bit_vector) -> "ANY_MESSAGE":
+    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
         addressed: int = bv.get(38, 1)
         structured: int = bv.get(39, 1)
 
         if addressed:
             if structured:
-                return MessageType26AddressedStructured.from_bytes(bv)
+                return MessageType26AddressedStructured.from_vector(bv)
             else:
-                return MessageType26AddressedUnstructured.from_bytes(bv)
+                return MessageType26AddressedUnstructured.from_vector(bv)
         else:
             if structured:
-                return MessageType26BroadcastStructured.from_bytes(bv)
+                return MessageType26BroadcastStructured.from_vector(bv)
             else:
-                return MessageType26BroadcastUnstructured.from_bytes(bv)
+                return MessageType26BroadcastUnstructured.from_vector(bv)
 
 
 @attr.s(slots=True)
