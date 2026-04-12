@@ -9,7 +9,6 @@
 
 [![PyPI](https://img.shields.io/pypi/v/pyais)](https://pypi.org/project/pyais/)
 [![license](https://img.shields.io/pypi/l/pyais)](https://github.com/M0r13n/pyais/blob/master/LICENSE)
-[![codecov](https://codecov.io/gh/M0r13n/pyais/branch/master/graph/badge.svg)](https://codecov.io/gh/M0r13n/pyais)
 [![downloads](https://img.shields.io/pypi/dm/pyais)](https://pypi.org/project/pyais/)
 ![CI](https://github.com/M0r13n/pyais/workflows/CI/badge.svg)
 [![Documentation Status](https://readthedocs.org/projects/pyais/badge/?version=latest)](https://pyais.readthedocs.io/en/latest/?badge=latest)
@@ -24,7 +23,7 @@ TCP/UDP sockets. This library has been used and tested extensively in representa
 
 You can find the full documentation on [readthedocs](https://pyais.readthedocs.io/en/latest/).
 
-Binary releases (Debian packages) are provided by the [pyais-debian](https://github.com/M0r13n/pyais-debian) starting with version **v2.5.6**. They are downloadable under the [Releases](https://github.com/M0r13n/pyais/releases) page.
+⚠️ **Important:** This is version **v3**, which may contain breaking changes compared to **v2**. The latter is maintained on the [`legacy branch`](https://github.com/M0r13n/pyais/tree/legacy).
 
 # Acknowledgements
 
@@ -552,10 +551,6 @@ with pyais.AISTracker() as tracker:
         tracker.update(msg)
         latest_tracks = tracker.n_latest_tracks(10)
 ```
-
-# Performance Considerations
-
-#TODO
 
 # Disclaimer
 
