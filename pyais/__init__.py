@@ -1,3 +1,4 @@
+from pyais.bit_vector import bit_vector
 from pyais.messages import NMEAMessage, ANY_MESSAGE, AISSentence, TagBlock
 from pyais.stream import TCPConnection, FileReaderStream, IterMessages, Stream, PreprocessorProtocol
 from pyais.encode import encode_dict, encode_msg, ais_to_nmea_0183
@@ -9,6 +10,7 @@ __version__ = '2.20.1'
 __author__ = 'Leon Morten Richter'
 
 __all__ = (
+    'bit_vector',
     'encode_dict',
     'encode_msg',
     'ais_to_nmea_0183',
