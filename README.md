@@ -160,6 +160,12 @@ Data can be read from a TCP/IP socket and is encoded according to IEC 62320-1:
 Refer to the [examples/live_stream.py](./examples/live_stream.py) for a practical example on how to read & decode AIS data from a TCP/IP socket.
 This is useful for debugging or for getting used to pyais.
 
+## AIS Monitor
+
+![example image of the AIS monitor](docs/ais_monitor.png)
+
+[`examples/ais_monitor.py`](examples/ais_monitor.py) is a btop-like TUI for real-time AIS ship traffic monitoring built entirely with pyais and Python's standard library. It displays a live stream of decoded AIS messages, a sortable and filterable ship table, vessel detail views and supports tracking specific ships. This is a standalone script provided for demonstration purposes and is **not** part of the official pyais distribution.
+
 ## Encode
 
 It is also possible to encode messages.

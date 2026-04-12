@@ -11,6 +11,7 @@ KEYWORDS_TO_IGNORE = (
     'live',
     'tracking',
     'filters',
+    'ais_monitor',
 )
 
 
@@ -33,4 +34,4 @@ class TestExamples(unittest.TestCase):
         if csv_file.exists():
             csv_file.unlink()
 
-        assert i == 23
+        assert i == 24

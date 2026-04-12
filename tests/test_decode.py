@@ -1,5 +1,6 @@
 import base64
 import datetime
+import functools
 import itertools
 import json
 import textwrap
@@ -10,6 +11,7 @@ from pyais import NMEAMessage, encode_dict, encode_msg
 from pyais.ais_types import AISType
 from pyais.bit_vector import bit_vector
 from pyais.constants import (
+    AtoNDimensionType,
     EpfdType,
     InlandLoadedType,
     ManeuverIndicator,
@@ -35,6 +37,7 @@ from pyais.messages import (
     GatehouseSentence,
     MessageType16DestinationA,
     MessageType16DestinationAB,
+    MessageType28,
     MessageType5,
     MessageType6,
     MessageType8Dac200Fid10,
@@ -904,6 +907,285 @@ class TestAIS(unittest.TestCase):
         assert msg["lon"] == -13.368333
         assert msg["lat"] == -50.121667
 
+    def test_msg_type_28_total_bits(self):
+        """Ensure that the total sum of all fields equals 168 (single slot message)"""
+        tot = functools.reduce(lambda x, y: x + y.metadata['width'], MessageType28.fields(), 0)
+        self.assertEqual(tot, 168)
+
+    def test_msg_type_28_authed(self):
+        """Test decoding of type 28"""
+        msg = decode("!AIVDO,1,1,,A,L1mg=5@@G:uk?S:I0@ph>A5E>L@1,0*43")
+
+        assert isinstance(msg, MessageType28)
+        self.assertEqual(msg.mmsi, 123456789)
+        self.assertEqual(msg.second, 1)
+        self.assertEqual(msg.lon, 10.123712)
+        self.assertEqual(msg.lat, 54.349133)
+        self.assertEqual(msg.restricted, 0)
+        self.assertEqual(msg.station_type, 1)
+        self.assertEqual(msg.aid_type, 7)
+        self.assertEqual(msg.iala_mrn, 12345)
+        self.assertEqual(msg.dimension, 1)
+        self.assertEqual(msg.dimensions_a, 42)
+        self.assertEqual(msg.dimensions_b, 1337)
+        self.assertEqual(msg.dimension_additional_data, 1)
+        self.assertEqual(msg.charted_status, 1)
+        self.assertEqual(msg.station_status, 1)
+        self.assertEqual(msg.status_bits, 0)
+        self.assertEqual(msg.auth, 1)
+
+    def test_msg_type_28_dimensions_undefined(self):
+        # Default dimensions
+        decoded = decode(encode_msg(MessageType28.create(
+            mmsi=123456789,
+            dimension=AtoNDimensionType.DEFAULT,
+            dimensions_a=0,
+            dimensions_b=0,
+            dimension_additional_data=0,
+        ))[0])
+        assert isinstance(decoded, MessageType28)
+        dims = decoded.parse_dimensions()
+        self.assertEqual(dims.pretty(), {'dim_a': '0.0', 'dim_b': '0.0'})
+
+    def test_msg_type_28_dimensions_0(self):
+        # Default dimensions
+        decoded = decode(encode_msg(MessageType28.create(
+            mmsi=123456789,
+            dimension=AtoNDimensionType.DEFAULT,
+            dimensions_a=42,
+            dimensions_b=1337,
+            dimension_additional_data=0,
+        ))[0])
+        assert isinstance(decoded, MessageType28)
+        dims = decoded.parse_dimensions()
+        self.assertEqual(dims.pretty(), {'dim_a': '42.0', 'dim_b': '1337.0'})
+
+    def test_msg_type_28_dimensions_1(self):
+        # Default dimensions
+        decoded = decode(encode_msg(MessageType28.create(
+            mmsi=123456789,
+            dimension=AtoNDimensionType.HEIGHT_AND_AREA,
+            dimensions_a=42,
+            dimensions_b=1337,
+            dimension_additional_data=0,
+        ))[0])
+        assert isinstance(decoded, MessageType28)
+        dims = decoded.parse_dimensions()
+        self.assertEqual(dims.pretty(), {'height': '133.7m', 'radius': '42.0m'})
+
+    def test_msg_type_28_dimensions_2(self):
+        """Swing circle: radius = Ax100 + B"""
+        decoded = decode(encode_msg(MessageType28.create(
+            mmsi=123456789,
+            dimension=AtoNDimensionType.SWING_CIRCLE,
+            dimensions_a=5,
+            dimensions_b=42,
+            dimension_additional_data=0,
+        ))[0])
+        assert isinstance(decoded, MessageType28)
+        dims = decoded.parse_dimensions()
+        self.assertEqual(dims.pretty(), {'radius': '542.0m'})
+
+    def test_msg_type_28_dimensions_3(self):
+        """Mobile AtoN vector: COG + SOG"""
+        decoded = decode(encode_msg(MessageType28.create(
+            mmsi=123456789,
+            dimension=AtoNDimensionType.MOBILE_VECTOR,
+            dimensions_a=180,
+            dimensions_b=12,
+            dimension_additional_data=0,
+        ))[0])
+        assert isinstance(decoded, MessageType28)
+        dims = decoded.parse_dimensions()
+        self.assertEqual(dims.pretty(), {'cog': '180.0deg', 'sog': '12.0kn'})
+
+    def test_msg_type_28_dimensions_3_cog_unreported(self):
+        """Mobile AtoN vector: COG and SOG both unreported"""
+        decoded = decode(encode_msg(MessageType28.create(
+            mmsi=123456789,
+            dimension=AtoNDimensionType.MOBILE_VECTOR,
+            dimensions_a=360,
+            dimensions_b=60,
+            dimension_additional_data=0,
+        ))[0])
+        assert isinstance(decoded, MessageType28)
+        dims = decoded.parse_dimensions()
+        self.assertEqual(dims.pretty(), {'cog': 'unreported', 'sog': 'unreported'})
+
+    def test_msg_type_28_dimensions_3_cog_dynamically_positioned(self):
+        """Mobile AtoN vector: dynamically positioned on station"""
+        decoded = decode(encode_msg(MessageType28.create(
+            mmsi=123456789,
+            dimension=AtoNDimensionType.MOBILE_VECTOR,
+            dimensions_a=361,
+            dimensions_b=0,
+            dimension_additional_data=0,
+        ))[0])
+        assert isinstance(decoded, MessageType28)
+        dims = decoded.parse_dimensions()
+        self.assertEqual(dims.pretty(), {'cog': 'dynamically positioned', 'sog': '0.0kn'})
+
+    def test_msg_type_28_dimensions_3_cog_tethered(self):
+        """Mobile AtoN vector: tethered"""
+        decoded = decode(encode_msg(MessageType28.create(
+            mmsi=123456789,
+            dimension=AtoNDimensionType.MOBILE_VECTOR,
+            dimensions_a=363,
+            dimensions_b=5,
+            dimension_additional_data=0,
+        ))[0])
+        assert isinstance(decoded, MessageType28)
+        dims = decoded.parse_dimensions()
+        self.assertEqual(dims.pretty(), {'cog': 'tethered', 'sog': '5.0kn'})
+
+    def test_msg_type_28_dimensions_4(self):
+        """Area polygon: vertex 3 of 5"""
+        decoded = decode(encode_msg(MessageType28.create(
+            mmsi=123456789,
+            dimension=AtoNDimensionType.AREA_POLYGON,
+            dimensions_a=3,
+            dimensions_b=5,
+            dimension_additional_data=1,
+        ))[0])
+        assert isinstance(decoded, MessageType28)
+        dims = decoded.parse_dimensions()
+        self.assertEqual(dims.pretty(), {'vertex_sequence': '3.0', 'total_lines': '5.0'})
+        self.assertTrue(decoded.has_multiple_dimension_types)
+
+    def test_msg_type_28_dimensions_4_close_polygon(self):
+        """Area polygon: vertex 0 closes back to vertex 1"""
+        decoded = decode(encode_msg(MessageType28.create(
+            mmsi=123456789,
+            dimension=AtoNDimensionType.AREA_POLYGON,
+            dimensions_a=0,
+            dimensions_b=5,
+            dimension_additional_data=1,
+        ))[0])
+        assert isinstance(decoded, MessageType28)
+        dims = decoded.parse_dimensions()
+        self.assertEqual(dims.pretty(), {'vertex_sequence': '0.0', 'total_lines': '5.0'})
+
+    def test_msg_type_28_dimensions_5(self):
+        """Area circle: radius = Ax1 + Bx100"""
+        decoded = decode(encode_msg(MessageType28.create(
+            mmsi=123456789,
+            dimension=AtoNDimensionType.AREA_CIRCLE,
+            dimensions_a=50,
+            dimensions_b=3,
+            dimension_additional_data=0,
+        ))[0])
+        assert isinstance(decoded, MessageType28)
+        dims = decoded.parse_dimensions()
+        self.assertEqual(dims.pretty(), {'radius': '350.0m'})
+
+    def test_msg_type_28_dimensions_6(self):
+        """Boundary line 1: orientation + length (10m steps)"""
+        decoded = decode(encode_msg(MessageType28.create(
+            mmsi=123456789,
+            dimension=AtoNDimensionType.BOUNDARY_LINE_1,
+            dimensions_a=90,
+            dimensions_b=100,
+            dimension_additional_data=0,
+        ))[0])
+        assert isinstance(decoded, MessageType28)
+        dims = decoded.parse_dimensions()
+        self.assertEqual(dims.pretty(), {'orientation': '90.0deg', 'length': '1000.0m'})
+
+    def test_msg_type_28_dimensions_7(self):
+        """Area sector (paired with type 6), dimension_additional_data=1"""
+        decoded = decode(encode_msg(MessageType28.create(
+            mmsi=123456789,
+            dimension=AtoNDimensionType.AREA_SECTOR,
+            dimensions_a=45,
+            dimensions_b=200,
+            dimension_additional_data=1,
+        ))[0])
+        assert isinstance(decoded, MessageType28)
+        dims = decoded.parse_dimensions()
+        self.assertEqual(dims.pretty(), {'orientation': '45.0deg', 'length': '2000.0m'})
+        self.assertTrue(decoded.has_multiple_dimension_types)
+
+    def test_msg_type_28_dimensions_8(self):
+        """Boundary line 2: orientation + length (10m steps)"""
+        decoded = decode(encode_msg(MessageType28.create(
+            mmsi=123456789,
+            dimension=AtoNDimensionType.BOUNDARY_LINE_2,
+            dimensions_a=270,
+            dimensions_b=150,
+            dimension_additional_data=0,
+        ))[0])
+        assert isinstance(decoded, MessageType28)
+        dims = decoded.parse_dimensions()
+        self.assertEqual(dims.pretty(), {'orientation': '270.0deg', 'length': '1500.0m'})
+
+    def test_msg_type_28_dimensions_9(self):
+        """Area quadrilateral (paired with type 8 or 12), dimension_additional_data=1"""
+        decoded = decode(encode_msg(MessageType28.create(
+            mmsi=123456789,
+            dimension=AtoNDimensionType.AREA_QUADRILATERAL,
+            dimensions_a=135,
+            dimensions_b=80,
+            dimension_additional_data=1,
+        ))[0])
+        assert isinstance(decoded, MessageType28)
+        dims = decoded.parse_dimensions()
+        self.assertEqual(dims.pretty(), {'orientation': '135.0deg', 'length': '800.0m'})
+        self.assertTrue(decoded.has_multiple_dimension_types)
+
+    def test_msg_type_28_dimensions_10(self):
+        """Large boundary line 1: orientation + length (200m steps)"""
+        decoded = decode(encode_msg(MessageType28.create(
+            mmsi=123456789,
+            dimension=AtoNDimensionType.LARGE_BOUNDARY_LINE_1,
+            dimensions_a=0,
+            dimensions_b=100,
+            dimension_additional_data=0,
+        ))[0])
+        assert isinstance(decoded, MessageType28)
+        dims = decoded.parse_dimensions()
+        self.assertEqual(dims.pretty(), {'orientation': '0.0deg', 'length': '20000.0m'})
+
+    def test_msg_type_28_dimensions_11(self):
+        """Large area sector (paired with type 10), dimension_additional_data=1"""
+        decoded = decode(encode_msg(MessageType28.create(
+            mmsi=123456789,
+            dimension=AtoNDimensionType.LARGE_AREA_SECTOR,
+            dimensions_a=359,
+            dimensions_b=50,
+            dimension_additional_data=1,
+        ))[0])
+        assert isinstance(decoded, MessageType28)
+        dims = decoded.parse_dimensions()
+        self.assertEqual(dims.pretty(), {'orientation': '359.0deg', 'length': '10000.0m'})
+        self.assertTrue(decoded.has_multiple_dimension_types)
+
+    def test_msg_type_28_dimensions_12(self):
+        """Large boundary line 2: max length (200m steps, B=2047)"""
+        decoded = decode(encode_msg(MessageType28.create(
+            mmsi=123456789,
+            dimension=AtoNDimensionType.LARGE_BOUNDARY_LINE_2,
+            dimensions_a=180,
+            dimensions_b=2047,
+            dimension_additional_data=0,
+        ))[0])
+        assert isinstance(decoded, MessageType28)
+        dims = decoded.parse_dimensions()
+        self.assertEqual(dims.pretty(), {'orientation': '180.0deg', 'length': '409400.0m'})
+
+    def test_msg_type_28_dimensions_13(self):
+        """Large area quadrilateral (paired with type 12), dimension_additional_data=1"""
+        decoded = decode(encode_msg(MessageType28.create(
+            mmsi=123456789,
+            dimension=AtoNDimensionType.LARGE_AREA_QUADRILATERAL,
+            dimensions_a=90,
+            dimensions_b=10,
+            dimension_additional_data=1,
+        ))[0])
+        assert isinstance(decoded, MessageType28)
+        dims = decoded.parse_dimensions()
+        self.assertEqual(dims.pretty(), {'orientation': '90.0deg', 'length': '2000.0m'})
+        self.assertTrue(decoded.has_multiple_dimension_types)
+
     def test_broken_messages(self):
         # Undefined epfd
         assert decode(b"!AIVDM,1,1,,B,4>O7m7Iu@<9qUfbtm`vSnwvH20S8,0*46").asdict()["epfd"] == EpfdType.Undefined
@@ -991,8 +1273,8 @@ class TestAIS(unittest.TestCase):
 
     def test_nmea_decode_unknown_msg(self):
         with self.assertRaises(UnknownMessageException):
-            nmea = NMEAMessage(b"!AIVDO,1,1,,,B>qc:003wk?8mP=18D3Q3wgTiT;T,0*13")
-            nmea.ais_id = 28
+            nmea = NMEAMessage(b"!AIVDO,1,1,,,C>qc:003wk?8mP=18D3Q3wgTiT;T,0*13")
+            nmea.ais_id = 29
             nmea.decode()
 
     def test_decode_out_of_order(self):

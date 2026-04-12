@@ -35,7 +35,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ['mypy', 'flake8', 'coverage', 'twine', 'sphinx', 'pytest', 'pytest-cov']
+dev = ['mypy', 'flake8', 'pytest', 'pytest-cov']
 
 [project.urls]
 "Homepage" = "https://github.com/M0r13n/pyais"
