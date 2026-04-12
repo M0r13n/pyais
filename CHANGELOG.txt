@@ -2,6 +2,22 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 3.0.0 12 Apr 2026
+-------------------------------------------------------------------------------
+* breaking Changes
+  * removed `bitarray` dependency. Replaced with a custom `bit_vector`
+  * renamed `AISSentence.bit_array` to `AISSentence.bv`
+  * renamed `Payload.from_bitarray()` to `Payload.from_vector()`
+  * renamed `Payload.to_bitarray()` to `Payload.to_bytes()`
+  * changed overflow encoding behavior
+    * values exceeding field width now encode to `0` instead of being masked
+  * deprecated `NonPrintableCharacterException`
+  * dropped support for Python 3.9
+* removed `bitarray` as an external dependency
+* improved performance through a custom bit vector implementation
+* optimized single-fragment message assembly
+* NOTE: If you are not ready to migrate, v2 continues to receive bugfixes on the `legacy` branch
+-------------------------------------------------------------------------------
  Version 2.20.1 28 Mar 2026
 -------------------------------------------------------------------------------
 * this release reduces the supply chain attack surface
