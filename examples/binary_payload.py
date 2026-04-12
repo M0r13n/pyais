@@ -9,6 +9,6 @@ assert msg.msg_type == 6
 assert msg.data == b'\xeb/\x11\x8f\x7f\xf1'
 
 # Convert the raw bytes to number
-number = int.from_bytes(msg.data)
+number = int.from_bytes(msg.data, byteorder="big")
 
 assert bin(number)[2:] == "111010110010111100010001100011110111111111110001"
