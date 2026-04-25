@@ -3,7 +3,6 @@ from collections import defaultdict
 import time
 import pathlib
 import ais.stream
-import ais.compatibility.gpsd
 
 file = pathlib.Path(__file__).parent.joinpath('../tests/nmea-sample')
 
