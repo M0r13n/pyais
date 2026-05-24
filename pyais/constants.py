@@ -770,6 +770,41 @@ class EMMAWinds(int, ReprEnum):
         return cls(v) if v is not None else None
 
 
+class SignalImpact(int, ReprEnum):
+    Unknown = 0
+    Upstream = 1
+    Downstream = 2
+    ToLeftBank = 3
+    ToRightBank = 4
+
+    @classmethod
+    def _missing_(cls, value: object) -> int:
+        return SignalImpact.Unknown
+
+    @classmethod
+    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["SignalImpact"]:
+        return cls(v) if v is not None else None
+
+
+class SignalStatus(int, ReprEnum):
+    Unknown = 0
+    NoLight = 1
+    White = 2
+    Yellow = 3
+    Green = 4
+    Red = 5
+    WhiteFlashing = 6
+    YellowFlashing = 7
+
+    @classmethod
+    def _missing_(cls, value: object) -> int:
+        return SignalStatus.Unknown
+
+    @classmethod
+    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["SignalStatus"]:
+        return cls(v) if v is not None else None
+
+
 _COG_SPECIAL = {
     360: 'unreported',
     361: 'dynamically positioned',

@@ -54,6 +54,8 @@ from pyais.messages import (
     MessageType26AddressedStructured,
     MessageType26BroadcastStructured,
     MessageType26BroadcastUnstructured,
+    MessageType8Dac200Fid24,
+    MessageType8Dac200Fid40,
 )
 from pyais.stream import ByteStream, IterMessages
 from pyais.util import b64encode_str, is_auxiliary_craft
@@ -406,6 +408,43 @@ class TestAIS(unittest.TestCase):
         assert msg["max"] == +123
         assert msg["intensity"] == 2
         assert msg["wind"] == 2
+
+    def test_msg_type_8_dac_200_fid_24(self):
+        decoded = decode("!AIVDO,1,1,,A,8007R@0j60006000Nh0bJGwewtW4,0*68")
+        assert isinstance(decoded, MessageType8Dac200Fid24)
+        msg = decoded.asdict()
+
+        assert msg['mmsi'] == 123456
+        assert msg["dac"] == 200
+        assert msg["fid"] == 24
+        assert msg["mmsi"] == 123456
+        assert msg["gauge_id_1"] == 12
+        assert msg["gauge_id_2"] == 123
+        assert msg["gauge_id_3"] == 1234
+        assert msg["gauge_id_4"] == 2047
+
+        assert msg["water_level_1"] == 0
+        assert msg["water_level_2"] == 10
+        assert msg["water_level_3"] == -10
+        assert msg["water_level_4"] == 2500
+
+        gauges = decoded.gauges
+        assert gauges[0] == (12, 0)
+        assert gauges[1] == (123, 10)
+        assert gauges[2] == (1234, -10)
+        assert gauges[3] == (2047, 2500)
+
+    def test_msg_type_8_dac_200_fid_40(self):
+        decoded = decode("!AIVDO,1,1,,A,8007R@0j:1<RL0gfD21PDMKk;h00,3*15")
+        assert isinstance(decoded, MessageType8Dac200Fid40)
+        msg = decoded.asdict()
+
+        assert msg['mmsi'] == 123456
+        assert msg["dac"] == 200
+        assert msg["fid"] == 40
+        assert msg["mmsi"] == 123456
+        assert msg["status_raw"] == 123456700
+        assert [int(x) for x in decoded.status] == [1, 2, 3, 4, 5, 6, 7, 0, 0]
 
     def test_msg_type_9(self):
         msg = decode(b"!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*30").asdict()

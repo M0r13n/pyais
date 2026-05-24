@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional, Sequence, Union
 import attr
 
 from pyais.bit_vector import bit_vector
-from pyais.constants import AtoNDimensionType, AtoNRestrictedUseInidicator, AtoNSationType, EMMATypeCodes, EMMAWinds, TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
+from pyais.constants import AtoNDimensionType, AtoNRestrictedUseInidicator, AtoNSationType, EMMATypeCodes, EMMAWinds, SignalStatus, TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
     TransmitMode, StationIntervals, TurnRate, InlandLoadedType
 from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitializedException, UnknownMessageException, UnknownPartNoException, \
     InvalidDataTypeException, MissingPayloadException
@@ -1161,6 +1161,12 @@ class MessageType8(Payload):
         fid: int = int(kwargs.get("fid", 0))
         if dac == 200 and fid == 10:
             return MessageType8Dac200Fid10.create(**kwargs)
+        if dac == 200 and fid == 23:
+            return MessageType8Dac200Fid23.create(**kwargs)
+        if dac == 200 and fid == 24:
+            return MessageType8Dac200Fid24.create(**kwargs)
+        if dac == 200 and fid == 40:
+            return MessageType8Dac200Fid40.create(**kwargs)
         else:
             return MessageType8Default.create(**kwargs)
 
@@ -1172,6 +1178,10 @@ class MessageType8(Payload):
             return MessageType8Dac200Fid10.from_vector(bv)
         elif dac == 200 and fid == 23:
             return MessageType8Dac200Fid23.from_vector(bv)
+        elif dac == 200 and fid == 24:
+            return MessageType8Dac200Fid24.from_vector(bv)
+        elif dac == 200 and fid == 40:
+            return MessageType8Dac200Fid40.from_vector(bv)
         else:
             return MessageType8Default.from_vector(bv)
 
@@ -1248,34 +1258,6 @@ class MessageType8Dac200Fid10(Payload):
 
 
 @attr.s(slots=True)
-class MessageType8Dac200Fid21(Payload):
-    """
-    ETA report
-    Inland variant with dac=200, fid=21
-    """
-    msg_type = bit_field(6, int, default=8, signed=False)
-    repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi)
-    spare_1 = bit_field(2, bytes, default=b"", is_spare=True)
-    dac = bit_field(10, int, default=0, signed=False)
-    fid = bit_field(6, int, default=0, signed=False)
-
-
-@attr.s(slots=True)
-class MessageType8Dac200Fid22(Payload):
-    """
-    ETA report
-    Inland variant with dac=200, fid=22
-    """
-    msg_type = bit_field(6, int, default=8, signed=False)
-    repeat = bit_field(2, int, default=0, signed=False)
-    mmsi = bit_field(30, int, from_converter=from_mmsi)
-    spare_1 = bit_field(2, bytes, default=b"", is_spare=True)
-    dac = bit_field(10, int, default=0, signed=False)
-    fid = bit_field(6, int, default=0, signed=False)
-
-
-@attr.s(slots=True)
 class MessageType8Dac200Fid23(Payload):
     """
     Binary Acknowledge
@@ -1332,6 +1314,35 @@ class MessageType8Dac200Fid24(Payload):
     https://gpsd.gitlab.io/gpsd/AIVDM.html#_water_levels_inland_ais
     """
 
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b"", is_spare=True)
+    dac = bit_field(10, int, default=200, signed=False)
+    fid = bit_field(6, int, default=24, signed=False)
+
+    country = bit_field(12, str, default='', variable_length=False)
+
+    # 4 x 25 bits
+    gauge_id_1 = bit_field(11, int, default=0, signed=False)
+    water_level_1 = bit_field(14, int, default=0, signed=True)
+    gauge_id_2 = bit_field(11, int, default=0, signed=False)
+    water_level_2 = bit_field(14, int, default=0, signed=True)
+    gauge_id_3 = bit_field(11, int, default=0, signed=False)
+    water_level_3 = bit_field(14, int, default=0, signed=True)
+    gauge_id_4 = bit_field(11, int, default=0, signed=False)
+    water_level_4 = bit_field(14, int, default=0, signed=True)
+
+    @property
+    def gauges(self) -> list[tuple[int, int]]:
+        """Returns an array of four tuples (gauge-id, water-level)"""
+        return [
+            (self.gauge_id_1, self.water_level_1),
+            (self.gauge_id_2, self.water_level_2),
+            (self.gauge_id_3, self.water_level_3),
+            (self.gauge_id_4, self.water_level_4),
+        ]
+
 
 @attr.s(slots=True)
 class MessageType8Dac200Fid40(Payload):
@@ -1343,6 +1354,31 @@ class MessageType8Dac200Fid40(Payload):
 
     https://gpsd.gitlab.io/gpsd/AIVDM.html#_signal_strength_inland_ais
     """
+
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b"", is_spare=True)
+    dac = bit_field(10, int, default=200, signed=False)
+    fid = bit_field(6, int, default=40, signed=False)
+
+    lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
+    lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
+
+    form = bit_field(4, int, default=0, signed=False)
+    facing = bit_field(9, int, default=0, signed=False)
+    status_raw = bit_field(30, int, default=0, signed=False)
+    spare_2 = bit_field(11, int, default=0, signed=False)
+
+    @property
+    def status(self) -> list[int]:
+        n = self.status_raw
+        result = [0] * 9
+        for i in range(8, -1, -1):
+            result[i] = SignalStatus(n % 10)
+            n //= 10
+
+        return result
 
 
 @attr.s(slots=True)
@@ -2174,6 +2210,9 @@ ANY_MESSAGE = typing.Union[
     MessageType7,
     MessageType8Default,
     MessageType8Dac200Fid10,
+    MessageType8Dac200Fid23,
+    MessageType8Dac200Fid24,
+    MessageType8Dac200Fid40,
     MessageType9,
     MessageType10,
     MessageType11,
