@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional, Sequence, Union
 import attr
 
 from pyais.bit_vector import bit_vector
-from pyais.constants import AtoNDimensionType, AtoNRestrictedUseInidicator, AtoNSationType, TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
+from pyais.constants import AtoNDimensionType, AtoNRestrictedUseInidicator, AtoNSationType, EMMATypeCodes, EMMAWinds, TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
     TransmitMode, StationIntervals, TurnRate, InlandLoadedType
 from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitializedException, UnknownMessageException, UnknownPartNoException, \
     InvalidDataTypeException, MissingPayloadException
@@ -1170,6 +1170,8 @@ class MessageType8(Payload):
         fid: int = bv.get(50, 6)
         if dac == 200 and fid == 10:
             return MessageType8Dac200Fid10.from_vector(bv)
+        elif dac == 200 and fid == 23:
+            return MessageType8Dac200Fid23.from_vector(bv)
         else:
             return MessageType8Default.from_vector(bv)
 
@@ -1243,6 +1245,104 @@ class MessageType8Dac200Fid10(Payload):
     course_q = bit_field(1, bool, default=False)
     heading_q = bit_field(1, bool, default=False)
     spare = bit_field(8, bytes, default=0, is_spare=True)
+
+
+@attr.s(slots=True)
+class MessageType8Dac200Fid21(Payload):
+    """
+    ETA report
+    Inland variant with dac=200, fid=21
+    """
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b"", is_spare=True)
+    dac = bit_field(10, int, default=0, signed=False)
+    fid = bit_field(6, int, default=0, signed=False)
+
+
+@attr.s(slots=True)
+class MessageType8Dac200Fid22(Payload):
+    """
+    ETA report
+    Inland variant with dac=200, fid=22
+    """
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b"", is_spare=True)
+    dac = bit_field(10, int, default=0, signed=False)
+    fid = bit_field(6, int, default=0, signed=False)
+
+
+@attr.s(slots=True)
+class MessageType8Dac200Fid23(Payload):
+    """
+    Binary Acknowledge
+    Inland variant with DAC = 200 FID = 23
+
+    EMMA warning
+
+    https://gpsd.gitlab.io/gpsd/AIVDM.html#_emma_warning_report_inland_ais
+    """
+
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b"", is_spare=True)
+    dac = bit_field(10, int, default=200, signed=False)
+    fid = bit_field(6, int, default=23, signed=False)
+
+    start_year = bit_field(8, int, default=0, signed=False)
+    start_month = bit_field(4, int, default=0, signed=False)
+    start_day = bit_field(5, int, default=0, signed=False)
+
+    end_year = bit_field(8, int, default=0, signed=False)
+    end_month = bit_field(4, int, default=0, signed=False)
+    end_day = bit_field(5, int, default=0, signed=False)
+
+    start_hour = bit_field(5, int, default=24, signed=False)
+    start_minute = bit_field(6, int, default=60, signed=False)
+
+    end_hour = bit_field(5, int, default=24, signed=False)
+    end_minute = bit_field(6, int, default=60, signed=False)
+
+    start_lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
+    start_lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
+
+    end_lon = bit_field(28, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
+    end_lat = bit_field(27, float, from_converter=from_lat_lon, to_converter=to_lat_lon, signed=True, default=0)
+
+    type = bit_field(4, int, default=EMMATypeCodes.NA, signed=False, from_converter=EMMATypeCodes.from_value, to_converter=EMMATypeCodes.from_value)
+    min = bit_field(9, int, default=255, signed=True)
+    max = bit_field(9, int, default=255, signed=True)
+    intensity = bit_field(2, int, default=0, signed=False)
+    wind = bit_field(4, int, default=EMMAWinds.NA, signed=False, from_converter=EMMAWinds.from_value, to_converter=EMMAWinds.from_value)
+    spare_2 = bit_field(6, bytes, default=b'', is_spare=True)
+
+
+@attr.s(slots=True)
+class MessageType8Dac200Fid24(Payload):
+    """
+    Binary Acknowledge
+    Inland variant with DAC = 200 FID = 24
+
+    Water level
+
+    https://gpsd.gitlab.io/gpsd/AIVDM.html#_water_levels_inland_ais
+    """
+
+
+@attr.s(slots=True)
+class MessageType8Dac200Fid40(Payload):
+    """
+    Binary Acknowledge
+    Inland variant with DAC = 200 FID = 40
+
+    Signal status
+
+    https://gpsd.gitlab.io/gpsd/AIVDM.html#_signal_strength_inland_ais
+    """
 
 
 @attr.s(slots=True)

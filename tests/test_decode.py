@@ -41,6 +41,7 @@ from pyais.messages import (
     MessageType5,
     MessageType6,
     MessageType8Dac200Fid10,
+    MessageType8Dac200Fid23,
     MessageType18,
     MessageType22Addressed,
     MessageType22Broadcast,
@@ -376,6 +377,35 @@ class TestAIS(unittest.TestCase):
         assert msg["length"] == 180.6
         assert msg["beam"] == 42
         assert msg["loaded"] == InlandLoadedType.NotAvailable
+
+    def test_msg_type_8_dac_200_fid_23(self):
+        decoded = decode("!AIVDO,1,1,,A,8007R@0j5iaG3BiLuO473qp2N=003=LL0k6wh?2Wf80,2*4D")
+        assert isinstance(decoded, MessageType8Dac200Fid23)
+        msg = decoded.asdict()
+
+        assert msg['mmsi'] == 123456
+        assert msg["dac"] == 200
+        assert msg["fid"] == 23
+        assert msg["mmsi"] == 123456
+        assert msg["start_year"] == 26
+        assert msg["start_month"] == 5
+        assert msg["start_day"] == 14
+        assert msg["end_year"] == 26
+        assert msg["end_month"] == 5
+        assert msg["end_day"] == 17
+        assert msg["start_hour"] == 14
+        assert msg["start_minute"] == 30
+        assert msg["end_hour"] == 23
+        assert msg["end_minute"] == 49
+        assert msg["start_lon"] == 12.34
+        assert msg["start_lat"] == 34.56
+        assert msg["end_lon"] == 11.22
+        assert msg["end_lat"] == 22.33
+        assert msg["type"] == 3
+        assert msg["min"] == -123
+        assert msg["max"] == +123
+        assert msg["intensity"] == 2
+        assert msg["wind"] == 2
 
     def test_msg_type_9(self):
         msg = decode(b"!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*30").asdict()

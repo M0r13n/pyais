@@ -729,6 +729,47 @@ class AtoNDimensionType(int, ReprEnum):
             return cls(0)
 
 
+class EMMATypeCodes(int, ReprEnum):
+    NA = 0
+    WI = 1
+    RA = 2
+    SN = 3
+    TH = 4
+    FO = 5
+    LT = 6
+    HT = 7
+    FL = 8
+    FI = 9
+
+    @classmethod
+    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["EMMATypeCodes"]:
+        return cls(v) if v is not None else None
+
+    @classmethod
+    def _missing_(cls, value: object) -> int:
+        return EMMATypeCodes.NA
+
+
+class EMMAWinds(int, ReprEnum):
+    NA = 0
+    N = 1
+    NE = 2
+    E = 3
+    SE = 4
+    S = 5
+    SW = 6
+    W = 7
+    NW = 8
+
+    @classmethod
+    def _missing_(cls, value: object) -> int:
+        return EMMAWinds.NA
+
+    @classmethod
+    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["EMMAWinds"]:
+        return cls(v) if v is not None else None
+
+
 _COG_SPECIAL = {
     360: 'unreported',
     361: 'dynamically positioned',
