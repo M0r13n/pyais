@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional, Sequence, Union
 import attr
 
 from pyais.bit_vector import bit_vector
-from pyais.constants import AtoNDimensionType, AtoNRestrictedUseInidicator, AtoNSationType, EMMATypeCodes, EMMAWinds, SignalStatus, TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
+from pyais.constants import AtoNDimensionType, AtoNRestrictedUseInidicator, AtoNSationType, EMMATypeCodes, EMMAWinds, SignalImpact, SignalStatus, TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
     TransmitMode, StationIntervals, TurnRate, InlandLoadedType
 from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitializedException, UnknownMessageException, UnknownPartNoException, \
     InvalidDataTypeException, MissingPayloadException
@@ -1205,7 +1205,7 @@ class MessageType8Default(Payload):
 @attr.s(slots=True)
 class MessageType8Dac200Fid10(Payload):
     """
-    Binary Acknowledge
+    Binary broadcast
     Inland variant with dac=200, fid=10
 
     Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_8_binary_broadcast_message
@@ -1260,7 +1260,7 @@ class MessageType8Dac200Fid10(Payload):
 @attr.s(slots=True)
 class MessageType8Dac200Fid23(Payload):
     """
-    Binary Acknowledge
+    Binary broadcast
     Inland variant with DAC = 200 FID = 23
 
     EMMA warning
@@ -1306,7 +1306,7 @@ class MessageType8Dac200Fid23(Payload):
 @attr.s(slots=True)
 class MessageType8Dac200Fid24(Payload):
     """
-    Binary Acknowledge
+    Binary broadcast
     Inland variant with DAC = 200 FID = 24
 
     Water level
@@ -1347,10 +1347,10 @@ class MessageType8Dac200Fid24(Payload):
 @attr.s(slots=True)
 class MessageType8Dac200Fid40(Payload):
     """
-    Binary Acknowledge
+    Binary broadcast
     Inland variant with DAC = 200 FID = 40
 
-    Signal status
+    Signal strength
 
     https://gpsd.gitlab.io/gpsd/AIVDM.html#_signal_strength_inland_ais
     """
@@ -1367,13 +1367,17 @@ class MessageType8Dac200Fid40(Payload):
 
     form = bit_field(4, int, default=0, signed=False)
     facing = bit_field(9, int, default=0, signed=False)
+    direction = bit_field(3, int, default=0, signed=False, from_converter=SignalImpact.from_value, to_converter=SignalImpact.from_value)
+
+    # The spec encodes nine signal states as decimal digits inside a 30-bit integer field
     status_raw = bit_field(30, int, default=0, signed=False)
+
     spare_2 = bit_field(11, int, default=0, signed=False)
 
     @property
-    def status(self) -> list[int]:
+    def status(self) -> list[SignalStatus]:
         n = self.status_raw
-        result = [0] * 9
+        result = [SignalStatus.Unknown] * 9
         for i in range(8, -1, -1):
             result[i] = SignalStatus(n % 10)
             n //= 10

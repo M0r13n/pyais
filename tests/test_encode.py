@@ -899,7 +899,7 @@ def test_encode_type_8_dac_200_fid_40():
     )
     encoded = encode_msg(msg)[0]
 
-    assert encoded == "!AIVDO,1,1,,A,8007R@0j:1<RL0gfD21PDMKk;h00,3*15"
+    assert encoded == "!AIVDO,1,1,,A,8007R@0j:1<RL0gfD21PD3cNIN00,0*31"
 
 
 def test_encode_type_7():

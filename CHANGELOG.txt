@@ -6,8 +6,8 @@
 -------------------------------------------------------------------------------
 * added message 8 subtypes for inland AIS
   * EMMA warning with DAC = 200 FID = 23
-  * Water level with DAC = 200 FID = 23
-  * Signal status with DAC = 200 FID = 40
+  * Water level with DAC = 200 FID = 24
+  * Signal strength with DAC = 200 FID = 40
 -------------------------------------------------------------------------------
  Version 3.0.0 12 Apr 2026
 -------------------------------------------------------------------------------

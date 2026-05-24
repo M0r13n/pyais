@@ -435,7 +435,7 @@ class TestAIS(unittest.TestCase):
         assert gauges[3] == (2047, 2500)
 
     def test_msg_type_8_dac_200_fid_40(self):
-        decoded = decode("!AIVDO,1,1,,A,8007R@0j:1<RL0gfD21PDMKk;h00,3*15")
+        decoded = decode("!AIVDO,1,1,,A,8007R@0j:1<RL0gfD21PD3cNIN00,0*31")
         assert isinstance(decoded, MessageType8Dac200Fid40)
         msg = decoded.asdict()
 
@@ -443,6 +443,7 @@ class TestAIS(unittest.TestCase):
         assert msg["dac"] == 200
         assert msg["fid"] == 40
         assert msg["mmsi"] == 123456
+        assert msg["direction"] == 0
         assert msg["status_raw"] == 123456700
         assert [int(x) for x in decoded.status] == [1, 2, 3, 4, 5, 6, 7, 0, 0]
 

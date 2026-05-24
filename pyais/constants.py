@@ -746,7 +746,7 @@ class EMMATypeCodes(int, ReprEnum):
         return cls(v) if v is not None else None
 
     @classmethod
-    def _missing_(cls, value: object) -> int:
+    def _missing_(cls, value: object) -> "EMMATypeCodes":
         return EMMATypeCodes.NA
 
 
@@ -762,8 +762,8 @@ class EMMAWinds(int, ReprEnum):
     NW = 8
 
     @classmethod
-    def _missing_(cls, value: object) -> int:
-        return EMMAWinds.NA
+    def _missing_(cls, value: object) -> "EMMAWinds":
+        return cls.NA
 
     @classmethod
     def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["EMMAWinds"]:
@@ -778,8 +778,8 @@ class SignalImpact(int, ReprEnum):
     ToRightBank = 4
 
     @classmethod
-    def _missing_(cls, value: object) -> int:
-        return SignalImpact.Unknown
+    def _missing_(cls, value: object) -> "SignalImpact":
+        return cls.Unknown
 
     @classmethod
     def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["SignalImpact"]:
@@ -797,8 +797,8 @@ class SignalStatus(int, ReprEnum):
     YellowFlashing = 7
 
     @classmethod
-    def _missing_(cls, value: object) -> int:
-        return SignalStatus.Unknown
+    def _missing_(cls, value: object) -> "SignalStatus":
+        return cls.Unknown
 
     @classmethod
     def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["SignalStatus"]:
