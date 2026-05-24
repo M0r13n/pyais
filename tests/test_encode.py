@@ -10,7 +10,7 @@ from pyais.messages import MessageType1, MessageType26BroadcastUnstructured, Mes
     MessageType25AddressedUnstructured, MessageType25BroadcastStructured, MessageType25AddressedStructured, \
     MessageType24PartB, MessageType24PartA, MessageType22Broadcast, MessageType22Addressed, MessageType27, \
     MessageType23, MessageType21, MessageType20, MessageType19, MessageType18, MessageType17, MessageType16DestinationA, \
-    MessageType15, MessageType28, MessageType4, MessageType5, MessageType6, MessageType7, MessageType8Default, MessageType2, MessageType3, \
+    MessageType15, MessageType28, MessageType4, MessageType5, MessageType6, MessageType7, MessageType8Dac200Fid23, MessageType8Dac200Fid24, MessageType8Dac200Fid40, MessageType8Default, MessageType2, MessageType3, \
     MSG_CLASS, MessageType16DestinationAB
 from pyais.util import to_six_bit, int_to_bytes
 
@@ -841,6 +841,65 @@ def tes_encode_type_8_multi():
     }
     encoded = encode_dict(data)
     assert encoded == ['!AIVDO,2,1,0,A,8=?eN>0000:C=4B1KTTsgLoUelGetEo0FoWr8jo=?045TNv5Tge6sAUl4MKWo,0*5F', '!AIVDO,2,2,0,A,vhOL9NIPln:BsP0=BLOiiCbE7;SKsSJfALeATapHfdm6Tl,2*79']
+
+
+def test_encode_type_8_dac_200_fid_23():
+    msg = MessageType8Dac200Fid23.create(
+        mmsi=123456,
+        start_year=26,
+        start_month=5,
+        start_day=14,
+        end_year=26,
+        end_month=5,
+        end_day=17,
+        start_hour=14,
+        start_minute=30,
+        end_hour=23,
+        end_minute=49,
+        start_lon=12.34,
+        start_lat=34.56,
+        end_lon=11.22,
+        end_lat=22.33,
+        type=3,
+        min=-123,
+        max=+123,
+        intensity=2,
+        wind=2,
+    )
+    encoded = encode_msg(msg)[0]
+
+    assert encoded == "!AIVDO,1,1,,A,8007R@0j5iaG3BiLuO473qp2N=003=LL0k6wh?2Wf80,2*4D"
+
+
+def test_encode_type_8_dac_200_fid_24():
+    msg = MessageType8Dac200Fid24.create(
+        mmsi=123456,
+        gauge_id_1=12,
+        gauge_id_2=123,
+        gauge_id_3=1234,
+        gauge_id_4=2047,
+        water_level_1=0,
+        water_level_2=10,
+        water_level_3=-10,
+        water_level_4=2500,
+    )
+    encoded = encode_msg(msg)[0]
+
+    assert encoded == "!AIVDO,1,1,,A,8007R@0j60006000Nh0bJGwewtW4,0*68"
+
+
+def test_encode_type_8_dac_200_fid_40():
+    msg = MessageType8Dac200Fid40.create(
+        mmsi=123456,
+        lon=33.44,
+        lat=-56.89,
+        form=3,
+        facing=5,
+        status_raw=123456700,
+    )
+    encoded = encode_msg(msg)[0]
+
+    assert encoded == "!AIVDO,1,1,,A,8007R@0j:1<RL0gfD21PD3cNIN00,0*31"
 
 
 def test_encode_type_7():

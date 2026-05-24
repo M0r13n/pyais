@@ -41,6 +41,7 @@ from pyais.messages import (
     MessageType5,
     MessageType6,
     MessageType8Dac200Fid10,
+    MessageType8Dac200Fid23,
     MessageType18,
     MessageType22Addressed,
     MessageType22Broadcast,
@@ -53,6 +54,8 @@ from pyais.messages import (
     MessageType26AddressedStructured,
     MessageType26BroadcastStructured,
     MessageType26BroadcastUnstructured,
+    MessageType8Dac200Fid24,
+    MessageType8Dac200Fid40,
 )
 from pyais.stream import ByteStream, IterMessages
 from pyais.util import b64encode_str, is_auxiliary_craft
@@ -376,6 +379,73 @@ class TestAIS(unittest.TestCase):
         assert msg["length"] == 180.6
         assert msg["beam"] == 42
         assert msg["loaded"] == InlandLoadedType.NotAvailable
+
+    def test_msg_type_8_dac_200_fid_23(self):
+        decoded = decode("!AIVDO,1,1,,A,8007R@0j5iaG3BiLuO473qp2N=003=LL0k6wh?2Wf80,2*4D")
+        assert isinstance(decoded, MessageType8Dac200Fid23)
+        msg = decoded.asdict()
+
+        assert msg['mmsi'] == 123456
+        assert msg["dac"] == 200
+        assert msg["fid"] == 23
+        assert msg["mmsi"] == 123456
+        assert msg["start_year"] == 26
+        assert msg["start_month"] == 5
+        assert msg["start_day"] == 14
+        assert msg["end_year"] == 26
+        assert msg["end_month"] == 5
+        assert msg["end_day"] == 17
+        assert msg["start_hour"] == 14
+        assert msg["start_minute"] == 30
+        assert msg["end_hour"] == 23
+        assert msg["end_minute"] == 49
+        assert msg["start_lon"] == 12.34
+        assert msg["start_lat"] == 34.56
+        assert msg["end_lon"] == 11.22
+        assert msg["end_lat"] == 22.33
+        assert msg["type"] == 3
+        assert msg["min"] == -123
+        assert msg["max"] == +123
+        assert msg["intensity"] == 2
+        assert msg["wind"] == 2
+
+    def test_msg_type_8_dac_200_fid_24(self):
+        decoded = decode("!AIVDO,1,1,,A,8007R@0j60006000Nh0bJGwewtW4,0*68")
+        assert isinstance(decoded, MessageType8Dac200Fid24)
+        msg = decoded.asdict()
+
+        assert msg['mmsi'] == 123456
+        assert msg["dac"] == 200
+        assert msg["fid"] == 24
+        assert msg["mmsi"] == 123456
+        assert msg["gauge_id_1"] == 12
+        assert msg["gauge_id_2"] == 123
+        assert msg["gauge_id_3"] == 1234
+        assert msg["gauge_id_4"] == 2047
+
+        assert msg["water_level_1"] == 0
+        assert msg["water_level_2"] == 10
+        assert msg["water_level_3"] == -10
+        assert msg["water_level_4"] == 2500
+
+        gauges = decoded.gauges
+        assert gauges[0] == (12, 0)
+        assert gauges[1] == (123, 10)
+        assert gauges[2] == (1234, -10)
+        assert gauges[3] == (2047, 2500)
+
+    def test_msg_type_8_dac_200_fid_40(self):
+        decoded = decode("!AIVDO,1,1,,A,8007R@0j:1<RL0gfD21PD3cNIN00,0*31")
+        assert isinstance(decoded, MessageType8Dac200Fid40)
+        msg = decoded.asdict()
+
+        assert msg['mmsi'] == 123456
+        assert msg["dac"] == 200
+        assert msg["fid"] == 40
+        assert msg["mmsi"] == 123456
+        assert msg["direction"] == 0
+        assert msg["status_raw"] == 123456700
+        assert [int(x) for x in decoded.status] == [1, 2, 3, 4, 5, 6, 7, 0, 0]
 
     def test_msg_type_9(self):
         msg = decode(b"!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*30").asdict()
