@@ -871,20 +871,24 @@ class Payload(abc.ABC):
         bv_len = len(bv)
         kwargs: dict[str, NMEA_VALUE | None] = {}
         val: NMEA_VALUE
+        get_num = bv.get_num
+        get_str = bv.get_str
+        get_bytes = bv.get_bytes
+
         for name, offset, width, signed, kind, converter in plan:
             if offset >= bv_len:
                 kwargs[name] = None
                 continue
             if kind == INT:
-                val = bv.get_num(offset, width, signed)
+                val = get_num(offset, width, signed)
             elif kind == FLOAT:
-                val = float(bv.get_num(offset, width, signed))
+                val = float(get_num(offset, width, signed))
             elif kind == BOOL:
-                val = bool(bv.get_num(offset, width, signed))
+                val = bool(get_num(offset, width, signed))
             elif kind == STR:
-                val = bv.get_str(offset, width)
+                val = get_str(offset, width)
             else:
-                val = bv.get_bytes(offset, width)
+                val = get_bytes(offset, width)
 
             if converter is not None:
                 val = converter(val)
