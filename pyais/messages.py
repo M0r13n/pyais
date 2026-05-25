@@ -683,9 +683,14 @@ class Payload(abc.ABC):
     --------------
     This class serves as an abstract base class for all messages.
     Each message shall inherit from Payload and define it's set of field using the `bit_field` method.
+
+    A pre-computed decoder plan is built once per class to remove redundant work during decoding.
+    Such a decoder plan is nothing more than a simple list of decoding-instructions for each field.
+    Because message classes differ structurally each class requires its individual plan - but it
+    suffices to compute this plan once.
     """
 
-    _decoder_plan: _DecoderPlan
+    _decoder_plan: _DecoderPlan  # just a type hint
 
     @staticmethod
     def __force_type(field: typing.Any, val: typing.Any) -> typing.Any:
@@ -823,6 +828,10 @@ class Payload(abc.ABC):
 
     @classmethod
     def _build_plan(cls) -> _DecoderPlan:
+        """Build the decoding plan for a given message class.
+        This is done by iterating over each field of the message.
+        Then, for each field name, width, offset, data type, and conversion function are determined.
+        """
         plan: _DecoderPlan = []
         offset = 0
         decoder_func: _DecoderFunc
@@ -863,6 +872,10 @@ class Payload(abc.ABC):
     @classmethod
     @functools.lru_cache(64)
     def decoder_plan(cls) -> _DecoderPlan:
+        """Get the decoder plan (cached) for a given message class.
+        This is stored as a class attribute for future use.
+
+        NOTE: increase the size of the LRU cache once there are more than 64 classes (unlikely)."""
         plan = cls.__dict__.get('_decoder_plan')
         if plan is None:
             plan = cls._build_plan()
