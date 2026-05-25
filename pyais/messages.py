@@ -16,9 +16,9 @@ from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitialized
 from pyais.util import SIX_BIT_ENCODING, ParsedDimensions, SixBitNibleEncoder, checksum, compute_checksum, get_itdma_comm_state, get_sotdma_comm_state, chk_to_int, coerce_val, b64encode_str, is_auxiliary_craft, parse_dimensions
 
 NMEA_VALUE = typing.Union[str, float, int, bool, bytes]
-_DecoderFunc = typing.Callable[..., NMEA_VALUE]
-_ConverterFunc = _DecoderFunc
-_DecoderPlan = list[tuple[str, int, _DecoderFunc, _ConverterFunc]]
+_ConverterFunc = typing.Callable[[NMEA_VALUE,], NMEA_VALUE]
+_DecoderPlan = list[tuple[str, int, int, bool, int, _ConverterFunc]]
+INT, BOOL, FLOAT, STR, BYTES = 0, 1, 2, 3, 4
 
 B_EXCLAMATION_MARK = b"!"
 B_DOLLAR_SIGN = b"$"
@@ -833,38 +833,25 @@ class Payload(abc.ABC):
         """
         plan: _DecoderPlan = []
         offset = 0
-        decoder_func: _DecoderFunc
         for field in cls.fields():
             md = field.metadata
             width = md['width']
             d_type = md['d_type']
-            signed = md['signed']
-            converter = md['to_converter']
-
             if d_type is int:
-                def decode_int(bv: bit_vector, o: int = offset, w: int = width, s: bool = signed) -> int:
-                    return bv.get_num(o, w, s)
-                decoder_func = decode_int
-            elif d_type is bool:
-                def decode_bool(bv: bit_vector, o: int = offset, w: int = width, s: bool = signed) -> bool:
-                    return bool(bv.get_num(o, w, s))
-                decoder_func = decode_bool
+                kind = INT
             elif d_type is float:
-                def decode_float(bv: bit_vector, o: int = offset, w: int = width, s: bool = signed) -> float:
-                    return float(bv.get_num(o, w, s))
-                decoder_func = decode_float
+                kind = FLOAT
+            elif d_type is bool:
+                kind = BOOL
             elif d_type is str:
-                def decode_str(bv: bit_vector, o: int = offset, w: int = width) -> str:
-                    return bv.get_str(o, w)
-                decoder_func = decode_str
+                kind = STR
             elif d_type is bytes:
-                def decode_bytes(bv: bit_vector, o: int = offset, w: int = width) -> bytes:
-                    return bv.get_bytes(o, w)
-                decoder_func = decode_bytes
+                kind = BYTES
             else:
                 raise InvalidDataTypeException(d_type)
-
-            plan.append((field.name, offset, decoder_func, converter))
+            signed = md['signed']
+            converter = md['to_converter']
+            plan.append((field.name, offset, width, signed, kind, converter))
             offset += width
         return plan
 
@@ -883,11 +870,22 @@ class Payload(abc.ABC):
         plan = cls.decoder_plan()
         bv_len = len(bv)
         kwargs: dict[str, NMEA_VALUE | None] = {}
-        for name, offset, decode, converter in plan:
+        val: NMEA_VALUE
+        for name, offset, width, signed, kind, converter in plan:
             if offset >= bv_len:
                 kwargs[name] = None
                 continue
-            val = decode(bv)
+            if kind == INT:
+                val = bv.get_num(offset, width, signed)
+            elif kind == FLOAT:
+                val = float(bv.get_num(offset, width, signed))
+            elif kind == BOOL:
+                val = bool(bv.get_num(offset, width, signed))
+            elif kind == STR:
+                val = bv.get_str(offset, width)
+            else:
+                val = bv.get_bytes(offset, width)
+
             if converter is not None:
                 val = converter(val)
             kwargs[name] = val
