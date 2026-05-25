@@ -716,7 +716,6 @@ class Payload(abc.ABC):
         return coerced_val
 
     @classmethod
-    @functools.lru_cache(64)
     def fields(cls) -> typing.Tuple[typing.Any]:
         """
         A list of all fields that were added to this class using attrs.
@@ -870,12 +869,9 @@ class Payload(abc.ABC):
         return plan
 
     @classmethod
-    @functools.lru_cache(64)
     def decoder_plan(cls) -> _DecoderPlan:
         """Get the decoder plan (cached) for a given message class.
-        This is stored as a class attribute for future use.
-
-        NOTE: increase the size of the LRU cache once there are more than 64 classes (unlikely)."""
+        This is stored as a class attribute for future use."""
         plan = cls.__dict__.get('_decoder_plan')
         if plan is None:
             plan = cls._build_plan()
