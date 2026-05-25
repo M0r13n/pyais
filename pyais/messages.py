@@ -16,6 +16,9 @@ from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitialized
 from pyais.util import SIX_BIT_ENCODING, ParsedDimensions, SixBitNibleEncoder, checksum, compute_checksum, get_itdma_comm_state, get_sotdma_comm_state, chk_to_int, coerce_val, b64encode_str, is_auxiliary_craft, parse_dimensions
 
 NMEA_VALUE = typing.Union[str, float, int, bool, bytes]
+_DecoderFunc = typing.Callable[..., NMEA_VALUE]
+_ConverterFunc = _DecoderFunc
+_DecoderPlan = list[tuple[str, int, _DecoderFunc, _ConverterFunc]]
 
 B_EXCLAMATION_MARK = b"!"
 B_DOLLAR_SIGN = b"$"
@@ -682,6 +685,8 @@ class Payload(abc.ABC):
     Each message shall inherit from Payload and define it's set of field using the `bit_field` method.
     """
 
+    _decoder_plan: _DecoderPlan
+
     @staticmethod
     def __force_type(field: typing.Any, val: typing.Any) -> typing.Any:
         """
@@ -706,6 +711,7 @@ class Payload(abc.ABC):
         return coerced_val
 
     @classmethod
+    @functools.lru_cache(64)
     def fields(cls) -> typing.Tuple[typing.Any]:
         """
         A list of all fields that were added to this class using attrs.
@@ -816,42 +822,66 @@ class Payload(abc.ABC):
         return cls(**args)  # type:ignore
 
     @classmethod
-    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
-        cur: int = 0
-        kwargs: typing.Dict[str, typing.Any] = {}
-
-        # Iterate over fields and data
+    def _build_plan(cls) -> _DecoderPlan:
+        plan: _DecoderPlan = []
+        offset = 0
+        decoder_func: _DecoderFunc
         for field in cls.fields():
-            if cur >= len(bv):
-                # All fields that did not fit into the bit array are None
-                kwargs[field.name] = None
-                continue
+            md = field.metadata
+            width = md['width']
+            d_type = md['d_type']
+            signed = md['signed']
+            converter = md['to_converter']
 
-            width = field.metadata['width']
-            d_type = field.metadata['d_type']
-            converter = field.metadata['to_converter']
-
-            val: typing.Any
-            # Get the correct data type and decoding function
-            if d_type == int or d_type == bool or d_type == float:
-                val = bv.get_num(cur, width, field.metadata['signed'])
-
-                if d_type == float:
-                    val = float(val)
-                elif d_type == bool:
-                    val = bool(val)
-
-            elif d_type == str:
-                val = bv.get_str(cur, width)
-            elif d_type == bytes:
-                val = bv.get_bytes(cur, width)
+            if d_type is int:
+                def decode_int(bv: bit_vector, o: int = offset, w: int = width, s: bool = signed) -> int:
+                    return bv.get_num(o, w, s)
+                decoder_func = decode_int
+            elif d_type is bool:
+                def decode_bool(bv: bit_vector, o: int = offset, w: int = width, s: bool = signed) -> bool:
+                    return bool(bv.get_num(o, w, s))
+                decoder_func = decode_bool
+            elif d_type is float:
+                def decode_float(bv: bit_vector, o: int = offset, w: int = width, s: bool = signed) -> float:
+                    return float(bv.get_num(o, w, s))
+                decoder_func = decode_float
+            elif d_type is str:
+                def decode_str(bv: bit_vector, o: int = offset, w: int = width) -> str:
+                    return bv.get_str(o, w)
+                decoder_func = decode_str
+            elif d_type is bytes:
+                def decode_bytes(bv: bit_vector, o: int = offset, w: int = width) -> bytes:
+                    return bv.get_bytes(o, w)
+                decoder_func = decode_bytes
             else:
                 raise InvalidDataTypeException(d_type)
 
-            val = converter(val) if converter is not None else val
-            kwargs[field.name] = val
-            cur += width
+            plan.append((field.name, offset, decoder_func, converter))
+            offset += width
+        return plan
 
+    @classmethod
+    @functools.lru_cache(64)
+    def decoder_plan(cls) -> _DecoderPlan:
+        plan = cls.__dict__.get('_decoder_plan')
+        if plan is None:
+            plan = cls._build_plan()
+            cls._decoder_plan = plan
+        return plan
+
+    @classmethod
+    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
+        plan = cls.decoder_plan()
+        bv_len = len(bv)
+        kwargs: dict[str, NMEA_VALUE | None] = {}
+        for name, offset, decode, converter in plan:
+            if offset >= bv_len:
+                kwargs[name] = None
+                continue
+            val = decode(bv)
+            if converter is not None:
+                val = converter(val)
+            kwargs[name] = val
         return cls(**kwargs)  # type:ignore
 
     def asdict(self, enum_as_int: bool = False, ignore_spare: bool = True) -> typing.Dict[str, typing.Optional[NMEA_VALUE]]:

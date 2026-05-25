@@ -8,7 +8,7 @@ from pyais.exceptions import UnknownMessageException
 file = pathlib.Path(__file__).parent.joinpath('../tests/nmea-sample')
 
 
-def bench():
+def bench() -> None:
     stats = defaultdict(lambda: 0)
     start = time.time()
 
