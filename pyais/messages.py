@@ -882,7 +882,7 @@ class Payload(abc.ABC):
         return data
 
     def to_json(self, ignore_spare: bool = True) -> str:
-        return AISJSONEncoder(indent=4).encode(self.asdict())
+        return AISJSONEncoder(indent=4).encode(self.asdict(ignore_spare=ignore_spare))
 
 
 #
