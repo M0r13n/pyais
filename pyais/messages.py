@@ -1254,7 +1254,7 @@ class MessageType8Dac200Fid10(Payload):
     speed_q = bit_field(1, bool, default=False)
     course_q = bit_field(1, bool, default=False)
     heading_q = bit_field(1, bool, default=False)
-    spare = bit_field(8, bytes, default=0, is_spare=True)
+    spare = bit_field(8, bytes, default=b'', is_spare=True)
 
 
 @attr.s(slots=True)
@@ -1372,7 +1372,7 @@ class MessageType8Dac200Fid40(Payload):
     # The spec encodes nine signal states as decimal digits inside a 30-bit integer field
     status_raw = bit_field(30, int, default=0, signed=False)
 
-    spare_2 = bit_field(11, int, default=0, signed=False)
+    spare_2 = bit_field(11, bytes, default=b'', is_spare=True)
 
     @property
     def status(self) -> list[SignalStatus]:
@@ -2158,7 +2158,7 @@ class MessageType28(Payload):
     charted_status = bit_field(1, int, default=0, signed=False)
     station_status = bit_field(4, int, default=0, signed=False)
     status_bits = bit_field(8, int, default=0, signed=False)
-    spare = bit_field(1, int, default=0, signed=False)
+    spare = bit_field(1, bytes, default=b'', is_spare=True)
     auth = bit_field(1, int, default=0, signed=False)
 
     def parse_dimensions(self) -> ParsedDimensions:
