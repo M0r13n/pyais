@@ -1,7 +1,28 @@
+import base64
 import math
 import typing
-
-from pyais.messages import Payload, MSG_CLASS
+from pyais.messages import (
+    ANY_MESSAGE,
+    MSG_CLASS,
+    MessageType8Dac200Fid10,
+    MessageType8Default,
+    MessageType16DestinationA,
+    MessageType16DestinationAB,
+    MessageType22Addressed,
+    MessageType22Broadcast,
+    MessageType24PartA,
+    MessageType24PartB,
+    MessageType24PartBAuxiliaryCraft,
+    MessageType25AddressedStructured,
+    MessageType25AddressedUnstructured,
+    MessageType25BroadcastStructured,
+    MessageType25BroadcastUnstructured,
+    MessageType26AddressedStructured,
+    MessageType26AddressedUnstructured,
+    MessageType26BroadcastStructured,
+    MessageType26BroadcastUnstructured,
+    Payload,
+)
 from pyais.util import chunks, compute_checksum
 
 # Types
@@ -31,6 +52,51 @@ def data_to_payload(ais_type: int, data: DATA_DICT) -> Payload:
         return MSG_CLASS[ais_type].create(**data)
     except KeyError as err:
         raise ValueError(f"AIS message type {ais_type} is not supported") from err
+
+
+_LEAF_MSG_CLS: dict[int, list[type[Payload]]] = {
+    8:  [MessageType8Default, MessageType8Dac200Fid10],
+    16: [MessageType16DestinationA, MessageType16DestinationAB],
+    22: [MessageType22Addressed, MessageType22Broadcast],
+    24: [MessageType24PartA, MessageType24PartB, MessageType24PartBAuxiliaryCraft],
+    25: [MessageType25AddressedStructured, MessageType25AddressedUnstructured,
+         MessageType25BroadcastStructured, MessageType25BroadcastUnstructured],
+    26: [MessageType26AddressedStructured, MessageType26AddressedUnstructured,
+         MessageType26BroadcastStructured, MessageType26BroadcastUnstructured],
+}
+
+_BYTES_FIELDS: dict[int, frozenset[str]] = {
+    msg_type: frozenset(
+        field.name
+        for cls in [typing.cast(type[Payload], interface_cls), *_LEAF_MSG_CLS.get(msg_type, [])]
+        for field in cls.fields()
+        if field.metadata.get('d_type') is bytes
+    )
+    for msg_type, interface_cls in MSG_CLASS.items()
+}
+
+def json_to_payload(data: dict[str, typing.Any]) -> ANY_MESSAGE:
+    """
+    Create a message from the output of Payload().to_json().
+
+    Bytes fields are first base64 decoded.
+    """
+    try:
+        msg_type: int = data['msg_type']
+    except KeyError as err:
+        raise ValueError(f"Missing AIS type field 'msg_type' in '{ data }'") from err
+    
+    try:
+        cls = typing.cast(type[Payload], MSG_CLASS[msg_type])
+    except KeyError as err:
+        raise ValueError(f"AIS message type {msg_type} is not supported") from err
+    
+    for field_name in _BYTES_FIELDS.get(msg_type, frozenset()):
+        value = data.get(field_name)
+        if value is not None:
+            data[field_name] = base64.b64decode(value)
+
+    return cls.create(**data)
 
 
 def ais_to_nmea_0183(
