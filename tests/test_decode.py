@@ -98,7 +98,30 @@ class TestAIS(unittest.TestCase):
 
     maxDiff = None
 
-    def test_to_json(self):
+    def test_to_json_without_spare(self):
+        json_dump = decode(b"!AIVDM,1,1,,A,15NPOOPP00o?b=bE`UNv4?w428D;,0*24").to_json(ignore_spare=True)
+        text = textwrap.dedent(
+            """{
+    "msg_type": 1,
+    "repeat": 0,
+    "mmsi": 367533950,
+    "status": 0,
+    "turn": -128.0,
+    "speed": 0.0,
+    "accuracy": true,
+    "lon": -122.408232,
+    "lat": 37.808418,
+    "course": 360.0,
+    "heading": 511,
+    "second": 34,
+    "maneuver": 0,
+    "raim": true,
+    "radio": 34059
+}"""
+        )
+        self.assertEqual(json_dump, text)
+
+    def test_to_json_with_spare(self):
         json_dump = decode(b"!AIVDM,1,1,,A,15NPOOPP00o?b=bE`UNv4?w428D;,0*24").to_json(ignore_spare=False)
         text = textwrap.dedent(
             """{
@@ -115,6 +138,7 @@ class TestAIS(unittest.TestCase):
     "heading": 511,
     "second": 34,
     "maneuver": 0,
+    "spare_1": "AA==",
     "raim": true,
     "radio": 34059
 }"""
