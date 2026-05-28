@@ -1,9 +1,10 @@
+import json
 import unittest
 
 from pyais import encode_dict, encode_msg
 from pyais.constants import InlandLoadedType, NavigationStatus
 from pyais.decode import decode
-from pyais.encode import data_to_payload, get_ais_type
+from pyais.encode import data_to_payload, get_ais_type, json_to_payload
 from pyais.exceptions import UnknownPartNoException
 from pyais.messages import MessageType1, MessageType26BroadcastUnstructured, MessageType26AddressedUnstructured, \
     MessageType26BroadcastStructured, MessageType26AddressedStructured, MessageType25BroadcastUnstructured, \
@@ -178,6 +179,86 @@ def test_data_to_payload():
     with unittest.TestCase().assertRaises(ValueError):
         data_to_payload(29, {'mmsi': 123})
 
+
+def test_json_to_payload():
+    with unittest.TestCase().assertRaises(ValueError) as err:
+        json_to_payload({'mmsi': 123})
+    assert str(err.exception).startswith("Missing AIS type field 'msg_type'")
+
+    assert json_to_payload({'msg_type': 1,'mmsi': 123}).__class__ == MessageType1
+    assert json_to_payload({'msg_type': 2,'mmsi': 123}).__class__ == MessageType2
+    assert json_to_payload({'msg_type': 3,'mmsi': 123}).__class__ == MessageType3
+    assert json_to_payload({'msg_type': 4,'mmsi': 123}).__class__ == MessageType4
+    assert json_to_payload({'msg_type': 5,'mmsi': 123}).__class__ == MessageType5
+    assert json_to_payload({'msg_type': 6,'mmsi': 123, 'dest_mmsi': 1234}).__class__ == MessageType6
+    assert json_to_payload({'msg_type': 7,'mmsi': 123}).__class__ == MessageType7
+    assert json_to_payload({'msg_type': 8,'mmsi': 123}).__class__ == MessageType8Default
+
+    with unittest.TestCase().assertRaises(ValueError):
+        json_to_payload({'msg_type': 29, 'mmsi': 123})
+
+
+def test_json_to_payload_without_spare():
+    result = json_to_payload({
+        'msg_type': 1,
+        "repeat": 0,
+        "mmsi": 367533950,
+        "status": 0,
+        "turn": -128.0,
+        "speed": 0.0,
+        "accuracy": True,
+        "lon": -122.408232,
+        "lat": 37.808418,
+        "course": 360.0,
+        "heading": 511,
+        "second": 34,
+        "maneuver": 0,
+        "raim": True,
+        "radio": 34059
+    })
+    assert isinstance(result, MessageType1)
+    assert result.mmsi == 367533950
+
+    nmea = b"!AIVDM,1,1,,A,15NPOOPP00o?b=bE`UNv4?w428D;,0*24"
+    json_dump = json.loads(decode(nmea).to_json(ignore_spare=False))
+    encoded = encode_msg(json_to_payload(json_dump), talker_id='AIVDM', radio_channel='A')
+    assert nmea.decode() == encoded[0]
+
+def test_json_to_payload_with_spare():
+    msg = json_to_payload({'msg_type': 1, 'mmsi': 123, 'spare_1': 'oA=='})
+    assert isinstance(msg, MessageType1) and msg.spare_1 == b'\xA0' # = 5
+    msg = json_to_payload({'msg_type': 1, 'mmsi': 123, 'spare_1': 'QA=='})
+    assert isinstance(msg, MessageType1) and msg.spare_1 == b'\x40' # = 1
+    msg = json_to_payload({'msg_type': 1, 'mmsi': 123, 'spare_1': 'gA=='})
+    assert isinstance(msg, MessageType1) and  msg.spare_1 == b'\x80' # = 1
+
+    msg = json_to_payload({
+        'msg_type': 1,
+        "repeat": 0,
+        "mmsi": 367533950,
+        "status": 0,
+        "turn": -128.0,
+        "speed": 0.0,
+        "accuracy": True,
+        "lon": -122.408232,
+        "lat": 37.808418,
+        "course": 360.0,
+        "heading": 511,
+        "second": 34,
+        "maneuver": 0,
+        "spare_1": 'IA==', # b'\x20' 
+        "raim": True,
+        "radio": 34059
+    })
+    assert isinstance(msg, MessageType1) and  msg.spare_1 == b'\x20'
+    assert encode_msg(msg, talker_id='AIVDM', radio_channel='A')[0] == "!AIVDM,1,1,,A,15NPOOPP00o?b=bE`UNv4?w468D;,0*20"
+
+    # round trip decode / encode
+    nmea = b"!AIVDM,1,1,,A,15NPOOPP00o?b=bE`UNv4?w468D;,0*20"
+    json_dump = json.loads(decode(nmea).to_json(ignore_spare=False))
+    encoded = encode_msg(json_to_payload(json_dump), talker_id='AIVDM', radio_channel='A')
+    assert nmea.decode() == encoded[0]
+    
 
 def test_get_ais_type():
     ais_type = get_ais_type({'type': 1})
