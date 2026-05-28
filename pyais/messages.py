@@ -763,7 +763,7 @@ class Payload(abc.ABC):
                     bits_in_buffer += width
                 else:
                     required_bits = min(width, len(val) * 8)
-                    int_value = int.from_bytes(val, 'big')
+                    int_value = int.from_bytes(val, 'big') >> (len(val) * 8 - required_bits)  # undo left-alignment from get_bytes()
                     bit_buffer = (bit_buffer << required_bits) | int_value
                     bits_in_buffer += required_bits
             else:
@@ -803,8 +803,11 @@ class Payload(abc.ABC):
 
         # Iterate over each field of the payload class and check for a matching keyword argument.
         # If no matching kwarg was provided use a default value
+        f = cls.fields()
         for field in cls.fields():
             key = field.name
+            if field.name == 'spare_1':
+                a = 1
             try:
                 val = cls.__force_type(field, kwargs[key])
                 args[key] = val
