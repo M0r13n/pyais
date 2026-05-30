@@ -1295,7 +1295,7 @@ class MessageType8Dac200Fid10(Payload):
     speed_q = bit_field(1, bool, default=False)
     course_q = bit_field(1, bool, default=False)
     heading_q = bit_field(1, bool, default=False)
-    spare = bit_field(8, bytes, default=0, is_spare=True)
+    spare = bit_field(8, bytes, default=b'', is_spare=True)
 
 
 @attr.s(slots=True)
@@ -2163,7 +2163,7 @@ class MessageType27(Payload):
 
     accuracy = bit_field(1, bool, default=0, signed=False)
     raim = bit_field(1, bool, default=0, signed=False)
-    status = bit_field(4, int, default=NavigationStatus.Undefined, from_converter=NavigationStatus, to_converter=NavigationStatus, signed=False)
+    status = bit_field(4, int, default=NavigationStatus.Undefined, from_converter=NavigationStatus.from_value, to_converter=NavigationStatus, signed=False)
     lon = bit_field(18, float, from_converter=from_lat_lon_600, to_converter=to_lat_lon_600, default=0, signed=True)
     lat = bit_field(17, float, from_converter=from_lat_lon_600, to_converter=to_lat_lon_600, default=0, signed=True)
     speed = bit_field(6, float, default=0, signed=False)
@@ -2199,7 +2199,7 @@ class MessageType28(Payload):
     charted_status = bit_field(1, int, default=0, signed=False)
     station_status = bit_field(4, int, default=0, signed=False)
     status_bits = bit_field(8, int, default=0, signed=False)
-    spare = bit_field(1, int, default=0, signed=False)
+    spare = bit_field(1, bytes, default=b'', signed=False, is_spare=True)
     auth = bit_field(1, int, default=0, signed=False)
 
     def parse_dimensions(self) -> ParsedDimensions:
