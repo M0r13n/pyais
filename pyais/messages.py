@@ -2199,7 +2199,7 @@ class MessageType28(Payload):
     charted_status = bit_field(1, int, default=0, signed=False)
     station_status = bit_field(4, int, default=0, signed=False)
     status_bits = bit_field(8, int, default=0, signed=False)
-    spare = bit_field(1, bytes, default=b'', signed=False, is_spare=True)
+    spare_1 = bit_field(1, bytes, default=b'', signed=False, is_spare=True)
     auth = bit_field(1, int, default=0, signed=False)
 
     def parse_dimensions(self) -> ParsedDimensions:
