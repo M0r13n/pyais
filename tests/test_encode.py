@@ -1,3 +1,4 @@
+import json
 import unittest
 
 from pyais import encode_dict, encode_msg
@@ -12,7 +13,7 @@ from pyais.messages import MessageType1, MessageType26BroadcastUnstructured, Mes
     MessageType23, MessageType21, MessageType20, MessageType19, MessageType18, MessageType17, MessageType16DestinationA, \
     MessageType15, MessageType28, MessageType4, MessageType5, MessageType6, MessageType7, MessageType8Dac200Fid23, MessageType8Dac200Fid24, MessageType8Dac200Fid40, MessageType8Default, MessageType2, MessageType3, \
     MSG_CLASS, MessageType16DestinationAB
-from pyais.util import to_six_bit, int_to_bytes
+from pyais.util import json_to_data, to_six_bit, int_to_bytes
 
 
 def test_widths():
@@ -1254,3 +1255,47 @@ def test_encode_type_28():
 
     assert len(encoded) == 1
     assert encoded[0] == "!AIVDO,1,1,,A,L1mg=5@@G:uk?S:I0@ph>A5E>L@1,0*43"
+
+
+def test_round_trip_encoding():
+    examples = {
+        0: ["!AIVDM,1,1,,B,0S9edj0P03PecbBN`ja@0?w42cFC,0*7C"],
+        1: ["!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C"],
+        2: ["!AIVDM,1,1,,A,23aFfl0P00PCR?0MEB@h0?w020S7,0*68"],
+        3: ["!AIVDM,1,1,,A,35NSH95001G?wopE`beasVk@0E5:,0*6F"],
+        4: ["!AIVDM,1,1,,A,403OviQuMGCqWrRO9>E6fE700@GO,0*4D"],
+        5: [
+            '!AIVDM,2,1,0,B,55?MbV02;H;s<HtKP00EHE:0@T4@Dl0000000000L961O5Gf0NSQEp6ClRh0,0*0B',
+            '!AIVDM,2,2,0,B,00000000000,2*27'
+        ],
+        6: ["!AIVDM,1,1,,B,6B?n;be:cbapalgc;i6?Ow4,2*4A"],
+        7: ["!AIVDM,1,1,,A,702R5`hwCjq8,0*6B"],
+        8: ["!AIVDM,1,1,,A,85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs,0*47"],
+        9: ["!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*30"],
+        10: ["!AIVDM,1,1,,B,:5MlU41GMK6@,0*6C"],
+        11: ["!AIVDM,1,1,,B,;4R33:1uUK2F`q?mOt@@GoQ00000,0*5D"],
+        12: ["!AIVDM,1,1,,A,<5?SIj1;GbD07??4,0*38"],
+        13: ["!AIVDM,1,1,,A,=39UOj0jFs9R,0*65"],
+        14: ["!AIVDM,1,1,,A,>5?Per18=HB1U:1@E=B0m<L,2*51"],
+        15: ["!AIVDM,1,1,,A,?5OP=l00052HD00,2*5B"],
+        16: ["!AIVDM,1,1,,A,@01uEO@mMk7P<P00,0*18"],
+        17: ["!AIVDM,1,1,,A,A0476BQ>J8`<h2JpH:4P0?j@2mTEw8`=DP1DEnqvj00,2*4B"],
+        18: ["!AIVDM,1,1,,A,B5NJ;PP005l4ot5Isbl03wsUkP06,0*76"],
+        19: ["!AIVDM,1,1,,B,C5N3SRgPEnJGEBT>NhWAwwo862PaLELTBJ:V00000000S0D:R220,0*0B"],
+        20: ["!AIVDM,1,1,,A,D028rqP<QNfp000000000000000,2*0C"],
+        21: ["!AIVDM,1,1,,B,E>lt;KLab21@1bb@I0000000000D8k2tnmvs000003v0@,2*52"],
+        22: ["!AIVDM,1,1,,B,F030p:j2N2P5aJR0r;6f3rj10000,0*11"],
+        23: ["!AIVDM,1,1,,B,G02:Kn01R`sn@291nj600000900,2*12"],
+        24: ["!AIVDM,1,1,,A,H52KMeDU653hhhi0000000000000,0*1A"],
+        25: ["!AIVDM,1,1,,A,I6SWo?8P00a3PKpEKEVj0?vNP<65,0*73"],
+        26: ["!AIVDM,1,1,,A,JB3R0GO7p>vQL8tjw0b5hqpd0706kh9d3lR2vbl04000,2*70"],
+        27: ["!AIVDM,1,1,,B,KC5E2b@U19PFdLbM,0*01"],
+        28: ["!AIVDO,1,1,,A,L1mg=5@@G:uk?S:I0@ph>A5E>L@1,0*43"],
+    }
+
+    for example in examples.values():
+        decoded = decode(*example)
+        json_dump = json.loads(decoded.to_json(ignore_spare=False))
+        json_dump = json_to_data(json_dump)
+        encoded = encode_dict(json_dump, talker_id=example[0][1:6], radio_channel='A' if 'A' in example[0][12:15] else 'B')
+        assert example == encoded

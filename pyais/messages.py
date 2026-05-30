@@ -773,7 +773,7 @@ class Payload(abc.ABC):
                     bits_in_buffer += width
                 else:
                     required_bits = min(width, len(val) * 8)
-                    int_value = int.from_bytes(val, 'big')
+                    int_value = int.from_bytes(val, 'big') >> (len(val) * 8 - required_bits)  # undo left-alignment
                     bit_buffer = (bit_buffer << required_bits) | int_value
                     bits_in_buffer += required_bits
             else:
@@ -923,7 +923,7 @@ class Payload(abc.ABC):
         return data
 
     def to_json(self, ignore_spare: bool = True) -> str:
-        return AISJSONEncoder(indent=4).encode(self.asdict())
+        return AISJSONEncoder(indent=4).encode(self.asdict(ignore_spare=ignore_spare))
 
 
 #
@@ -1413,7 +1413,7 @@ class MessageType8Dac200Fid40(Payload):
     # The spec encodes nine signal states as decimal digits inside a 30-bit integer field
     status_raw = bit_field(30, int, default=0, signed=False)
 
-    spare_2 = bit_field(11, int, default=0, signed=False)
+    spare_2 = bit_field(11, bytes, default=b"", signed=False, is_spare=True)
 
     @property
     def status(self) -> list[SignalStatus]:

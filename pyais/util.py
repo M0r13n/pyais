@@ -644,6 +644,18 @@ def parse_dimensions(dim_type: int, raw_a: int, raw_b: int) -> ParsedDimensions:
     return r
 
 
+def json_to_data(
+        data: typing.Dict[str, typing.Union[str, int, float, bytes, bool]]
+) -> typing.Dict[str, typing.Union[str, int, float, bytes, bool]]:
+    fields = {'spare_1', 'spare_2', 'spare_3', 'spare_4', 'data'}
+    for k in data:
+        if k in fields:
+            val = data[k]
+            if val and isinstance(val, str):
+                data[k] = base64.b64decode(val)
+    return data
+
+
 # Types 6–13 all share orientation + length, just different step sizes
 _ORIENTED_LINE_TYPES = {
     AtoNDimensionType.BOUNDARY_LINE_1: 10,
