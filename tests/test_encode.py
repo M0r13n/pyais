@@ -119,26 +119,16 @@ def test_encode_msg_table():
 
 def test_invalid_talker_id():
     with unittest.TestCase().assertRaises(ValueError) as err:
-        encode_dict({'mmsi': 123456}, talker_id="AIDDD")
+        encode_dict({'mmsi': 123456, 'msg_type': 1}, talker_id="AIDDD")
 
-    assert str(err.exception) == "talker_id must be any of ['AIVDM', 'AIVDO']"
-
-    with unittest.TestCase().assertRaises(ValueError) as err:
-        encode_dict({'mmsi': 123456}, talker_id=None)
-
-    assert str(err.exception) == "talker_id must be any of ['AIVDM', 'AIVDO']"
+    assert str(err.exception) == "Talker must have exactly 2 characters (e.g. AI)"
 
 
 def test_encode_payload_invalid_talker_id():
     with unittest.TestCase().assertRaises(ValueError) as err:
-        encode_msg({'mmsi': 123456}, talker_id="AIDDD")
+        encode_msg(MessageType1.create(mmsi=1234), talker_id="AIDDD")
 
-    assert str(err.exception) == "talker_id must be any of ['AIVDM', 'AIVDO']"
-
-    with unittest.TestCase().assertRaises(ValueError) as err:
-        encode_msg({'mmsi': 123456}, talker_id=None)
-
-    assert str(err.exception) == "talker_id must be any of ['AIVDM', 'AIVDO']"
+    assert str(err.exception) == "Talker must have exactly 2 characters (e.g. AI)"
 
 
 def test_invalid_radio_channel():
@@ -804,7 +794,7 @@ def test_encode_type_8():
         'repeat': 0,
         'type': 8
     }
-    encoded = encode_dict(data, radio_channel="B", talker_id="AIVDM")
+    encoded = encode_dict(data, radio_channel="B", talker_id="AI", sentence_type="VDM")
     assert encoded[0] == "!AIVDM,1,1,,B,85Mwp`1Kf0>dg4Huwt@,2*5B"
 
 
@@ -828,7 +818,7 @@ def test_encode_type_8_inland():
         'course_q': True,
         'heading_q': True,
     }
-    encoded = encode_dict(data, radio_channel="A", talker_id="AIVDO")
+    encoded = encode_dict(data, radio_channel="A", talker_id="AI", sentence_type="VDO")
     assert encoded[0] == "!AIVDO,1,1,,A,85M67F@j2U=7EW=RAkQkBDITMV=e,0*51"
 
 
@@ -913,7 +903,7 @@ def test_encode_type_7():
         'repeat': 0,
         'type': 7
     }
-    encoded_part_1 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[0]
+    encoded_part_1 = encode_dict(data, radio_channel="B", talker_id="AI", sentence_type="VDM")[0]
     assert encoded_part_1 == "!AIVDM,1,1,,B,702R5`hwCjq80000000000000000,0*68"
 
 
@@ -929,7 +919,7 @@ def test_encode_type_6_bytes():
         'seqno': 3,
         'type': 6
     }
-    encoded = encode_dict(data, radio_channel="B", talker_id="AIVDM")
+    encoded = encode_dict(data, radio_channel="B", talker_id="AI", sentence_type="VDM")
     assert encoded[0] == "!AIVDM,1,1,,B,6B?n;be:cbapald3c;i6?Ow4,0*78"
 
 
@@ -945,7 +935,7 @@ def test_encode_type_6():
         'seqno': 3,
         'type': 6
     }
-    encoded = encode_dict(data, radio_channel="B", talker_id="AIVDM")
+    encoded = encode_dict(data, radio_channel="B", talker_id="AI", sentence_type="VDM")
 
     decoded = decode(*encoded).asdict()
 
@@ -974,7 +964,7 @@ def test_encode_type_4():
         'type': 4,
         'year': 2007
     }
-    encoded_part_1 = encode_dict(data, radio_channel="B", talker_id="AIVDM")[0]
+    encoded_part_1 = encode_dict(data, radio_channel="B", talker_id="AI", sentence_type="VDM")[0]
 
     assert encoded_part_1 == "!AIVDM,1,1,,B,403OviQuMGCqWrRO:HE6fD700@GO,0*3A"
 
@@ -1004,7 +994,7 @@ def test_encode_type_5_issue_59():
         'type': 5
     }
 
-    actual = encode_dict(data, radio_channel="B", talker_id="AIVDM")
+    actual = encode_dict(data, radio_channel="B", talker_id="AI", sentence_type="VDM")
     expected = [
         '!AIVDM,2,1,0,B,55?MbV02;H;s<HtKP00EHE:0@T4@Dl0000000000L961O5Gf0P3QEp6ClRh0,0*75',
         '!AIVDM,2,2,0,B,00000000000,2*27'
@@ -1039,7 +1029,7 @@ def test_encode_type_5():
         'type': 5
     }
 
-    actual = encode_dict(data, radio_channel="B", talker_id="AIVDM")
+    actual = encode_dict(data, radio_channel="B", talker_id="AI", sentence_type="VDM")
     expected = [
         '!AIVDM,2,1,0,B,55?MbV02;H;s<HtKP00EHE:0@T4@Dl0000000000L961O5Gf0NSQEp6ClRh0,0*0B',
         '!AIVDM,2,2,0,B,00000000000,2*27'
@@ -1053,7 +1043,7 @@ def test_encode_type_5_default():
     Verified using http://ais.tbsalling.dk/.
     """
     data = {'mmsi': 123456789, 'type': 5}
-    actual = encode_dict(data, radio_channel="B", talker_id="AIVDM")
+    actual = encode_dict(data, radio_channel="B", talker_id="AI", sentence_type="VDM")
     expected = [
         '!AIVDM,2,1,0,B,51mg=5@00000000000000000000000000000000000000000000000000000,0*60',
         '!AIVDM,2,2,0,B,00000000000,2*27'
@@ -1152,7 +1142,7 @@ def test_encode_type_1():
         'type': 1
     }
 
-    encoded = encode_dict(data, radio_channel="B", talker_id="AIVDM")[0]
+    encoded = encode_dict(data, radio_channel="B", talker_id="AI", sentence_type="VDM")[0]
     assert encoded == "!AIVDM,1,1,,B,15M67FC01>G?ufbE`FepT@3n00Sa,0*53"
 
     encoded = encode_dict(data, radio_channel="B")[0]
@@ -1297,5 +1287,10 @@ def test_round_trip_encoding():
         decoded = decode(*example)
         json_dump = json.loads(decoded.to_json(ignore_spare=False))
         json_dump = json_to_data(json_dump)
-        encoded = encode_dict(json_dump, talker_id=example[0][1:6], radio_channel='A' if 'A' in example[0][12:15] else 'B')
+        encoded = encode_dict(
+            json_dump,
+            talker_id=example[0][1:3],
+            sentence_type=example[0][3:6],
+            radio_channel='A' if 'A' in example[0][12:15] else 'B'
+        )
         assert example == encoded

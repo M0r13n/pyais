@@ -35,7 +35,8 @@ def data_to_payload(ais_type: int, data: DATA_DICT) -> Payload:
 
 def ais_to_nmea_0183(
         payload: str,
-        ais_talker_id: str,
+        talker_id: str,
+        sentence_type: str,
         radio_channel: str,
         fill_bits: int,
         seq_id: typing.Optional[typing.Union[str, int]] = None
@@ -52,7 +53,8 @@ def ais_to_nmea_0183(
         chars remain for the actual payload.
 
     @param payload:         Armored AIs payload.
-    @param ais_talker_id:   AIS talker ID (AIVDO or AIVDM)
+    @param talker_id:       NMEA talker ID (e.g. AI for mobile AIS stations (most common — vessels))
+    @param sentence_type:   NMEA sentence type (either VDM or VDO)
     @param radio_channel:   Radio channel (either A or B)
     @param fill_bits:       The number of fill bits requires to pad the data payload to a 6 bit boundary.
     @param seq_id:          Optional sequence ID
@@ -67,8 +69,11 @@ def ais_to_nmea_0183(
     elif frag_cnt == 1:
         seq_id = ''
 
-    if len(ais_talker_id) != 5:
-        raise ValueError("AIS talker is must have exactly 6 characters. E.g. AIVDO")
+    if len(talker_id) != 2:
+        raise ValueError("Talker must have exactly 2 characters (e.g. AI)")
+
+    if len(sentence_type) != 3:
+        raise ValueError("Sentence type must have exactly 3 characters (e.g. VDO)")
 
     if len(radio_channel) != 1:
         raise ValueError("Radio channel must be a single character")
@@ -76,9 +81,10 @@ def ais_to_nmea_0183(
     for frag_num, chunk in enumerate(chunks(payload, max_len), start=1):
         tpl = "!{},{},{},{},{},{},{}*{:02X}"
         fill_bits_frag = fill_bits if frag_num == frag_cnt else 0  # Make sure we set fill bits only for last fragment
-        dummy_message = tpl.format(ais_talker_id, frag_cnt, frag_num, seq_id, radio_channel, chunk, fill_bits_frag, 0)
+        talker = f"{talker_id}{sentence_type}"
+        dummy_message = tpl.format(talker, frag_cnt, frag_num, seq_id, radio_channel, chunk, fill_bits_frag, 0)
         checksum = compute_checksum(dummy_message)
-        msg = tpl.format(ais_talker_id, frag_cnt, frag_num, seq_id, radio_channel, chunk, fill_bits_frag, checksum)
+        msg = tpl.format(talker, frag_cnt, frag_num, seq_id, radio_channel, chunk, fill_bits_frag, checksum)
         messages.append(msg)
 
     return messages
@@ -86,7 +92,8 @@ def ais_to_nmea_0183(
 
 def encode_dict(
     data: DATA_DICT,
-    talker_id: str = "AIVDO",
+    talker_id: str = "AI",
+    sentence_type: str = "VDO",
     radio_channel: str = "A",
     seq_id: typing.Optional[typing.Union[str, int]] = None
 ) -> AIS_SENTENCES:
@@ -99,36 +106,40 @@ def encode_dict(
           on what fields each AIS message can take.
 
     @param data: The AIS data as a dictionary.
-    @param talker_id: AIS packets have the introducer "AIVDM" or "AIVDO";
-                      AIVDM packets are reports from other ships and AIVDO packets are reports from your own ship.
+    @param talker_id: NMEA talker ID (e.g. AI for mobile AIS stations (most common — vessels))
+    @param sentence_type: NMEA sentence type (either VDM or VDO)
     @param radio_channel: The radio channel. Can be either 'A' (default) or 'B'.
     @param seq_id: Optional sequence ID
     @return: NMEA 0183 encoded AIS sentences.
-
     """
-    if talker_id not in ("AIVDM", "AIVDO"):
-        raise ValueError("talker_id must be any of ['AIVDM', 'AIVDO']")
-
     if radio_channel not in ('A', 'B'):
         raise ValueError("radio_channel must be any of ['A', 'B']")
 
     ais_type = get_ais_type(data)
     payload = data_to_payload(ais_type, data)
     armored_payload, fill_bits = payload.encode()
-    return ais_to_nmea_0183(armored_payload, talker_id, radio_channel, fill_bits, seq_id=seq_id)
+    return ais_to_nmea_0183(armored_payload, talker_id, sentence_type, radio_channel, fill_bits, seq_id=seq_id)
 
 
 def encode_msg(
         msg: Payload,
-        talker_id: str = "AIVDO",
+        talker_id: str = "AI",
+        sentence_type: str = "VDO",
         radio_channel: str = "A",
         seq_id: typing.Optional[typing.Union[str, int]] = None
 ) -> AIS_SENTENCES:
-    if talker_id not in ("AIVDM", "AIVDO"):
-        raise ValueError("talker_id must be any of ['AIVDM', 'AIVDO']")
+    """
+    Same as ``encode_dict`` but for message objects.
 
+    @param msg:             The message to encode (instance of Payload)
+    @param talker_id:       NMEA talker ID (e.g. AI for mobile AIS stations (most common — vessels))
+    @param sentence_type:   NMEA sentence type (either VDM or VDO)
+    @param radio_channel:   The radio channel. Can be either 'A' (default) or 'B'.
+    @param seq_id:          Optional sequence ID
+    @return:                NMEA 0183 encoded AIS sentences.
+    """
     if radio_channel not in ('A', 'B'):
         raise ValueError("radio_channel must be any of ['A', 'B']")
 
     armored_payload, fill_bits = msg.encode()
-    return ais_to_nmea_0183(armored_payload, talker_id, radio_channel, fill_bits, seq_id=seq_id)
+    return ais_to_nmea_0183(armored_payload, talker_id, sentence_type, radio_channel, fill_bits, seq_id=seq_id)
