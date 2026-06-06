@@ -2,6 +2,19 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 3.1.0 06 Jun 2026
+-------------------------------------------------------------------------------
+* implemented a pre-computed decoder plan for each class (#206)
+  * improved decoding efficiency by ~20%
+* added `json_to_data` to aid in re-encoding JSON messages
+  * decodes the base64 string fields produced by `to_json` back into bytes
+* `encode_msg` & `encode_dict` now require a mandatory `sentence` argument
+  * !BREAKING CHANGE!
+  * previously `talker_id` was used to pass both talker **and** sentence type
+  * this was incorrect and did not match the implementation in `messages.py`
+  * before: `encode_msg(talker_id="AIVDO", ...)`
+  * after:  `encode_msg(talker_id="AI", sentence_type="VDO", ...)`
+-------------------------------------------------------------------------------
  Version 3.0.1 24 May 2026
 -------------------------------------------------------------------------------
 * added message 8 subtypes for inland AIS
@@ -11,7 +24,7 @@
 -------------------------------------------------------------------------------
  Version 3.0.0 12 Apr 2026
 -------------------------------------------------------------------------------
-* breaking Changes
+* breaking changes
   * removed `bitarray` dependency. Replaced with a custom `bit_vector`
   * renamed `AISSentence.bit_array` to `AISSentence.bv`
   * renamed `Payload.from_bitarray()` to `Payload.from_vector()`
