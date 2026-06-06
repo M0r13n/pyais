@@ -1294,3 +1294,16 @@ def test_round_trip_encoding():
             radio_channel='A' if 'A' in example[0][12:15] else 'B'
         )
         assert example == encoded
+
+
+def test_json_to_data_with_empty_byte_fields():
+    json_dict = {
+        'msg_type': 8,
+        'mmsi': 366999712,
+        'spare_1': '',
+        'dac': 366,
+        'fid': 56,
+        'data': ''
+    }
+    nmea_ais = encode_dict(json_to_data(json_dict))[0]
+    assert nmea_ais == "!AIVDO,3,1,0,A,85Mwp`1Kf000000000000000000000000000000000000000000000000000,0*1D"

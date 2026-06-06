@@ -658,11 +658,11 @@ def json_to_data(
     # Bytes-typed fields needing decoding.
     # NOTE: These are static and known in advance.
     #       No need to check them dynamically.
-    fields = {'spare_1', 'spare_2', 'spare_3', 'spare_4', 'data'}
+    fields = {'spare', 'spare_1', 'spare_2', 'spare_3', 'spare_4', 'data'}
     for k in data:
         if k in fields:
             val = data[k]
-            if val and isinstance(val, str):
+            if isinstance(val, str):
                 data[k] = base64.b64decode(val)
     return data
 
