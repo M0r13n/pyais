@@ -1099,7 +1099,7 @@ class MessageType1(Payload, CommunicationStateMixin):
     radio = bit_field(19, int, default=0, signed=False)
 
     @classmethod
-    def fast_path(cls, bv: bit_vector) -> 'MessageType1':
+    def _fast_path(cls, bv: bit_vector) -> 'MessageType1':
         v = bv._value
         # Rot
         r = (v >> 118) & 255
