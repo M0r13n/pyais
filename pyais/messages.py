@@ -417,7 +417,7 @@ class NMEASentence(object):
         'type',
         'checksum',
         'fill_bits',
-        'is_valid',
+        '_is_valid',
         'wrapper_msg',
         'tag_block',
     )
@@ -451,7 +451,7 @@ class NMEASentence(object):
         # Message Checksum (hex value)
         self.checksum = check
         # Set the checksum valid field
-        self.is_valid = self.checksum == compute_checksum(self.raw)
+        self._is_valid: bool | None = None
 
         self.data_fields = fields[1:-1]
 
@@ -488,6 +488,16 @@ class NMEASentence(object):
     @property
     def talker(self) -> TalkerID:
         return TalkerID(self.talker_id)
+
+    @property
+    def is_valid(self) -> bool:
+        if self._is_valid is None:
+            self._is_valid = self.checksum == compute_checksum(self.raw)
+        return self._is_valid
+
+    @is_valid.setter
+    def is_valid(self, val: bool) -> None:
+        self._is_valid = val
 
 
 class GatehouseSentence(NMEASentence):
