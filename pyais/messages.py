@@ -701,6 +701,7 @@ class Payload(abc.ABC):
     """
 
     _decoder_plan: _DecoderPlan  # just a type hint
+    _fast_path: typing.Callable[[bit_vector], ANY_MESSAGE]  # just a type hint
 
     @staticmethod
     def __force_type(field: typing.Any, val: typing.Any) -> typing.Any:
@@ -879,8 +880,8 @@ class Payload(abc.ABC):
     def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
         plan = cls.decoder_plan()
         bv_len = len(bv)
-        if bv_len == 168 and hasattr(cls, 'fast_path'):
-            return cls.fast_path(bv)
+        if bv_len == 168 and hasattr(cls, '_fast_path'):
+            return cls._fast_path(bv)
         kwargs: dict[str, NMEA_VALUE | None] = {}
         val: NMEA_VALUE
         get_num = bv.get_num
@@ -1116,7 +1117,7 @@ class MessageType1(Payload, CommunicationStateMixin):
         return cls(
             v >> 162,
             (v >> 160) & 3,
-            (v >> 130) & 0x3FFFFFFF,
+            (v >> 130) & 0x3FFFFFFF,  # type: ignore
             (v >> 126) & 15,
             to_turn(r),
             to_speed((v >> 108) & 1023),
@@ -1129,7 +1130,7 @@ class MessageType1(Payload, CommunicationStateMixin):
             (v >> 23) & 3,
             ((v >> 20) & 7).to_bytes(1, "big"),
             bool((v >> 19) & 1),
-            v&0x7ffff,
+            v & 0x7ffff,
         )
 
 
