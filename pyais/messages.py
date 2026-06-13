@@ -701,7 +701,7 @@ class Payload(abc.ABC):
     """
 
     _decoder_plan: _DecoderPlan  # just a type hint
-    _fast_path: typing.Callable[[bit_vector], ANY_MESSAGE]  # just a type hint
+    _fast_path: typing.Callable[[bit_vector], 'ANY_MESSAGE']  # just a type hint
 
     @staticmethod
     def __force_type(field: typing.Any, val: typing.Any) -> typing.Any:
