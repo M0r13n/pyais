@@ -829,7 +829,7 @@ class Payload(abc.ABC):
     def _build_plan(cls) -> _DecoderPlan:
         """Build the decoding plan for a given message class.
         This is done by iterating over each field of the message.
-        Then, for each field name, width, offset, data type, and conversion function are determined.
+        Then, for each field name, offset, width, signed, data type, and conversion function are determined.
         """
         plan: _DecoderPlan = []
         offset = 0
@@ -869,6 +869,8 @@ class Payload(abc.ABC):
     def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
         plan = cls.decoder_plan()
         bv_len = len(bv)
+        if bv_len == 168 and hasattr(cls, 'fast_path'):
+            return cls.fast_path(bv)
         kwargs: dict[str, NMEA_VALUE | None] = {}
         val: NMEA_VALUE
         get_num = bv.get_num
@@ -1084,6 +1086,41 @@ class MessageType1(Payload, CommunicationStateMixin):
     spare_1 = bit_field(3, bytes, default=b'', is_spare=True)
     raim = bit_field(1, bool, default=0)
     radio = bit_field(19, int, default=0, signed=False)
+
+    @classmethod
+    def fast_path(cls, bv: bit_vector) -> 'MessageType1':
+        v = bv._value
+        # Rot
+        r = (v >> 118) & 255
+        if r > 127:
+            r -= 256
+        # Lon
+        lx = (v >> 79) & 0xFFFFFFF
+        if lx & 0x8000000:
+            lx -= 0x10000000
+        # Lat
+        ly = (v >> 52) & 0x7FFFFFF
+        if ly & 0x4000000:
+            ly -= 0x8000000
+
+        return cls(
+            v >> 162,
+            (v >> 160) & 3,
+            (v >> 130) & 0x3FFFFFFF,
+            (v >> 126) & 15,
+            to_turn(r),
+            to_speed((v >> 108) & 1023),
+            bool((v >> 107) & 1),
+            to_lat_lon(lx),
+            to_lat_lon(ly),
+            to_10th((v >> 40) & 4095),
+            (v >> 31) & 511,
+            (v >> 25) & 63,
+            (v >> 23) & 3,
+            ((v >> 20) & 7).to_bytes(1, "big"),
+            bool((v >> 19) & 1),
+            v&0x7ffff,
+        )
 
 
 class MessageType2(MessageType1):
