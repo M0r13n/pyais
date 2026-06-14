@@ -31,6 +31,11 @@ TAG_BLOCK_START = b'\\'
 MAX_FRAG_CNT = 100
 MAX_PAYLOAD_LEN = 200
 
+# Fast paths are used to speed up decoding for certain fixed-width message types.
+# Assume that every message has an available fast path by default.
+# Set to False if a message class raises a NotImplementedError during runtime.
+FAST_PATH_AVAILABLE: list[bool] = [True] * 64
+
 
 def bit_field(
     width: int, d_type: typing.Type[typing.Any],
@@ -701,7 +706,6 @@ class Payload(abc.ABC):
     """
 
     _decoder_plan: _DecoderPlan  # just a type hint
-    _fast_path: typing.Callable[[bit_vector], 'ANY_MESSAGE']  # just a type hint
 
     @staticmethod
     def __force_type(field: typing.Any, val: typing.Any) -> typing.Any:
@@ -867,6 +871,14 @@ class Payload(abc.ABC):
         return plan
 
     @classmethod
+    def _fast_path(cls, bv: bit_vector) -> 'ANY_MESSAGE':
+        """Use a flat extraction plan instead of iterating over each message class's
+        fields. Convert the whole payload into an int once and extract every field
+        with (value >> shift) & mask. These shifts run in C and beat repeated vector
+        slicing."""
+        raise NotImplementedError
+
+    @classmethod
     def decoder_plan(cls) -> _DecoderPlan:
         """Get the decoder plan (cached) for a given message class.
         This is stored as a class attribute for future use."""
@@ -880,8 +892,15 @@ class Payload(abc.ABC):
     def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
         plan = cls.decoder_plan()
         bv_len = len(bv)
-        if bv_len == 168 and hasattr(cls, '_fast_path'):
-            return cls._fast_path(bv)
+        mid = bv._value >> 162
+        # Is a fast path available?
+        if bv_len == 168 and FAST_PATH_AVAILABLE[mid]:
+            try:
+                return cls._fast_path(bv)
+            except NotImplementedError:
+                # Fast path is not implemented for this message type.
+                # Do not try this again.
+                FAST_PATH_AVAILABLE[mid] = False
         kwargs: dict[str, NMEA_VALUE | None] = {}
         val: NMEA_VALUE
         get_num = bv.get_num
@@ -1173,6 +1192,37 @@ class MessageType4(Payload, CommunicationStateMixin):
     spare_1 = bit_field(10, bytes, default=b'', is_spare=True)
     raim = bit_field(1, bool, default=0)
     radio = bit_field(19, int, default=0, signed=False)
+
+    @classmethod
+    def _fast_path(cls, bv: bit_vector) -> 'MessageType4':
+        v = bv._value
+        # Lon
+        lx = (v >> 61) & 0xFFFFFFF
+        if lx & 0x8000000:
+            lx -= 0x10000000
+        # Lat
+        ly = (v >> 34) & 0x7FFFFFF
+        if ly & 0x4000000:
+            ly -= 0x8000000
+
+        return cls(
+            v >> 162,
+            (v >> 160) & 0x3,  # type: ignore
+            (v >> 130) & 0x3fffffff,
+            (v >> 116) & 0x3fff,
+            (v >> 112) & 0xf,
+            (v >> 107) & 0x1f,
+            (v >> 102) & 0x1f,
+            (v >> 96) & 0x3f,
+            (v >> 90) & 0x3f,
+            bool((v >> 89) & 0x1),
+            to_lat_lon(lx),
+            to_lat_lon(ly),
+            EpfdType.from_value((v >> 30) & 0xf),
+            ((v >> 20) & 0x3ff).to_bytes(2, "big"),
+            bool((v >> 19) & 0x1),
+            v & 0x7ffff,
+        )
 
 
 @attr.s(slots=True)
@@ -1681,6 +1731,41 @@ class MessageType18(Payload, CommunicationStateMixin):
     assigned = bit_field(1, bool, default=0)
     raim = bit_field(1, bool, default=0)
     radio = bit_field(20, int, default=0)
+
+    @classmethod
+    def _fast_path(cls, bv: bit_vector) -> 'MessageType18':
+        v = bv._value
+        # Lon
+        lx = (v >> 83) & 0xFFFFFFF
+        if lx & 0x8000000:
+            lx -= 0x10000000
+        # Lat
+        ly = (v >> 56) & 0x7FFFFFF
+        if ly & 0x4000000:
+            ly -= 0x8000000
+
+        return cls(
+            v >> 162,
+            (v >> 160) & 0x3,  # type: ignore
+            (v >> 130) & 0x3fffffff,
+            (v >> 122) & 0xff,
+            to_speed((v >> 112) & 0x3ff),
+            bool((v >> 111) & 0x1),
+            to_lat_lon(lx),
+            to_lat_lon(ly),
+            to_10th((v >> 44) & 0xfff),
+            (v >> 35) & 0x1ff,
+            (v >> 29) & 0x3f,
+            (v >> 27) & 0x3,
+            bool((v >> 26) & 0x1),
+            bool((v >> 25) & 0x1),
+            bool((v >> 24) & 0x1),
+            bool((v >> 23) & 0x1),
+            bool((v >> 22) & 0x1),
+            bool((v >> 21) & 0x1),
+            bool((v >> 20) & 0x1),
+            v & 0xfffff,
+        )
 
 
 @attr.s(slots=True)
