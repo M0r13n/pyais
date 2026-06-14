@@ -56,6 +56,7 @@ from pyais.messages import (
     MessageType26BroadcastUnstructured,
     MessageType8Dac200Fid24,
     MessageType8Dac200Fid40,
+    Payload,
 )
 from pyais.stream import ByteStream, IterMessages
 from pyais.util import b64encode_str, is_auxiliary_craft
@@ -95,6 +96,10 @@ class TestAIS(unittest.TestCase):
 
     The latter sometimes is a bit weird and therefore I used aislib to verify my results.
     """
+
+    def tearDown(self):
+        for mid in range(64):
+            Payload.FAST_PATH_AVAILABLE[mid] = True
 
     maxDiff = None
 
@@ -141,7 +146,8 @@ class TestAIS(unittest.TestCase):
         )
         assert nmea.decode().msg_type == AISType.STATIC_AND_VOYAGE
 
-    def test_msg_type_1_a(self):
+    def test_msg_type_1_a_fast_path(self):
+        Payload.FAST_PATH_AVAILABLE[1] = True
         result = decode(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C").asdict()
 
         assert result == {
@@ -161,6 +167,29 @@ class TestAIS(unittest.TestCase):
             "raim": False,
             "radio": 2281,
         }
+
+    def test_msg_type_1_a_slow_path(self):
+        Payload.FAST_PATH_AVAILABLE[1] = False
+        result = decode(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C").asdict()
+
+        assert result == {
+            "msg_type": 1,
+            "repeat": 0,
+            "mmsi": 366053209,
+            "status": NavigationStatus.RestrictedManoeuverability,
+            "turn": 0,
+            "speed": 0.0,
+            "accuracy": False,
+            "lon": -122.341618,
+            "lat": 37.802118,
+            "course": 219.3,
+            "heading": 1,
+            "second": 59,
+            "maneuver": ManeuverIndicator.NotAvailable,
+            "raim": False,
+            "radio": 2281,
+        }
+        Payload.FAST_PATH_AVAILABLE[1] = True
 
     def test_msg_type_1_b(self):
         msg = decode(b"!AIVDM,1,1,,A,15NPOOPP00o?b=bE`UNv4?w428D;,0*24").asdict()
@@ -237,7 +266,21 @@ class TestAIS(unittest.TestCase):
 
         ensure_type_for_msg_dict(msg)
 
-    def test_msg_type_4_a(self):
+    def test_msg_type_4_a_fast_path(self):
+        msg = decode(b"!AIVDM,1,1,,A,403OviQuMGCqWrRO9>E6fE700@GO,0*4D").asdict()
+        assert msg["lon"] == -76.352362
+        assert msg["lat"] == 36.883767
+        assert msg["accuracy"] == 1
+        assert msg["year"] == 2007
+        assert msg["month"] == 5
+        assert msg["day"] == 14
+        assert msg["minute"] == 57
+        assert msg["second"] == 39
+
+        ensure_type_for_msg_dict(msg)
+
+    def test_msg_type_4_a_slow_path(self):
+        Payload.FAST_PATH_AVAILABLE[4] = False
         msg = decode(b"!AIVDM,1,1,,A,403OviQuMGCqWrRO9>E6fE700@GO,0*4D").asdict()
         assert msg["lon"] == -76.352362
         assert msg["lat"] == 36.883767
@@ -648,7 +691,36 @@ class TestAIS(unittest.TestCase):
 
         ensure_type_for_msg_dict(msg)
 
-    def test_msg_type_18(self):
+    def test_msg_type_18_fast_path(self):
+        msg = decode(b"!AIVDM,1,1,,A,B5NJ;PP005l4ot5Isbl03wsUkP06,0*76").asdict()
+        assert msg["msg_type"] == 18
+        assert msg["mmsi"] == 367430530
+        assert msg["speed"] == 0.0
+        assert msg["accuracy"] == 0
+        assert round(msg["lat"], 2) == 37.79
+        assert round(msg["lon"], 2) == -122.27
+        assert msg["course"] == 0
+        assert msg["heading"] == 511
+        assert msg["second"] == 55
+        assert msg["reserved_2"] == 0
+        assert msg["cs"] == 1
+        assert msg["display"] == 0
+        assert msg["dsc"] == 1
+        assert msg["band"] == 1
+        assert msg["msg22"] == 1
+        assert not msg["assigned"]
+        assert not msg["raim"]
+        assert isinstance(msg["raim"], bool)
+
+        assert isinstance(msg["lat"], float)
+        assert isinstance(msg["lon"], float)
+        assert isinstance(msg["speed"], float)
+        assert isinstance(msg["course"], float)
+
+        ensure_type_for_msg_dict(msg)
+
+    def test_msg_type_18_slow_path(self):
+        Payload.FAST_PATH_AVAILABLE[18] = False
         msg = decode(b"!AIVDM,1,1,,A,B5NJ;PP005l4ot5Isbl03wsUkP06,0*76").asdict()
         assert msg["msg_type"] == 18
         assert msg["mmsi"] == 367430530
@@ -2267,6 +2339,13 @@ class TestAIS(unittest.TestCase):
 
         payload = b"3815;`100!Phmn\x7fPPwL=3OmUd0Dg:"
         bit_vector(payload)
+
+    def test_gh_equality(self):
+        msg = b"$PGHP,1,2004,12,21,23,59,58,999,219,219000001,219000002,1,6D*56"
+        gs_a = GatehouseSentence(msg)
+        gs_b = GatehouseSentence(msg)
+
+        assert gs_a == gs_b
 
 
 if __name__ == '__main__':

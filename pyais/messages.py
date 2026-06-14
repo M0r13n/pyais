@@ -480,7 +480,7 @@ class NMEASentence(object):
             raise TypeError(f"Index must be str, not {type(item).__name__}")
 
     def __eq__(self, other: object) -> bool:
-        return all([getattr(self, attr) == getattr(other, attr) for attr in self.__slots__ if attr != '_is_valid'])
+        return isinstance(other, NMEASentence) and self.raw == other.raw
 
     def __hash__(self) -> int:
         return hash(self.raw)
