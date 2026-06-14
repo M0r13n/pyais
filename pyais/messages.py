@@ -183,7 +183,7 @@ class TagBlockGroup:
     @staticmethod
     def from_str(raw: str) -> 'TagBlockGroup':
         """Constructs a new NMEAGroup from it's string representation"""
-        [msg_id, msg_total, group_id] = raw.split("-", 3)
+        msg_id, msg_total, group_id = raw.split("-", 3)
 
         return TagBlockGroup(
             int(msg_id),
@@ -703,7 +703,7 @@ class Payload(abc.ABC):
     _decoder_plan: _DecoderPlan  # just a type hint
 
     # Fast paths are used to speed up decoding for certain fixed-width message types.
-    # Assume that every message has an available fast path by default.
+    # Assume a fast path may be available until proven otherwise.
     # Set to False if a message class raises a NotImplementedError during runtime.
     FAST_PATH_AVAILABLE: list[bool] = [True] * 64
 
@@ -874,8 +874,8 @@ class Payload(abc.ABC):
     def _fast_path(cls, bv: bit_vector) -> 'ANY_MESSAGE':
         """Use a flat extraction plan instead of iterating over each message class's
         fields. Convert the whole payload into an int once and extract every field
-        with (value >> shift) & mask. These shifts run in C and beat repeated vector
-        slicing."""
+        with (value >> shift) & mask. These shifts run in C and are faster than
+        repeated bit-field extraction."""
         raise NotImplementedError
 
     @classmethod
