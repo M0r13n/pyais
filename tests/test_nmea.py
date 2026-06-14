@@ -3,7 +3,7 @@ import unittest
 from pyais.decode import _assemble_messages
 
 from pyais.exceptions import InvalidNMEAMessageException
-from pyais.messages import NMEAMessage
+from pyais.messages import NMEAMessage, NMEASentence
 from pyais.util import chk_to_int
 
 
@@ -209,3 +209,19 @@ class TestNMEA(unittest.TestCase):
         ]
         msg = _assemble_messages(*sentences)
         self.assertFalse(msg.is_valid)
+
+    def test_eq(self):
+        # _is_valid = None for both
+        msg_a = NMEASentence(b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*04")
+        msg_b = NMEASentence(b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*04")
+        self.assertEqual(msg_a, msg_b)
+
+        # _is_valid = None|False
+        msg_a = NMEASentence(b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*04")
+        msg_a.is_valid
+        msg_b = NMEASentence(b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*04")
+        self.assertEqual(msg_a, msg_b)
+
+
+if __name__ == '__main__':
+    unittest.main()

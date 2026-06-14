@@ -31,11 +31,6 @@ TAG_BLOCK_START = b'\\'
 MAX_FRAG_CNT = 100
 MAX_PAYLOAD_LEN = 200
 
-# Fast paths are used to speed up decoding for certain fixed-width message types.
-# Assume that every message has an available fast path by default.
-# Set to False if a message class raises a NotImplementedError during runtime.
-FAST_PATH_AVAILABLE: list[bool] = [True] * 64
-
 
 def bit_field(
     width: int, d_type: typing.Type[typing.Any],
@@ -485,7 +480,7 @@ class NMEASentence(object):
             raise TypeError(f"Index must be str, not {type(item).__name__}")
 
     def __eq__(self, other: object) -> bool:
-        return all([getattr(self, attr) == getattr(other, attr) for attr in self.__slots__])
+        return all([getattr(self, attr) == getattr(other, attr) for attr in self.__slots__ if attr != '_is_valid'])
 
     def __hash__(self) -> int:
         return hash(self.raw)
@@ -508,7 +503,7 @@ class NMEASentence(object):
 class GatehouseSentence(NMEASentence):
     TYPE = 'HP'
 
-    _slots__ = (
+    __slots__ = (
         'country',
         'region',
         'pss',
@@ -707,6 +702,11 @@ class Payload(abc.ABC):
 
     _decoder_plan: _DecoderPlan  # just a type hint
 
+    # Fast paths are used to speed up decoding for certain fixed-width message types.
+    # Assume that every message has an available fast path by default.
+    # Set to False if a message class raises a NotImplementedError during runtime.
+    FAST_PATH_AVAILABLE: list[bool] = [True] * 64
+
     @staticmethod
     def __force_type(field: typing.Any, val: typing.Any) -> typing.Any:
         """
@@ -892,15 +892,16 @@ class Payload(abc.ABC):
     def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
         plan = cls.decoder_plan()
         bv_len = len(bv)
-        mid = bv._value >> 162
         # Is a fast path available?
-        if bv_len == 168 and FAST_PATH_AVAILABLE[mid]:
-            try:
-                return cls._fast_path(bv)
-            except NotImplementedError:
-                # Fast path is not implemented for this message type.
-                # Do not try this again.
-                FAST_PATH_AVAILABLE[mid] = False
+        if bv_len == 168:
+            mid = bv._value >> 162
+            if cls.FAST_PATH_AVAILABLE[mid]:
+                try:
+                    return cls._fast_path(bv)
+                except NotImplementedError:
+                    # Fast path is not implemented for this message type.
+                    # Do not try this again.
+                    cls.FAST_PATH_AVAILABLE[mid] = False
         kwargs: dict[str, NMEA_VALUE | None] = {}
         val: NMEA_VALUE
         get_num = bv.get_num
@@ -1146,8 +1147,8 @@ class MessageType1(Payload, CommunicationStateMixin):
             to_10th((v >> 40) & 4095),
             (v >> 31) & 511,
             (v >> 25) & 63,
-            (v >> 23) & 3,
-            ((v >> 20) & 7).to_bytes(1, "big"),
+            ManeuverIndicator.from_value((v >> 23) & 3),
+            (((v >> 20) & 7) << 5).to_bytes(1, "big"),
             bool((v >> 19) & 1),
             v & 0x7ffff,
         )
@@ -1219,7 +1220,7 @@ class MessageType4(Payload, CommunicationStateMixin):
             to_lat_lon(lx),
             to_lat_lon(ly),
             EpfdType.from_value((v >> 30) & 0xf),
-            ((v >> 20) & 0x3ff).to_bytes(2, "big"),
+            (((v >> 20) & 0x3ff) << 6).to_bytes(2, "big"),
             bool((v >> 19) & 0x1),
             v & 0x7ffff,
         )

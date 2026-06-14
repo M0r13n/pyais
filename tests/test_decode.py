@@ -214,6 +214,10 @@ class TestAIS(unittest.TestCase):
         assert content["speed"] == 7.8
         assert content["msg_type"] == 1
 
+    def test_decode_1_spare(self):
+        msg = decode(b"!AIVDM,1,1,,A,13@nePh01>PjcO4PGReoJEmL8HJg,0*67")
+        assert msg.spare_1 == b"@"
+
     def test_msg_type_3(self):
         msg = decode(b"!AIVDM,1,1,,A,35NSH95001G?wopE`beasVk@0E5:,0*6F").asdict()
         assert msg["msg_type"] == 3
@@ -245,6 +249,10 @@ class TestAIS(unittest.TestCase):
         assert msg["second"] == 39
 
         ensure_type_for_msg_dict(msg)
+
+    def test_decode_4_spare(self):
+        msg = decode(b"!AIVDM,1,1,,A,403OviQuMGCqWrRO9>E6fE7@4@GO,0*4D")
+        assert msg.spare_1 == b'@@'
 
     def test_msg_type_4_b(self):
         msg = decode(b"!AIVDM,1,1,,B,403OtVAv>lba;o?Ia`E`4G?02H6k,0*44").asdict()
