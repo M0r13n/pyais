@@ -183,7 +183,7 @@ class TagBlockGroup:
     @staticmethod
     def from_str(raw: str) -> 'TagBlockGroup':
         """Constructs a new NMEAGroup from it's string representation"""
-        [msg_id, msg_total, group_id] = raw.split("-", 3)
+        msg_id, msg_total, group_id = raw.split("-", 3)
 
         return TagBlockGroup(
             int(msg_id),
@@ -417,7 +417,7 @@ class NMEASentence(object):
         'type',
         'checksum',
         'fill_bits',
-        'is_valid',
+        '_is_valid',
         'wrapper_msg',
         'tag_block',
     )
@@ -451,7 +451,7 @@ class NMEASentence(object):
         # Message Checksum (hex value)
         self.checksum = check
         # Set the checksum valid field
-        self.is_valid = self.checksum == compute_checksum(self.raw)
+        self._is_valid: bool | None = None
 
         self.data_fields = fields[1:-1]
 
@@ -480,7 +480,7 @@ class NMEASentence(object):
             raise TypeError(f"Index must be str, not {type(item).__name__}")
 
     def __eq__(self, other: object) -> bool:
-        return all([getattr(self, attr) == getattr(other, attr) for attr in self.__slots__])
+        return isinstance(other, NMEASentence) and self.raw == other.raw
 
     def __hash__(self) -> int:
         return hash(self.raw)
@@ -489,11 +489,21 @@ class NMEASentence(object):
     def talker(self) -> TalkerID:
         return TalkerID(self.talker_id)
 
+    @property
+    def is_valid(self) -> bool:
+        if self._is_valid is None:
+            self._is_valid = self.checksum == compute_checksum(self.raw)
+        return self._is_valid
+
+    @is_valid.setter
+    def is_valid(self, val: bool) -> None:
+        self._is_valid = val
+
 
 class GatehouseSentence(NMEASentence):
     TYPE = 'HP'
 
-    _slots__ = (
+    __slots__ = (
         'country',
         'region',
         'pss',
@@ -692,6 +702,11 @@ class Payload(abc.ABC):
 
     _decoder_plan: _DecoderPlan  # just a type hint
 
+    # Fast paths are used to speed up decoding for certain fixed-width message types.
+    # Assume a fast path may be available until proven otherwise.
+    # Set to False if a message class raises a NotImplementedError during runtime.
+    FAST_PATH_AVAILABLE: list[bool] = [True] * 64
+
     @staticmethod
     def __force_type(field: typing.Any, val: typing.Any) -> typing.Any:
         """
@@ -829,7 +844,7 @@ class Payload(abc.ABC):
     def _build_plan(cls) -> _DecoderPlan:
         """Build the decoding plan for a given message class.
         This is done by iterating over each field of the message.
-        Then, for each field name, width, offset, data type, and conversion function are determined.
+        Then, for each field name, offset, width, signed, data type, and conversion function are determined.
         """
         plan: _DecoderPlan = []
         offset = 0
@@ -856,6 +871,14 @@ class Payload(abc.ABC):
         return plan
 
     @classmethod
+    def _fast_path(cls, bv: bit_vector) -> 'ANY_MESSAGE':
+        """Use a flat extraction plan instead of iterating over each message class's
+        fields. Convert the whole payload into an int once and extract every field
+        with (value >> shift) & mask. These shifts run in C and are faster than
+        repeated bit-field extraction."""
+        raise NotImplementedError
+
+    @classmethod
     def decoder_plan(cls) -> _DecoderPlan:
         """Get the decoder plan (cached) for a given message class.
         This is stored as a class attribute for future use."""
@@ -869,6 +892,16 @@ class Payload(abc.ABC):
     def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
         plan = cls.decoder_plan()
         bv_len = len(bv)
+        # Is a fast path available?
+        if bv_len == 168:
+            mid = bv._value >> 162
+            if cls.FAST_PATH_AVAILABLE[mid]:
+                try:
+                    return cls._fast_path(bv)
+                except NotImplementedError:
+                    # Fast path is not implemented for this message type.
+                    # Do not try this again.
+                    cls.FAST_PATH_AVAILABLE[mid] = False
         kwargs: dict[str, NMEA_VALUE | None] = {}
         val: NMEA_VALUE
         get_num = bv.get_num
@@ -1085,6 +1118,41 @@ class MessageType1(Payload, CommunicationStateMixin):
     raim = bit_field(1, bool, default=0)
     radio = bit_field(19, int, default=0, signed=False)
 
+    @classmethod
+    def _fast_path(cls, bv: bit_vector) -> 'MessageType1':
+        v = bv._value
+        # Rot
+        r = (v >> 118) & 255
+        if r > 127:
+            r -= 256
+        # Lon
+        lx = (v >> 79) & 0xFFFFFFF
+        if lx & 0x8000000:
+            lx -= 0x10000000
+        # Lat
+        ly = (v >> 52) & 0x7FFFFFF
+        if ly & 0x4000000:
+            ly -= 0x8000000
+
+        return cls(
+            v >> 162,
+            (v >> 160) & 3,
+            (v >> 130) & 0x3FFFFFFF,  # type: ignore
+            (v >> 126) & 15,
+            to_turn(r),
+            to_speed((v >> 108) & 1023),
+            bool((v >> 107) & 1),
+            to_lat_lon(lx),
+            to_lat_lon(ly),
+            to_10th((v >> 40) & 4095),
+            (v >> 31) & 511,
+            (v >> 25) & 63,
+            ManeuverIndicator.from_value((v >> 23) & 3),
+            (((v >> 20) & 7) << 5).to_bytes(1, "big"),
+            bool((v >> 19) & 1),
+            v & 0x7ffff,
+        )
+
 
 class MessageType2(MessageType1):
     """
@@ -1125,6 +1193,37 @@ class MessageType4(Payload, CommunicationStateMixin):
     spare_1 = bit_field(10, bytes, default=b'', is_spare=True)
     raim = bit_field(1, bool, default=0)
     radio = bit_field(19, int, default=0, signed=False)
+
+    @classmethod
+    def _fast_path(cls, bv: bit_vector) -> 'MessageType4':
+        v = bv._value
+        # Lon
+        lx = (v >> 61) & 0xFFFFFFF
+        if lx & 0x8000000:
+            lx -= 0x10000000
+        # Lat
+        ly = (v >> 34) & 0x7FFFFFF
+        if ly & 0x4000000:
+            ly -= 0x8000000
+
+        return cls(
+            v >> 162,
+            (v >> 160) & 0x3,  # type: ignore
+            (v >> 130) & 0x3fffffff,
+            (v >> 116) & 0x3fff,
+            (v >> 112) & 0xf,
+            (v >> 107) & 0x1f,
+            (v >> 102) & 0x1f,
+            (v >> 96) & 0x3f,
+            (v >> 90) & 0x3f,
+            bool((v >> 89) & 0x1),
+            to_lat_lon(lx),
+            to_lat_lon(ly),
+            EpfdType.from_value((v >> 30) & 0xf),
+            (((v >> 20) & 0x3ff) << 6).to_bytes(2, "big"),
+            bool((v >> 19) & 0x1),
+            v & 0x7ffff,
+        )
 
 
 @attr.s(slots=True)
@@ -1633,6 +1732,41 @@ class MessageType18(Payload, CommunicationStateMixin):
     assigned = bit_field(1, bool, default=0)
     raim = bit_field(1, bool, default=0)
     radio = bit_field(20, int, default=0)
+
+    @classmethod
+    def _fast_path(cls, bv: bit_vector) -> 'MessageType18':
+        v = bv._value
+        # Lon
+        lx = (v >> 83) & 0xFFFFFFF
+        if lx & 0x8000000:
+            lx -= 0x10000000
+        # Lat
+        ly = (v >> 56) & 0x7FFFFFF
+        if ly & 0x4000000:
+            ly -= 0x8000000
+
+        return cls(
+            v >> 162,
+            (v >> 160) & 0x3,  # type: ignore
+            (v >> 130) & 0x3fffffff,
+            (v >> 122) & 0xff,
+            to_speed((v >> 112) & 0x3ff),
+            bool((v >> 111) & 0x1),
+            to_lat_lon(lx),
+            to_lat_lon(ly),
+            to_10th((v >> 44) & 0xfff),
+            (v >> 35) & 0x1ff,
+            (v >> 29) & 0x3f,
+            (v >> 27) & 0x3,
+            bool((v >> 26) & 0x1),
+            bool((v >> 25) & 0x1),
+            bool((v >> 24) & 0x1),
+            bool((v >> 23) & 0x1),
+            bool((v >> 22) & 0x1),
+            bool((v >> 21) & 0x1),
+            bool((v >> 20) & 0x1),
+            v & 0xfffff,
+        )
 
 
 @attr.s(slots=True)
