@@ -208,3 +208,21 @@ class TestFileReaderStream(unittest.TestCase):
                     assert str(msg.wrapper_msg.timestamp) == '2009-05-09 00:00:00.010000'
                 else:
                     assert msg.wrapper_msg is None
+
+    def test_complex_message_reassembly(self):
+        """Ensure that multi fragment messages are reassembled correctly"""
+        file = pathlib.Path(__file__).parent.joinpath('multi.txt')
+        for i, msg in enumerate(FileReaderStream(file), 1):
+            decoded = msg.decode()
+
+            key = decoded.data[0:6].decode("ascii")
+            mmsi = 123456789 + int(key[0]) * 10 + ord(key[1]) + ord(key[2]) + ord(key[3]) + ord(key[4])
+
+            assert decoded.mmsi == mmsi
+            assert decoded.data == b"".join(decoded.data[0:6] for _ in range(20))[:-1]
+
+        assert i == 40
+
+
+if __name__ == "__main__":
+    unittest.main()

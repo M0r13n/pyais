@@ -152,7 +152,7 @@ class AssembleMessages(ABC):
         self.tbq.put_sentence(sentence)
 
     def _assemble_messages(self) -> Generator[NMEAMessage, None, None]:
-        buffer: typing.Dict[typing.Tuple[int, str], typing.List[typing.Optional[NMEAMessage]]] = {}
+        buffer: typing.Dict[typing.Tuple[int, str, str, str, int], typing.List[typing.Optional[NMEAMessage]]] = {}
         messages = self._iter_messages()
         msg: AISSentence
 
@@ -180,8 +180,8 @@ class AssembleMessages(ABC):
                 if seq_id is None:
                     seq_id = -1
 
-                # seq_id and channel make a unique stream
-                slot = (seq_id, msg.channel)
+                # A unique stream is identified by the following tuple
+                slot = (seq_id, msg.channel, msg.talker_id, msg.type, msg.frag_cnt)
 
                 if slot not in buffer:
                     # Create a new array in the buffer that has enough space for all fragments
