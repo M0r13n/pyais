@@ -987,6 +987,15 @@ def to_lat_lon_600(v: typing.Union[int, float]) -> float:
     return round(float(v) / 600.0, 6)
 
 
+def from_lat_lon_60000(v: typing.Union[int, float]) -> float:
+    # coordinates expressed in 1/1000 minutes (scale 1/60000 of a degree)
+    return round(float(v) * 60000.0)
+
+
+def to_lat_lon_60000(v: typing.Union[int, float]) -> float:
+    return round(float(v) / 60000.0, 6)
+
+
 def from_10th(v: typing.Union[int, float]) -> float:
     return float(v) * 10.0
 
@@ -1025,6 +1034,111 @@ def from_turn(turn: typing.Optional[typing.Union[int, float, TurnRate]]) -> int:
         return int(turn)
 
     return int(math.copysign(round(4.733 * math.sqrt(abs(turn))), turn))
+
+
+def from_airtemp_leg(v: typing.Union[int, float]) -> float:
+    # legacy FID=11 air temperature: value = raw * 0.1 - 60
+    return round((float(v) + 60.0) / 0.1)
+
+
+def to_airtemp_leg(v: typing.Union[int, float]) -> float:
+    return round(float(v) * 0.1 - 60.0, 1)
+
+
+def from_dewpt_leg(v: typing.Union[int, float]) -> float:
+    return round((float(v) + 20.0) / 0.1)
+
+
+def to_dewpt_leg(v: typing.Union[int, float]) -> float:
+    return round(float(v) * 0.1 - 20.0, 1)
+
+
+def from_press800(v: typing.Union[int, float]) -> int:
+    return int(round(v)) - 800
+
+
+def to_press800(v: typing.Union[int, float]) -> int:
+    return int(v) + 800
+
+
+def from_wl_leg(v: typing.Union[int, float]) -> float:
+    return round((float(v) + 10.0) / 0.1)
+
+
+def to_wl_leg(v: typing.Union[int, float]) -> float:
+    return round(float(v) * 0.1 - 10.0, 1)
+
+
+def from_press799(v: typing.Union[int, float]) -> int:
+    # pressure in hPa, transmitted as (value - 799)
+    return int(round(v)) - 799
+
+
+def to_press799(v: typing.Union[int, float]) -> int:
+    return int(v) + 799
+
+
+def from_wl31(v: typing.Union[int, float]) -> float:
+    # FID=31 water level: value = raw * 0.01 - 10
+    return round((float(v) + 10.0) / 0.01)
+
+
+def to_wl31(v: typing.Union[int, float]) -> float:
+    return round(float(v) * 0.01 - 10.0, 2)
+
+
+def _asm_bits(data: bytes, offset: int, length: int, signed: bool = False) -> int:
+    """Read `length` bits at bit `offset` (MSB-first) from an ASM data region."""
+    if not data:
+        return 0
+    total = len(data) * 8
+    if offset + length > total:
+        return 0
+    acc = int.from_bytes(data, 'big')
+    val = (acc >> (total - offset - length)) & ((1 << length) - 1)
+    if signed and (val & (1 << (length - 1))):
+        val -= (1 << length)
+    return val
+
+
+def _decode_waypoints(data: bytes, count: int,
+                      lon_bits: int, lat_bits: int) -> typing.List[typing.Tuple[float, float]]:
+    """Decode `count` (lon, lat) waypoints from a data region, MSB-first."""
+    out: typing.List[typing.Tuple[float, float]] = []
+    if not data:
+        return out
+    stride = lon_bits + lat_bits
+    available = (len(data) * 8) // stride
+    n = min(count, available, 16)
+    for i in range(n):
+        base = i * stride
+        lon = round(_asm_bits(data, base, lon_bits, signed=True) / 600000.0, 6)
+        lat = round(_asm_bits(data, base + lon_bits, lat_bits, signed=True) / 600000.0, 6)
+        out.append((lon, lat))
+    return out
+
+
+def _decode_synthetic_targets(data: bytes) -> typing.List[typing.Dict[str, typing.Any]]:
+    """Decode 1-4 synthetic targets (120 bits each) from a FID=17 region."""
+    out: typing.List[typing.Dict[str, typing.Any]] = []
+    if not data:
+        return out
+    n = min((len(data) * 8) // 120, 4)
+    for i in range(n):
+        base = i * 120
+        chars = []
+        for k in range(7):
+            c = _asm_bits(data, base + 2 + k * 6, 6)
+            chars.append(chr(c + 64) if c < 32 else chr(c))
+        ident = ''.join(chars).rstrip('@ ')
+        out.append({
+            'id': ident,
+            'lat': round(_asm_bits(data, base + 48, 24, signed=True) / 60000.0, 5),
+            'lon': round(_asm_bits(data, base + 72, 25, signed=True) / 60000.0, 5),
+            'course': _asm_bits(data, base + 97, 9),
+            'speed': _asm_bits(data, base + 112, 8),
+        })
+    return out
 
 
 class CommunicationStateMixin:
@@ -1208,8 +1322,8 @@ class MessageType4(Payload, CommunicationStateMixin):
 
         return cls(
             v >> 162,
-            (v >> 160) & 0x3,  # type: ignore
-            (v >> 130) & 0x3fffffff,
+            (v >> 160) & 0x3,
+            (v >> 130) & 0x3fffffff, # type: ignore
             (v >> 116) & 0x3fff,
             (v >> 112) & 0xf,
             (v >> 107) & 0x1f,
@@ -1299,31 +1413,19 @@ class MessageType8(Payload):
     def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
         dac: int = int(kwargs.get("dac", 0))
         fid: int = int(kwargs.get("fid", 0))
-        if dac == 200 and fid == 10:
-            return MessageType8Dac200Fid10.create(**kwargs)
-        if dac == 200 and fid == 23:
-            return MessageType8Dac200Fid23.create(**kwargs)
-        if dac == 200 and fid == 24:
-            return MessageType8Dac200Fid24.create(**kwargs)
-        if dac == 200 and fid == 40:
-            return MessageType8Dac200Fid40.create(**kwargs)
-        else:
-            return MessageType8Default.create(**kwargs)
+        variant = _msg8_variant(dac, fid)
+        if variant is not None:
+            return variant.create(**kwargs)
+        return MessageType8Default.create(**kwargs)
 
     @classmethod
     def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
         dac: int = bv.get(40, 10)
         fid: int = bv.get(50, 6)
-        if dac == 200 and fid == 10:
-            return MessageType8Dac200Fid10.from_vector(bv)
-        elif dac == 200 and fid == 23:
-            return MessageType8Dac200Fid23.from_vector(bv)
-        elif dac == 200 and fid == 24:
-            return MessageType8Dac200Fid24.from_vector(bv)
-        elif dac == 200 and fid == 40:
-            return MessageType8Dac200Fid40.from_vector(bv)
-        else:
-            return MessageType8Default.from_vector(bv)
+        variant = _msg8_variant(dac, fid)
+        if variant is not None:
+            return variant.from_vector(bv)
+        return MessageType8Default.from_vector(bv)
 
 
 @attr.s(slots=True)
@@ -1340,6 +1442,155 @@ class MessageType8Default(Payload):
     dac = bit_field(10, int, default=0, signed=False)
     fid = bit_field(6, int, default=0, signed=False)
     data = bit_field(952, bytes, default=b"", variable_length=True)
+
+
+@attr.s(slots=True)
+class MessageType8Dac1Fid0(Payload):
+    """ITU-R M.1371 broadcast text using 6-bit ASCII (DAC=1, FID=0)."""
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=0, signed=False)
+    ack_required = bit_field(1, bool, default=False, signed=False)
+    text_sequence = bit_field(11, int, default=0, signed=False)
+    text = bit_field(906, str, default='', variable_length=True)
+
+
+@attr.s(slots=True)
+class MessageType8Dac1Fid11(Payload):
+    """Meteorological and Hydrological Data (IMO236). Superseded by FID=31."""
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=11, signed=False)
+    lat = bit_field(24, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    lon = bit_field(25, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    day = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=24, signed=False)
+    minute = bit_field(6, int, default=60, signed=False)
+    wspeed = bit_field(7, int, default=127, signed=False)
+    wgust = bit_field(7, int, default=127, signed=False)
+    wdir = bit_field(9, int, default=511, signed=False)
+    wgustdir = bit_field(9, int, default=511, signed=False)
+    airtemp = bit_field(11, float, from_converter=from_airtemp_leg, to_converter=to_airtemp_leg, default=0, signed=False)
+    humidity = bit_field(7, int, default=127, signed=False)
+    dewpoint = bit_field(10, float, from_converter=from_dewpt_leg, to_converter=to_dewpt_leg, default=0, signed=False)
+    pressure = bit_field(9, int, from_converter=from_press800, to_converter=to_press800, default=0, signed=False)
+    pressuretend = bit_field(2, int, default=3, signed=False)
+    visibility = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    waterlevel = bit_field(9, float, from_converter=from_wl_leg, to_converter=to_wl_leg, default=0, signed=False)
+    leveltrend = bit_field(2, int, default=3, signed=False)
+    cspeed = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    cdir = bit_field(9, int, default=511, signed=False)
+    cspeed2 = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    cdir2 = bit_field(9, int, default=511, signed=False)
+    cdepth2 = bit_field(5, int, default=31, signed=False)
+    cspeed3 = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    cdir3 = bit_field(9, int, default=511, signed=False)
+    cdepth3 = bit_field(5, int, default=31, signed=False)
+    waveheight = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    waveperiod = bit_field(6, int, default=63, signed=False)
+    wavedir = bit_field(9, int, default=511, signed=False)
+    swellheight = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    swellperiod = bit_field(6, int, default=63, signed=False)
+    swelldir = bit_field(9, int, default=511, signed=False)
+    seastate = bit_field(4, int, default=13, signed=False)
+    watertemp = bit_field(10, float, from_converter=from_wl_leg, to_converter=to_wl_leg, default=0, signed=False)
+    preciptype = bit_field(3, int, default=7, signed=False)
+    salinity = bit_field(9, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    ice = bit_field(2, int, default=3, signed=False)
+
+
+@attr.s(slots=True)
+class MessageType8Dac1Fid16(Payload):
+    """IALA VTS TARGETS (TARGETS DERIVED BY MEANS OTHER THAN AIS) (DAC=1, FID=16)."""
+    # TODO: there are up to seven targets
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=16, signed=False)
+    target_id_type = bit_field(2, int, default=0, signed=False)
+    target_id = bit_field(42, int, default=0, signed=False)
+    spare_2 = bit_field(4, bytes, default=b'', is_spare=True)
+    lat = bit_field(24, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    lon = bit_field(25, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    course = bit_field(9, int, default=360, signed=False)
+    second = bit_field(6, int, default=60, signed=False)
+    speed = bit_field(8, int, default=255, signed=False)
+
+
+@attr.s(slots=True)
+class MessageType8Dac1Fid17(Payload):
+    """VTS-Generated/Synthetic targets (IMO236).
+    1-4 targets of 120 bits each in a raw region (see .targets)."""
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=17, signed=False)
+    target_data = bit_field(480, bytes, default=b'', variable_length=True)
+
+    @property
+    def targets(self) -> typing.List[typing.Dict[str, typing.Any]]:
+        """Decode the 1-4 synthetic targets (id, lat, lon, course, speed)."""
+        return _decode_synthetic_targets(self.target_data)
+
+
+@attr.s(slots=True)
+class MessageType8Dac1Fid31(Payload):
+    """Meteorological and hydrological data (IMO289).
+    DAC=1, FID=31."""
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=31, signed=False)
+    lon = bit_field(25, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    lat = bit_field(24, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    accuracy = bit_field(1, bool, default=False, signed=False)
+    day = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=24, signed=False)
+    minute = bit_field(6, int, default=60, signed=False)
+    wspeed = bit_field(7, int, default=127, signed=False)
+    wgust = bit_field(7, int, default=127, signed=False)
+    wdir = bit_field(9, int, default=360, signed=False)
+    wgustdir = bit_field(9, int, default=360, signed=False)
+    airtemp = bit_field(11, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
+    humidity = bit_field(7, int, default=101, signed=False)
+    dewpoint = bit_field(10, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
+    pressure = bit_field(9, int, from_converter=from_press799, to_converter=to_press799, default=0, signed=False)
+    pressuretend = bit_field(2, int, default=3, signed=False)
+    visgreater = bit_field(1, bool, default=False, signed=False)
+    visibility = bit_field(7, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    waterlevel = bit_field(12, float, from_converter=from_wl31, to_converter=to_wl31, default=0, signed=False)
+    leveltrend = bit_field(2, int, default=3, signed=False)
+    cspeed = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    cdir = bit_field(9, int, default=360, signed=False)
+    cspeed2 = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    cdir2 = bit_field(9, int, default=360, signed=False)
+    cdepth2 = bit_field(5, int, default=31, signed=False)
+    cspeed3 = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    cdir3 = bit_field(9, int, default=360, signed=False)
+    cdepth3 = bit_field(5, int, default=31, signed=False)
+    waveheight = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    waveperiod = bit_field(6, int, default=63, signed=False)
+    wavedir = bit_field(9, int, default=360, signed=False)
+    swellheight = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    swellperiod = bit_field(6, int, default=63, signed=False)
+    swelldir = bit_field(9, int, default=360, signed=False)
+    seastate = bit_field(4, int, default=13, signed=False)
+    watertemp = bit_field(10, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
+    preciptype = bit_field(3, int, default=7, signed=False)
+    salinity = bit_field(9, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    ice = bit_field(2, int, default=3, signed=False)
 
 
 @attr.s(slots=True)
@@ -1523,6 +1774,36 @@ class MessageType8Dac200Fid40(Payload):
             n //= 10
 
         return result
+
+# ---------------------------------------------------------------------------
+# DAC/FID dispatch tables
+# ---------------------------------------------------------------------------
+
+_MSG8_VARIANTS: typing.Dict[typing.Tuple[int, int], typing.Any] = {
+    (1, 0): MessageType8Dac1Fid0,
+    (1, 11): MessageType8Dac1Fid11,
+    (1, 16): MessageType8Dac1Fid16,
+    (1, 17): MessageType8Dac1Fid17,
+    (1, 19): MessageType8Dac1Fid19,
+    (1, 20): MessageType8Dac1Fid20,
+    (1, 21): MessageType8Dac1Fid21,
+    (1, 22): MessageType8Dac1Fid22,
+    (1, 23): MessageType8Dac1Fid23,
+    (1, 24): MessageType8Dac1Fid24,
+    (1, 25): MessageType8Dac1Fid25,
+    (1, 26): MessageType8Dac1Fid26,
+    (1, 27): MessageType8Dac1Fid27,
+    (1, 29): MessageType8Dac1Fid29,
+    (1, 31): MessageType8Dac1Fid31,
+    (200, 10): MessageType8Dac200Fid10,
+    (200, 23): MessageType8Dac200Fid23,
+    (200, 24): MessageType8Dac200Fid24,
+    (200, 40): MessageType8Dac200Fid40,
+}
+
+def _msg8_variant(dac: int, fid: int) -> typing.Optional[typing.Any]:
+    """Return the MessageType8 subclass for a (DAC, FID) pair, or None for the default."""
+    return _MSG8_VARIANTS.get((dac, fid))
 
 
 @attr.s(slots=True)
@@ -2388,6 +2669,21 @@ ANY_MESSAGE = typing.Union[
     MessageType6,
     MessageType7,
     MessageType8Default,
+    MessageType8Dac1Fid0,
+    MessageType8Dac1Fid11,
+    MessageType8Dac1Fid16,
+    MessageType8Dac1Fid17,
+    MessageType8Dac1Fid19,
+    MessageType8Dac1Fid20,
+    MessageType8Dac1Fid21,
+    MessageType8Dac1Fid22,
+    MessageType8Dac1Fid23,
+    MessageType8Dac1Fid24,
+    MessageType8Dac1Fid25,
+    MessageType8Dac1Fid26,
+    MessageType8Dac1Fid27,
+    MessageType8Dac1Fid29,
+    MessageType8Dac1Fid31,
     MessageType8Dac200Fid10,
     MessageType8Dac200Fid23,
     MessageType8Dac200Fid24,
