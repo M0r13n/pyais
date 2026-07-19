@@ -7,16 +7,16 @@ from pyais.messages import (
     MessageType8Dac1Fid11,
     MessageType8Dac1Fid16,
     MessageType8Dac1Fid17,
-    MessageType8Dac1Fid19,
-    MessageType8Dac1Fid20,
-    MessageType8Dac1Fid21,
-    MessageType8Dac1Fid22,
-    MessageType8Dac1Fid23,
-    MessageType8Dac1Fid24,
-    MessageType8Dac1Fid25,
-    MessageType8Dac1Fid26,
-    MessageType8Dac1Fid27,
-    MessageType8Dac1Fid29,
+    # MessageType8Dac1Fid19,
+    # MessageType8Dac1Fid20,
+    # MessageType8Dac1Fid21,
+    # MessageType8Dac1Fid22,
+    # MessageType8Dac1Fid23,
+    # MessageType8Dac1Fid24,
+    # MessageType8Dac1Fid25,
+    # MessageType8Dac1Fid26,
+    # MessageType8Dac1Fid27,
+    # MessageType8Dac1Fid29,
     MessageType8Dac1Fid31,
 )
 
@@ -177,35 +177,65 @@ class MessageType8Tests(unittest.TestCase):
         self.assertEqual(decoded.targets[0], {'id': '@-G??>4', 'lat': -8.33383, 'lon': -104.20907, 'course': 20, 'speed': 11})
         self.assertEqual(decoded.targets[1], {'id': 'K@XHR=E', 'lat': 34.97958, 'lon': -85.28622, 'speed': 136, 'course': 432})
 
-    def test_dac_1_fid_19_encode(self): pass
-    def test_dac_1_fid_19_decode(self): pass
+    def test_dac_1_fid_19_encode(self):
+        pass
 
-    def test_dac_1_fid_20_encode(self): pass
-    def test_dac_1_fid_20_decode(self): pass
+    def test_dac_1_fid_19_decode(self):
+        pass
 
-    def test_dac_1_fid_21_encode(self): pass
-    def test_dac_1_fid_21_decode(self): pass
+    def test_dac_1_fid_20_encode(self):
+        pass
 
-    def test_dac_1_fid_22_encode(self): pass
-    def test_dac_1_fid_22_decode(self): pass
+    def test_dac_1_fid_20_decode(self):
+        pass
 
-    def test_dac_1_fid_23_encode(self): pass
-    def test_dac_1_fid_23_decode(self): pass
+    def test_dac_1_fid_21_encode(self):
+        pass
 
-    def test_dac_1_fid_24_encode(self): pass
-    def test_dac_1_fid_24_decode(self): pass
+    def test_dac_1_fid_21_decode(self):
+        pass
 
-    def test_dac_1_fid_25_encode(self): pass
-    def test_dac_1_fid_25_decode(self): pass
+    def test_dac_1_fid_22_encode(self):
+        pass
 
-    def test_dac_1_fid_26_encode(self): pass
-    def test_dac_1_fid_26_decode(self): pass
+    def test_dac_1_fid_22_decode(self):
+        pass
 
-    def test_dac_1_fid_27_encode(self): pass
-    def test_dac_1_fid_27_decode(self): pass
+    def test_dac_1_fid_23_encode(self):
+        pass
 
-    def test_dac_1_fid_29_encode(self): pass
-    def test_dac_1_fid_29_decode(self): pass
+    def test_dac_1_fid_23_decode(self):
+        pass
+
+    def test_dac_1_fid_24_encode(self):
+        pass
+
+    def test_dac_1_fid_24_decode(self):
+        pass
+
+    def test_dac_1_fid_25_encode(self):
+        pass
+
+    def test_dac_1_fid_25_decode(self):
+        pass
+
+    def test_dac_1_fid_26_encode(self):
+        pass
+
+    def test_dac_1_fid_26_decode(self):
+        pass
+
+    def test_dac_1_fid_27_encode(self):
+        pass
+
+    def test_dac_1_fid_27_decode(self):
+        pass
+
+    def test_dac_1_fid_29_encode(self):
+        pass
+
+    def test_dac_1_fid_29_decode(self):
+        pass
 
     def test_dac_1_fid_31_encode(self):
         encoded = encode_dict({

@@ -1323,7 +1323,7 @@ class MessageType4(Payload, CommunicationStateMixin):
         return cls(
             v >> 162,
             (v >> 160) & 0x3,
-            (v >> 130) & 0x3fffffff, # type: ignore
+            (v >> 130) & 0x3fffffff,  # type: ignore
             (v >> 116) & 0x3fff,
             (v >> 112) & 0xf,
             (v >> 107) & 0x1f,
@@ -1779,21 +1779,22 @@ class MessageType8Dac200Fid40(Payload):
 # DAC/FID dispatch tables
 # ---------------------------------------------------------------------------
 
-_MSG8_VARIANTS: typing.Dict[typing.Tuple[int, int], typing.Any] = {
+
+_MSG8_VARIANTS: typing.Dict[typing.Tuple[int, int], typing.Type[Payload]] = {
     (1, 0): MessageType8Dac1Fid0,
     (1, 11): MessageType8Dac1Fid11,
     (1, 16): MessageType8Dac1Fid16,
     (1, 17): MessageType8Dac1Fid17,
-    (1, 19): MessageType8Dac1Fid19,
-    (1, 20): MessageType8Dac1Fid20,
-    (1, 21): MessageType8Dac1Fid21,
-    (1, 22): MessageType8Dac1Fid22,
-    (1, 23): MessageType8Dac1Fid23,
-    (1, 24): MessageType8Dac1Fid24,
-    (1, 25): MessageType8Dac1Fid25,
-    (1, 26): MessageType8Dac1Fid26,
-    (1, 27): MessageType8Dac1Fid27,
-    (1, 29): MessageType8Dac1Fid29,
+    # (1, 19): MessageType8Dac1Fid19,
+    # (1, 20): MessageType8Dac1Fid20,
+    # (1, 21): MessageType8Dac1Fid21,
+    # (1, 22): MessageType8Dac1Fid22,
+    # (1, 23): MessageType8Dac1Fid23,
+    # (1, 24): MessageType8Dac1Fid24,
+    # (1, 25): MessageType8Dac1Fid25,
+    # (1, 26): MessageType8Dac1Fid26,
+    # (1, 27): MessageType8Dac1Fid27,
+    # (1, 29): MessageType8Dac1Fid29,
     (1, 31): MessageType8Dac1Fid31,
     (200, 10): MessageType8Dac200Fid10,
     (200, 23): MessageType8Dac200Fid23,
@@ -1801,7 +1802,8 @@ _MSG8_VARIANTS: typing.Dict[typing.Tuple[int, int], typing.Any] = {
     (200, 40): MessageType8Dac200Fid40,
 }
 
-def _msg8_variant(dac: int, fid: int) -> typing.Optional[typing.Any]:
+
+def _msg8_variant(dac: int, fid: int) -> typing.Optional[typing.Type[Payload]]:
     """Return the MessageType8 subclass for a (DAC, FID) pair, or None for the default."""
     return _MSG8_VARIANTS.get((dac, fid))
 
@@ -2028,8 +2030,8 @@ class MessageType18(Payload, CommunicationStateMixin):
 
         return cls(
             v >> 162,
-            (v >> 160) & 0x3,  # type: ignore
-            (v >> 130) & 0x3fffffff,
+            (v >> 160) & 0x3,
+            (v >> 130) & 0x3fffffff,  # type: ignore
             (v >> 122) & 0xff,
             to_speed((v >> 112) & 0x3ff),
             bool((v >> 111) & 0x1),
@@ -2673,16 +2675,16 @@ ANY_MESSAGE = typing.Union[
     MessageType8Dac1Fid11,
     MessageType8Dac1Fid16,
     MessageType8Dac1Fid17,
-    MessageType8Dac1Fid19,
-    MessageType8Dac1Fid20,
-    MessageType8Dac1Fid21,
-    MessageType8Dac1Fid22,
-    MessageType8Dac1Fid23,
-    MessageType8Dac1Fid24,
-    MessageType8Dac1Fid25,
-    MessageType8Dac1Fid26,
-    MessageType8Dac1Fid27,
-    MessageType8Dac1Fid29,
+    # MessageType8Dac1Fid19,
+    # MessageType8Dac1Fid20,
+    # MessageType8Dac1Fid21,
+    # MessageType8Dac1Fid22,
+    # MessageType8Dac1Fid23,
+    # MessageType8Dac1Fid24,
+    # MessageType8Dac1Fid25,
+    # MessageType8Dac1Fid26,
+    # MessageType8Dac1Fid27,
+    # MessageType8Dac1Fid29,
     MessageType8Dac1Fid31,
     MessageType8Dac200Fid10,
     MessageType8Dac200Fid23,
