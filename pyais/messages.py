@@ -13,7 +13,7 @@ from pyais.constants import AtoNDimensionType, AtoNRestrictedUseInidicator, AtoN
     TransmitMode, StationIntervals, TurnRate, InlandLoadedType
 from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitializedException, UnknownMessageException, UnknownPartNoException, \
     InvalidDataTypeException, MissingPayloadException
-from pyais.util import SIX_BIT_ENCODING, ParsedDimensions, SixBitNibleEncoder, checksum, compute_checksum, get_itdma_comm_state, get_sotdma_comm_state, chk_to_int, coerce_val, b64encode_str, is_auxiliary_craft, parse_dimensions
+from pyais.util import SIX_BIT_ENCODING, ParsedDimensions, SixBitNibleEncoder, checksum, compute_checksum, decode_bytes_as_ascii6, get_itdma_comm_state, get_sotdma_comm_state, chk_to_int, coerce_val, b64encode_str, is_auxiliary_craft, parse_dimensions
 
 NMEA_VALUE = typing.Union[str, float, int, bool, bytes]
 _ConverterFunc = typing.Callable[[NMEA_VALUE,], NMEA_VALUE]
@@ -1118,6 +1118,46 @@ def _decode_waypoints(data: bytes, count: int,
     return out
 
 
+# Bit offsets inside a single 120-bit VTS target record.
+# IALA IFM 16, Table 44 (identical to the IFM 17 target record).
+_VTS_TARGET_BITS = 120
+_VTS_MAX_TARGETS = 7
+
+
+def _decode_vts_targets(data: bytes,
+                        max_targets: int = _VTS_MAX_TARGETS) -> typing.List[typing.Dict[str, typing.Any]]:
+    """Decode up to `max_targets` VTS target records from a data region.
+
+    Each record is 120 bits (IALA IFM 16, Table 44):
+    id_type(2), target_id(42), spare(4), lat(24), lon(25), course(9), second(6), speed(8)
+
+    `target_id` is decoded as six-bit ASCII when `id_type` is 2 (call sign),
+    otherwise it is returned as an unsigned integer (MMSI or IMO number).
+    """
+    out: typing.List[typing.Dict[str, typing.Any]] = []
+    if not data:
+        return out
+    n = min((len(data) * 8) // _VTS_TARGET_BITS, max_targets)
+    for i in range(n):
+        base = i * _VTS_TARGET_BITS
+        id_type = _asm_bits(data, base, 2)
+        target_id: typing.Union[int, str]
+        if id_type == 2:
+            target_id = decode_bytes_as_ascii6(data, base + 2, 42)
+        else:
+            target_id = _asm_bits(data, base + 2, 42)
+        out.append({
+            'id_type': id_type,
+            'target_id': target_id,
+            'lat': round(_asm_bits(data, base + 48, 24, signed=True) / 60000.0, 6),
+            'lon': round(_asm_bits(data, base + 72, 25, signed=True) / 60000.0, 6),
+            'course': _asm_bits(data, base + 97, 9),
+            'second': _asm_bits(data, base + 106, 6),
+            'speed': _asm_bits(data, base + 112, 8),
+        })
+    return out
+
+
 def _decode_synthetic_targets(data: bytes) -> typing.List[typing.Dict[str, typing.Any]]:
     """Decode 1-4 synthetic targets (120 bits each) from a FID=17 region."""
     out: typing.List[typing.Dict[str, typing.Any]] = []
@@ -1507,22 +1547,25 @@ class MessageType8Dac1Fid11(Payload):
 
 @attr.s(slots=True)
 class MessageType8Dac1Fid16(Payload):
-    """IALA VTS TARGETS (TARGETS DERIVED BY MEANS OTHER THAN AIS) (DAC=1, FID=16)."""
-    # TODO: there are up to seven targets
+    """IALA VTS targets (targets derived by means other than AIS). DAC=1, FID=16.
+
+    Variable length: 1 to 7 target records of 120 bits each, so 176 to 896 bits
+    in total. The records live in a raw region; use .targets to decode them.
+
+    Src: https://www.iala.int/asm/vts-targets-targets-derived-means-ais/
+    """
     msg_type = bit_field(6, int, default=8, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
     spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
     dac = bit_field(10, int, default=1, signed=False)
     fid = bit_field(6, int, default=16, signed=False)
-    target_id_type = bit_field(2, int, default=0, signed=False)
-    target_id = bit_field(42, int, default=0, signed=False)
-    spare_2 = bit_field(4, bytes, default=b'', is_spare=True)
-    lat = bit_field(24, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
-    lon = bit_field(25, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
-    course = bit_field(9, int, default=360, signed=False)
-    second = bit_field(6, int, default=60, signed=False)
-    speed = bit_field(8, int, default=255, signed=False)
+    target_data = bit_field(840, bytes, default=b'', variable_length=True)
+
+    @property
+    def targets(self) -> typing.List[typing.Dict[str, typing.Any]]:
+        """Decode the 1-7 VTS targets (id_type, target_id, lat, lon, course, second, speed)."""
+        return _decode_vts_targets(self.target_data)
 
 
 @attr.s(slots=True)
