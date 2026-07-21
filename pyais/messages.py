@@ -1587,6 +1587,39 @@ class MessageType8Dac1Fid17(Payload):
 
 
 @attr.s(slots=True)
+class MessageType8Dac1Fid19(Payload):
+    """Marine Traffic Signal (IMO289). DAC=1, FID=19.
+
+    Fixed length: 360 bits (occupies 2 slots).
+
+    status (Status of Signal): 0 = not available (default), 1 = in regular
+    service, 2 = irregular service, 3 = reserved.
+
+    signal / nextsignal (Signal in Service, Table 8.2): 0 = not available
+    (default), 1-7 = IALA port traffic signals 1, 2, 3, 4, 5, 2a, 5a,
+    8-13 = Japan traffic signals I, O, F, XI, XO, X, 14-31 = reserved.
+
+    Src: https://www.iala.int/asm/marine-traffic-signal/
+    """
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=19, signed=False)
+    linkage = bit_field(10, int, default=0, signed=False)
+    station = bit_field(120, str, default='')
+    lon = bit_field(25, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    lat = bit_field(24, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    status = bit_field(2, int, default=0, signed=False)
+    signal = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=24, signed=False)
+    minute = bit_field(6, int, default=60, signed=False)
+    nextsignal = bit_field(5, int, default=0, signed=False)
+    spare_2 = bit_field(102, bytes, default=b'', is_spare=True)
+
+
+@attr.s(slots=True)
 class MessageType8Dac1Fid31(Payload):
     """Meteorological and hydrological data (IMO289).
     DAC=1, FID=31."""
@@ -1828,7 +1861,7 @@ _MSG8_VARIANTS: typing.Dict[typing.Tuple[int, int], typing.Type[Payload]] = {
     (1, 11): MessageType8Dac1Fid11,
     (1, 16): MessageType8Dac1Fid16,
     (1, 17): MessageType8Dac1Fid17,
-    # (1, 19): MessageType8Dac1Fid19,
+    (1, 19): MessageType8Dac1Fid19,
     # (1, 20): MessageType8Dac1Fid20,
     # (1, 21): MessageType8Dac1Fid21,
     # (1, 22): MessageType8Dac1Fid22,
@@ -2718,7 +2751,7 @@ ANY_MESSAGE = typing.Union[
     MessageType8Dac1Fid11,
     MessageType8Dac1Fid16,
     MessageType8Dac1Fid17,
-    # MessageType8Dac1Fid19,
+    MessageType8Dac1Fid19,
     # MessageType8Dac1Fid20,
     # MessageType8Dac1Fid21,
     # MessageType8Dac1Fid22,
