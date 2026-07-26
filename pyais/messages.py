@@ -1101,23 +1101,6 @@ def _asm_bits(data: bytes, offset: int, length: int, signed: bool = False) -> in
     return val
 
 
-def _decode_waypoints(data: bytes, count: int,
-                      lon_bits: int, lat_bits: int) -> typing.List[typing.Tuple[float, float]]:
-    """Decode `count` (lon, lat) waypoints from a data region, MSB-first."""
-    out: typing.List[typing.Tuple[float, float]] = []
-    if not data:
-        return out
-    stride = lon_bits + lat_bits
-    available = (len(data) * 8) // stride
-    n = min(count, available, 16)
-    for i in range(n):
-        base = i * stride
-        lon = round(_asm_bits(data, base, lon_bits, signed=True) / 600000.0, 6)
-        lat = round(_asm_bits(data, base + lon_bits, lat_bits, signed=True) / 600000.0, 6)
-        out.append((lon, lat))
-    return out
-
-
 # Bit offsets inside a single 120-bit VTS target record.
 # IALA IFM 16, Table 44 (identical to the IFM 17 target record).
 _VTS_TARGET_BITS = 120
@@ -1693,6 +1676,92 @@ class MessageType8Dac1Fid20(Payload):
 
 
 @attr.s(slots=True)
+class MessageType8Dac1Fid21(Payload):
+    """Weather observation report from ship (IMO289). DAC=1, FID=21.
+
+    Two variants share this (DAC, FID) pair and are distinguished by bit 56,
+    the WMO bit; the field layouts diverge completely after it. Like
+    MessageType16, this class only dispatches and is never instantiated
+    itself.
+
+    Only the non-WMO variant (bit 56 = 0) is decoded, as
+    MessageType8Dac1Fid21NonWmo. The WMO BUFR variant (bit 56 = 1) falls back
+    to MessageType8Default, so its payload stays available as raw bytes in
+    `data` rather than being mis-read against the wrong layout.
+
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_weather_observation_report_from_ship
+    """
+
+    @classmethod
+    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
+        if int(kwargs.get('wmo', 0)):
+            return MessageType8Default.create(**kwargs)
+        return MessageType8Dac1Fid21NonWmo.create(**kwargs)
+
+    @classmethod
+    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
+        if bv.get(56, 1):
+            return MessageType8Default.from_vector(bv)
+        return MessageType8Dac1Fid21NonWmo.from_vector(bv)
+
+
+@attr.s(slots=True)
+class MessageType8Dac1Fid21NonWmo(Payload):
+    """Weather observation report from ship, non-WMO variant (IMO289).
+
+    DAC=1, FID=21, WMO bit clear. Fixed length: 360 bits.
+
+    weather (Present Weather, WMO code 45501): 0 = clear (no clouds at any
+    level), 1 = cloudy, 2 = rain, 3 = fog, 4 = snow, 5 = typhoon/hurricane,
+    6 = monsoon, 7 = thunderstorm, 8 = not available (default),
+    9-15 = reserved.
+
+    vislimit, when set, means the maximum range of the visibility equipment
+    was reached, so `visibility` should be read as "greater than" its value.
+
+    pressuretend carries a WMO FM13 code; IMO289 does not enumerate it.
+
+    Note on `pressure`: gpsd's prose ("add 400 to value") and its
+    DAC1FID21_NONWMO_PRESSURE_OFFSET constant both say 400, but that cannot be
+    right -- a 9 bit field with a 400 offset tops out at 911 hPa, and the
+    documented sentinels (402 = >1201 hPa, 403 = N/A) would then land at 802
+    and 803 hPa. An 800 hPa offset is the only reading under which the stated
+    800-1200 hPa range and those sentinels are consistent, and it matches the
+    sibling FID=11 field, so that is what is used here.
+    """
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=21, signed=False)
+    wmo = bit_field(1, bool, default=False, signed=False)
+    location = bit_field(120, str, default='')
+    lon = bit_field(25, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    lat = bit_field(24, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    day = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=24, signed=False)
+    minute = bit_field(6, int, default=60, signed=False)
+    weather = bit_field(4, int, default=8, signed=False)
+    vislimit = bit_field(1, bool, default=False, signed=False)
+    visibility = bit_field(7, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    humidity = bit_field(7, int, default=127, signed=False)
+    wspeed = bit_field(7, int, default=127, signed=False)
+    wdir = bit_field(9, int, default=360, signed=False)
+    pressure = bit_field(9, int, from_converter=from_press799, to_converter=to_press799, default=0, signed=False)
+    pressuretend = bit_field(4, int, default=15, signed=False)
+    airtemp = bit_field(11, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
+    watertemp = bit_field(10, float, from_converter=from_10th, to_converter=to_10th, default=50.1, signed=True)
+    waveperiod = bit_field(6, int, default=63, signed=False)
+    waveheight = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    wavedir = bit_field(9, int, default=360, signed=False)
+    swellheight = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    swelldir = bit_field(9, int, default=360, signed=False)
+    swellperiod = bit_field(6, int, default=63, signed=False)
+    spare_2 = bit_field(3, bytes, default=b'', is_spare=True)
+
+
+@attr.s(slots=True)
 class MessageType8Dac1Fid31(Payload):
     """Meteorological and hydrological data (IMO289).
     DAC=1, FID=31."""
@@ -1936,7 +2005,7 @@ _MSG8_VARIANTS: typing.Dict[typing.Tuple[int, int], typing.Type[Payload]] = {
     (1, 17): MessageType8Dac1Fid17,
     (1, 19): MessageType8Dac1Fid19,
     (1, 20): MessageType8Dac1Fid20,
-    # (1, 21): MessageType8Dac1Fid21,
+    (1, 21): MessageType8Dac1Fid21,
     # (1, 22): MessageType8Dac1Fid22,
     # (1, 23): MessageType8Dac1Fid23,
     # (1, 24): MessageType8Dac1Fid24,
@@ -2826,7 +2895,7 @@ ANY_MESSAGE = typing.Union[
     MessageType8Dac1Fid17,
     MessageType8Dac1Fid19,
     MessageType8Dac1Fid20,
-    # MessageType8Dac1Fid21,
+    MessageType8Dac1Fid21NonWmo,
     # MessageType8Dac1Fid22,
     # MessageType8Dac1Fid23,
     # MessageType8Dac1Fid24,

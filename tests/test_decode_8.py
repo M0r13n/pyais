@@ -4,12 +4,14 @@ from pyais import decode
 from pyais.encode import encode_dict, encode_msg, ais_to_nmea_0183
 from pyais.util import SixBitNibleEncoder, to_six_bit
 from pyais.messages import (
+    MessageType8Default,
     MessageType8Dac1Fid0,
     MessageType8Dac1Fid11,
     MessageType8Dac1Fid16,
     MessageType8Dac1Fid17,
     MessageType8Dac1Fid19,
     MessageType8Dac1Fid20,
+    MessageType8Dac1Fid21NonWmo,
     MessageType8Dac1Fid31,
 )
 
@@ -596,6 +598,224 @@ class MessageType8Tests(unittest.TestCase):
         assert isinstance(decoded, MessageType8Dac1Fid20)
         self.assertEqual(decoded.berth_length, 511)
         self.assertEqual(decoded.berth_depth, 25.5)
+
+    # ---------------------------------------------------------------
+    # DAC=1, FID=21 -- Weather observation report from ship (IMO289)
+    # ---------------------------------------------------------------
+
+    def test_dac_1_fid_21_encode(self):
+        encoded = encode_dict({
+            "msg_type": 8,
+            "repeat": 0,
+            "mmsi": 2655619,
+            "dac": 1,
+            "fid": 21,
+            "location": "KIEL LIGHTSHIP",
+            "lon": 10.1394,
+            "lat": 54.3233,
+            "day": 26,
+            "hour": 14,
+            "minute": 27,
+            "weather": 2,
+            "vislimit": True,
+            "visibility": 8.4,
+            "humidity": 78,
+            "wspeed": 22,
+            "wdir": 270,
+            "pressure": 1013,
+            "pressuretend": 5,
+            "airtemp": 18.3,
+            "watertemp": 16.7,
+            "waveperiod": 7,
+            "waveheight": 1.4,
+            "wavedir": 280,
+            "swellheight": 0.8,
+            "swelldir": 300,
+            "swellperiod": 9,
+        })
+        self.assertEqual(len(encoded), 1)
+        self.assertEqual(
+            encoded[0],
+            "!AIVDO,1,1,,A,802R5Ph0EAI8aT1Q8q2RI1:00000009B6hig0KCVjm9iJ7=IAKU>>7AP8UQ8,0*6C"
+        )
+
+    def test_dac_1_fid_21_decode(self):
+        decoded = decode(b"!AIVDM,1,1,,A,802R5Ph0EAI8aT1Q8q2RI1:00000009B6hig0KCVjm9iJ7=EAK`F>7AP8UQ8,0*2F")
+        assert isinstance(decoded, MessageType8Dac1Fid21NonWmo)
+        self.assertEqual(decoded.msg_type, 8)
+        self.assertEqual(decoded.mmsi, 2655619)
+        self.assertEqual(decoded.dac, 1)
+        self.assertEqual(decoded.fid, 21)
+        self.assertFalse(decoded.wmo)
+        self.assertEqual(decoded.location, "KIEL LIGHTSHIP")
+        self.assertEqual(decoded.lon, 10.1394)
+        self.assertEqual(decoded.lat, 54.3233)
+        self.assertEqual(decoded.day, 26)
+        self.assertEqual(decoded.hour, 14)
+        self.assertEqual(decoded.minute, 27)
+        self.assertEqual(decoded.weather, 2)
+        self.assertTrue(decoded.vislimit)
+        self.assertEqual(decoded.visibility, 8.4)
+        self.assertEqual(decoded.humidity, 78)
+        self.assertEqual(decoded.wspeed, 22)
+        self.assertEqual(decoded.wdir, 270)
+        self.assertEqual(decoded.pressure, 1012)
+        self.assertEqual(decoded.pressuretend, 5)
+        self.assertEqual(decoded.airtemp, 18.3)
+        self.assertEqual(decoded.watertemp, 26.7)
+        self.assertEqual(decoded.waveperiod, 7)
+        self.assertEqual(decoded.waveheight, 1.4)
+        self.assertEqual(decoded.wavedir, 280)
+        self.assertEqual(decoded.swellheight, 0.8)
+        self.assertEqual(decoded.swelldir, 300)
+        self.assertEqual(decoded.swellperiod, 9)
+
+    def test_dac_1_fid_21_bit_layout_matches_spec(self):
+        """Hand-pack the 360 bits per the IMO289 non-WMO table and decode them.
+
+        This is deliberately not a round trip: it pins the field offsets and
+        widths against the specification independently of pyais' encoder.
+        """
+        bits = ''
+        bits += _twos(8, 6)                                    # Message ID
+        bits += _twos(0, 2)                                    # Repeat Indicator
+        bits += _twos(2655619, 30)                             # Source ID
+        bits += _twos(0, 2)                                    # Spare
+        bits += _twos(1, 10)                                   # DAC
+        bits += _twos(21, 6)                                   # FI
+        bits += _twos(0, 1)                                    # Variant (WMO bit)
+        location = "KIEL LIGHTSHIP".ljust(20, '@')
+        bits += ''.join(to_six_bit(c) for c in location)       # Location
+        bits += _twos(round(10.1394 * 60000), 25)              # Longitude
+        bits += _twos(round(54.3233 * 60000), 24)              # Latitude
+        bits += _twos(26, 5)                                   # UTC Day
+        bits += _twos(14, 5)                                   # UTC Hour
+        bits += _twos(27, 6)                                   # UTC Minute
+        bits += _twos(2, 4)                                    # Present Weather
+        bits += _twos(1, 1)                                    # Visibility Limit
+        bits += _twos(84, 7)                                   # Horiz. Visibility (0.1nm)
+        bits += _twos(78, 7)                                   # Relative Humidity
+        bits += _twos(22, 7)                                   # Average Wind Speed
+        bits += _twos(270, 9)                                  # Wind Direction
+        bits += _twos(1013 - 800, 9)                           # Air Pressure (offset 800)
+        bits += _twos(5, 4)                                    # Pressure Tendency
+        bits += _twos(183, 11)                                 # Air Temperature (0.1C)
+        bits += _twos(round((16.7 + 10.0) / 0.1), 10)          # Water Temperature
+        bits += _twos(7, 6)                                    # Wave period
+        bits += _twos(14, 8)                                   # Wave height (0.1m)
+        bits += _twos(280, 9)                                  # Wave direction
+        bits += _twos(8, 8)                                    # Swell height (0.1m)
+        bits += _twos(300, 9)                                  # Swell direction
+        bits += _twos(9, 6)                                    # Swell period
+        bits += _twos(0, 3)                                    # Spare
+        self.assertEqual(len(bits), 360)
+
+        data = int(bits, 2).to_bytes(len(bits) // 8, 'big')
+        payload, fill_bits = SixBitNibleEncoder().encode(data, len(bits))
+        sentences = ais_to_nmea_0183(payload, 'AI', 'VDM', 'A', fill_bits)
+        decoded = decode(*[part.encode() for part in sentences])
+
+        assert isinstance(decoded, MessageType8Dac1Fid21NonWmo)
+        self.assertEqual(decoded.location, "KIEL LIGHTSHIP")
+        self.assertEqual(decoded.lon, 10.1394)
+        self.assertEqual(decoded.lat, 54.3233)
+        self.assertEqual(decoded.weather, 2)
+        self.assertTrue(decoded.vislimit)
+        self.assertEqual(decoded.visibility, 8.4)
+        self.assertEqual(decoded.humidity, 78)
+        self.assertEqual(decoded.wspeed, 22)
+        self.assertEqual(decoded.wdir, 270)
+        self.assertEqual(decoded.pressure, 1012)
+        self.assertEqual(decoded.pressuretend, 5)
+        self.assertEqual(decoded.airtemp, 18.3)
+        self.assertEqual(decoded.watertemp, 26.7)
+        self.assertEqual(decoded.waveheight, 1.4)
+        self.assertEqual(decoded.swellheight, 0.8)
+        self.assertEqual(decoded.swellperiod, 9)
+
+    def test_dac_1_fid_21_wmo_variant_falls_back_to_default(self):
+        """Bit 56 set selects the WMO BUFR layout, which is not decoded.
+
+        Rather than mis-reading it against the non-WMO field offsets, the
+        payload must come back as MessageType8Default with raw `data`.
+        """
+        bits = ''
+        bits += _twos(8, 6)
+        bits += _twos(0, 2)
+        bits += _twos(2655619, 30)
+        bits += _twos(0, 2)
+        bits += _twos(1, 10)
+        bits += _twos(21, 6)
+        bits += _twos(1, 1)                                    # Variant (WMO bit) set
+        bits += _twos(0, 303)                                  # WMO body, not decoded
+        self.assertEqual(len(bits), 360)
+
+        data = int(bits, 2).to_bytes(len(bits) // 8, 'big')
+        payload, fill_bits = SixBitNibleEncoder().encode(data, len(bits))
+        sentences = ais_to_nmea_0183(payload, 'AI', 'VDM', 'A', fill_bits)
+        decoded = decode(*[part.encode() for part in sentences])
+
+        self.assertNotIsInstance(decoded, MessageType8Dac1Fid21NonWmo)
+        assert isinstance(decoded, MessageType8Default)
+        self.assertEqual(decoded.dac, 1)
+        self.assertEqual(decoded.fid, 21)
+        self.assertTrue(decoded.data)
+
+    def test_dac_1_fid_21_negative_temperatures(self):
+        """Test with negative temperatures"""
+        encoded = encode_dict({
+            "msg_type": 8, "mmsi": 2655619, "dac": 1, "fid": 21,
+            "airtemp": -12.4, "watertemp": -3.5,
+            "lon": -70.6483, "lat": -33.4569,
+        })
+        decoded = decode(*[part.encode() for part in encoded])
+        assert isinstance(decoded, MessageType8Dac1Fid21NonWmo)
+        self.assertEqual(decoded.airtemp, -12.4)
+        self.assertEqual(decoded.watertemp, -3.5)
+        self.assertEqual(decoded.lon, -70.6483)
+        self.assertEqual(decoded.lat, -33.4569)
+
+    def test_dac_1_fid_21_pressure_range_round_trips(self):
+        """The documented 800-1200 hPa range fits the 9 bit field."""
+        for hpa in (800, 900, 1013, 1200):
+            encoded = encode_dict({
+                "msg_type": 8, "mmsi": 2655619, "dac": 1, "fid": 21,
+                "pressure": hpa,
+            })
+            decoded = decode(*[part.encode() for part in encoded])
+            assert isinstance(decoded, MessageType8Dac1Fid21NonWmo)
+            self.assertEqual(decoded.pressure, hpa)
+
+    def test_dac_1_fid_21_not_available_defaults(self):
+        """Spec defaults: hour 24, minute 60, weather 8, humidity/wspeed 127."""
+        encoded = encode_dict({"msg_type": 8, "mmsi": 2655619, "dac": 1, "fid": 21})
+        decoded = decode(*[part.encode() for part in encoded])
+        assert isinstance(decoded, MessageType8Dac1Fid21NonWmo)
+        self.assertFalse(decoded.wmo)
+        self.assertEqual(decoded.location, "")
+        self.assertEqual(decoded.day, 0)
+        self.assertEqual(decoded.hour, 24)
+        self.assertEqual(decoded.minute, 60)
+        self.assertEqual(decoded.weather, 8)
+        self.assertFalse(decoded.vislimit)
+        self.assertEqual(decoded.humidity, 127)
+        self.assertEqual(decoded.wspeed, 127)
+        self.assertEqual(decoded.wdir, 360)
+        self.assertEqual(decoded.pressuretend, 15)
+        self.assertEqual(decoded.waveperiod, 63)
+        self.assertEqual(decoded.wavedir, 360)
+        self.assertEqual(decoded.swelldir, 360)
+        self.assertEqual(decoded.swellperiod, 63)
+
+    def test_dac_1_fid_21_location_truncated_to_20_chars(self):
+        """The location field holds at most 20 six-bit characters."""
+        encoded = encode_dict({
+            "msg_type": 8, "mmsi": 2655619, "dac": 1, "fid": 21,
+            "location": "C" * 30,
+        })
+        decoded = decode(*[part.encode() for part in encoded])
+        assert isinstance(decoded, MessageType8Dac1Fid21NonWmo)
+        self.assertEqual(decoded.location, "C" * 20)
 
     def test_dac_1_fid_31_encode(self):
         encoded = encode_dict({
