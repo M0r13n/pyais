@@ -1620,6 +1620,79 @@ class MessageType8Dac1Fid19(Payload):
 
 
 @attr.s(slots=True)
+class MessageType8Dac1Fid20(Payload):
+    """Berthing data (IMO289). DAC=1, FID=20.
+
+    Broadcast counterpart of the addressed Message 6 berthing data: the same
+    272-bit application block, carried behind the 56-bit Message 8 header,
+    for a fixed total of 328 bits.
+
+    Provides information on a ship's berth. Sent by a ship it is a berthing
+    request; sent by a competent authority it is a berthing assignment. The
+    UTC timestamp is the time requested or granted for berthing, and
+    berth_lon/berth_lat refer to the centre of the berth.
+
+    berth_length: 1-510 m in 1 m steps, 511 = >= 511 m, 0 = N/A (default).
+    berth_depth: 0.1-25.4 m in 0.1 m steps, 25.5 = >= 25.5 m, 0 = N/A (default).
+
+    position (Mooring Position): 0 = not available (default), 1 = port-side to,
+    2 = starboard-side to, 3 = Mediterranean (end-on) mooring, 4 = mooring
+    buoy, 5 = anchorage, 6-7 = reserved.
+
+    availability is the master flag for the service fields that follow it: the
+    2-bit service values are only meaningful when it is set. Each service uses
+    0 = not available or requested (default), 1 = service available,
+    2 = no data or unknown, 3 = not to be used.
+
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_berthing_data_addressed
+    """
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=20, signed=False)
+    linkage = bit_field(10, int, default=0, signed=False)
+    berth_length = bit_field(9, int, default=0, signed=False)
+    berth_depth = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    position = bit_field(3, int, default=0, signed=False)
+    month = bit_field(4, int, default=0, signed=False)
+    day = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=24, signed=False)
+    minute = bit_field(6, int, default=60, signed=False)
+    availability = bit_field(1, bool, default=False, signed=False)
+    agent = bit_field(2, int, default=0, signed=False)
+    fuel = bit_field(2, int, default=0, signed=False)
+    chandler = bit_field(2, int, default=0, signed=False)
+    stevedore = bit_field(2, int, default=0, signed=False)
+    electrical = bit_field(2, int, default=0, signed=False)
+    water = bit_field(2, int, default=0, signed=False)
+    customs = bit_field(2, int, default=0, signed=False)
+    cartage = bit_field(2, int, default=0, signed=False)
+    crane = bit_field(2, int, default=0, signed=False)
+    lift = bit_field(2, int, default=0, signed=False)
+    medical = bit_field(2, int, default=0, signed=False)
+    navrepair = bit_field(2, int, default=0, signed=False)
+    provisions = bit_field(2, int, default=0, signed=False)
+    shiprepair = bit_field(2, int, default=0, signed=False)
+    surveyor = bit_field(2, int, default=0, signed=False)
+    steam = bit_field(2, int, default=0, signed=False)
+    tugs = bit_field(2, int, default=0, signed=False)
+    solidwaste = bit_field(2, int, default=0, signed=False)
+    liquidwaste = bit_field(2, int, default=0, signed=False)
+    hazardouswaste = bit_field(2, int, default=0, signed=False)
+    ballast = bit_field(2, int, default=0, signed=False)
+    additional = bit_field(2, int, default=0, signed=False)
+    regional1 = bit_field(2, int, default=0, signed=False)
+    regional2 = bit_field(2, int, default=0, signed=False)
+    future1 = bit_field(2, int, default=0, signed=False)
+    future2 = bit_field(2, int, default=0, signed=False)
+    berth_name = bit_field(120, str, default='')
+    berth_lon = bit_field(25, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    berth_lat = bit_field(24, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+
+
+@attr.s(slots=True)
 class MessageType8Dac1Fid31(Payload):
     """Meteorological and hydrological data (IMO289).
     DAC=1, FID=31."""
@@ -1862,7 +1935,7 @@ _MSG8_VARIANTS: typing.Dict[typing.Tuple[int, int], typing.Type[Payload]] = {
     (1, 16): MessageType8Dac1Fid16,
     (1, 17): MessageType8Dac1Fid17,
     (1, 19): MessageType8Dac1Fid19,
-    # (1, 20): MessageType8Dac1Fid20,
+    (1, 20): MessageType8Dac1Fid20,
     # (1, 21): MessageType8Dac1Fid21,
     # (1, 22): MessageType8Dac1Fid22,
     # (1, 23): MessageType8Dac1Fid23,
@@ -2752,7 +2825,7 @@ ANY_MESSAGE = typing.Union[
     MessageType8Dac1Fid16,
     MessageType8Dac1Fid17,
     MessageType8Dac1Fid19,
-    # MessageType8Dac1Fid20,
+    MessageType8Dac1Fid20,
     # MessageType8Dac1Fid21,
     # MessageType8Dac1Fid22,
     # MessageType8Dac1Fid23,

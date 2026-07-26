@@ -9,6 +9,7 @@ from pyais.messages import (
     MessageType8Dac1Fid16,
     MessageType8Dac1Fid17,
     MessageType8Dac1Fid19,
+    MessageType8Dac1Fid20,
     MessageType8Dac1Fid31,
 )
 
@@ -377,6 +378,224 @@ class MessageType8Tests(unittest.TestCase):
         decoded = decode(*[part.encode() for part in encoded])
         assert isinstance(decoded, MessageType8Dac1Fid19)
         self.assertEqual(decoded.station, "A" * 20)
+
+    # ---------------------------------------------------------------
+    # DAC=1, FID=20 -- Berthing data (IMO289), fixed 328 bits
+    # ---------------------------------------------------------------
+
+    def test_dac_1_fid_20_encode(self):
+        encoded = encode_dict({
+            "msg_type": 8,
+            "repeat": 0,
+            "mmsi": 2655619,
+            "dac": 1,
+            "fid": 20,
+            "linkage": 42,
+            "berth_length": 300,
+            "berth_depth": 12.5,
+            "position": 1,
+            "month": 7,
+            "day": 26,
+            "hour": 14,
+            "minute": 27,
+            "availability": True,
+            "agent": 1,
+            "fuel": 2,
+            "water": 1,
+            "tugs": 1,
+            "hazardouswaste": 3,
+            "berth_name": "KIEL OSTUFERHAFEN",
+            "berth_lon": 10.1394,
+            "berth_lat": 54.3233,
+        })
+        self.assertEqual(len(encoded), 1)
+        self.assertEqual(
+            encoded[0],
+            "!AIVDO,1,1,,A,802R5Ph0E0bUSrGlqfh20008H01I8aT1rJR`hbA08hah0009B6hig0H,2*09"
+        )
+
+    def test_dac_1_fid_20_decode(self):
+        decoded = decode(b"!AIVDM,1,1,,A,802R5Ph0E0bUSrGlqfh20008H01I8aT1rJR`hbA08hah0009B6hig0H,2*0B")
+        assert isinstance(decoded, MessageType8Dac1Fid20)
+        self.assertEqual(decoded.msg_type, 8)
+        self.assertEqual(decoded.repeat, 0)
+        self.assertEqual(decoded.mmsi, 2655619)
+        self.assertEqual(decoded.dac, 1)
+        self.assertEqual(decoded.fid, 20)
+        self.assertEqual(decoded.linkage, 42)
+        self.assertEqual(decoded.berth_length, 300)
+        self.assertEqual(decoded.berth_depth, 12.5)
+        self.assertEqual(decoded.position, 1)
+        self.assertEqual(decoded.month, 7)
+        self.assertEqual(decoded.day, 26)
+        self.assertEqual(decoded.hour, 14)
+        self.assertEqual(decoded.minute, 27)
+        self.assertTrue(decoded.availability)
+        self.assertEqual(decoded.agent, 1)
+        self.assertEqual(decoded.fuel, 2)
+        self.assertEqual(decoded.water, 1)
+        self.assertEqual(decoded.tugs, 1)
+        self.assertEqual(decoded.hazardouswaste, 3)
+        self.assertEqual(decoded.berth_name, "KIEL OSTUFERHAFEN")
+        self.assertEqual(decoded.berth_lon, 10.1394)
+        self.assertEqual(decoded.berth_lat, 54.3233)
+
+    def test_dac_1_fid_20_bit_layout_matches_spec(self):
+        """Hand-pack the 328 bits per the IMO289 table and decode them.
+
+        The application block is identical to the addressed Message 6 variant
+        (bits 88-359 there); here it sits behind the 56 bit Message 8 header.
+        This is deliberately not a round trip: it pins the field offsets and
+        widths against the specification independently of pyais' encoder.
+        """
+        bits = ''
+        bits += _twos(8, 6)                                    # Message ID
+        bits += _twos(0, 2)                                    # Repeat Indicator
+        bits += _twos(2655619, 30)                             # Source ID
+        bits += _twos(0, 2)                                    # Spare
+        bits += _twos(1, 10)                                   # DAC
+        bits += _twos(20, 6)                                   # FI
+        bits += _twos(42, 10)                                  # Message Linkage ID
+        bits += _twos(300, 9)                                  # Berth length
+        bits += _twos(125, 8)                                  # Berth water depth (0.1m)
+        bits += _twos(1, 3)                                    # Mooring position
+        bits += _twos(7, 4)                                    # UTC Month
+        bits += _twos(26, 5)                                   # UTC Day
+        bits += _twos(14, 5)                                   # UTC Hour
+        bits += _twos(27, 6)                                   # UTC Minute
+        bits += _twos(1, 1)                                    # Services availability
+        services = [
+            1,  # agent
+            2,  # fuel
+            0,  # chandler
+            0,  # stevedore
+            0,  # electrical
+            1,  # water
+            0,  # customs
+            0,  # cartage
+            0,  # crane
+            0,  # lift
+            0,  # medical
+            0,  # navrepair
+            0,  # provisions
+            0,  # shiprepair
+            0,  # surveyor
+            0,  # steam
+            1,  # tugs
+            0,  # solidwaste
+            0,  # liquidwaste
+            3,  # hazardouswaste
+            0,  # ballast
+            0,  # additional
+            0,  # regional1
+            0,  # regional2
+            0,  # future1
+            0,  # future2
+        ]
+        self.assertEqual(len(services), 26)
+        for service in services:
+            bits += _twos(service, 2)
+        name = "KIEL OSTUFERHAFEN".ljust(20, '@')
+        bits += ''.join(to_six_bit(c) for c in name)           # Name of berth
+        bits += _twos(round(10.1394 * 60000), 25)              # Longitude
+        bits += _twos(round(54.3233 * 60000), 24)              # Latitude
+        self.assertEqual(len(bits), 328)
+
+        data = int(bits, 2).to_bytes(len(bits) // 8, 'big')
+        payload, fill_bits = SixBitNibleEncoder().encode(data, len(bits))
+        sentences = ais_to_nmea_0183(payload, 'AI', 'VDM', 'A', fill_bits)
+        decoded = decode(*[part.encode() for part in sentences])
+
+        assert isinstance(decoded, MessageType8Dac1Fid20)
+        self.assertEqual(decoded.linkage, 42)
+        self.assertEqual(decoded.berth_length, 300)
+        self.assertEqual(decoded.berth_depth, 12.5)
+        self.assertEqual(decoded.position, 1)
+        self.assertEqual(decoded.month, 7)
+        self.assertEqual(decoded.day, 26)
+        self.assertEqual(decoded.hour, 14)
+        self.assertEqual(decoded.minute, 27)
+        self.assertTrue(decoded.availability)
+        self.assertEqual(decoded.agent, 1)
+        self.assertEqual(decoded.fuel, 2)
+        self.assertEqual(decoded.water, 1)
+        self.assertEqual(decoded.tugs, 1)
+        self.assertEqual(decoded.hazardouswaste, 3)
+        self.assertEqual(decoded.berth_name, "KIEL OSTUFERHAFEN")
+        self.assertEqual(decoded.berth_lon, 10.1394)
+        self.assertEqual(decoded.berth_lat, 54.3233)
+
+    def test_dac_1_fid_20_southern_western_hemisphere(self):
+        """Negative coordinates use 2's complement across 25/24 bit fields."""
+        encoded = encode_dict({
+            "msg_type": 8, "mmsi": 2655619, "dac": 1, "fid": 20,
+            "berth_lon": -70.6483, "berth_lat": -33.4569, "position": 5,
+        })
+        decoded = decode(*[part.encode() for part in encoded])
+        assert isinstance(decoded, MessageType8Dac1Fid20)
+        self.assertEqual(decoded.berth_lon, -70.6483)
+        self.assertEqual(decoded.berth_lat, -33.4569)
+        self.assertEqual(decoded.position, 5)
+
+    def test_dac_1_fid_20_not_available_defaults(self):
+        """Spec defaults: hour 24, minute 60, everything else zero/empty."""
+        encoded = encode_dict({"msg_type": 8, "mmsi": 2655619, "dac": 1, "fid": 20})
+        decoded = decode(*[part.encode() for part in encoded])
+        assert isinstance(decoded, MessageType8Dac1Fid20)
+        self.assertEqual(decoded.linkage, 0)
+        self.assertEqual(decoded.berth_length, 0)
+        self.assertEqual(decoded.berth_depth, 0)
+        self.assertEqual(decoded.position, 0)
+        self.assertEqual(decoded.month, 0)
+        self.assertEqual(decoded.day, 0)
+        self.assertEqual(decoded.hour, 24)
+        self.assertEqual(decoded.minute, 60)
+        self.assertFalse(decoded.availability)
+        self.assertEqual(decoded.berth_name, "")
+        self.assertEqual(decoded.berth_lon, 0)
+        self.assertEqual(decoded.berth_lat, 0)
+
+    def test_dac_1_fid_20_all_service_fields_round_trip(self):
+        """All 26 two-bit service fields are addressable and independent."""
+        names = [
+            'agent', 'fuel', 'chandler', 'stevedore', 'electrical', 'water',
+            'customs', 'cartage', 'crane', 'lift', 'medical', 'navrepair',
+            'provisions', 'shiprepair', 'surveyor', 'steam', 'tugs',
+            'solidwaste', 'liquidwaste', 'hazardouswaste', 'ballast',
+            'additional', 'regional1', 'regional2', 'future1', 'future2',
+        ]
+        # cycle through the four service status codes: 0, 1, 2, 3, 0, ...
+        values = {name: i % 4 for i, name in enumerate(names)}
+        message = {"msg_type": 8, "mmsi": 2655619, "dac": 1, "fid": 20, "availability": True}
+        message.update(values)
+
+        encoded = encode_dict(message)
+        decoded = decode(*[part.encode() for part in encoded])
+        assert isinstance(decoded, MessageType8Dac1Fid20)
+        self.assertTrue(decoded.availability)
+        for name, value in values.items():
+            self.assertEqual(getattr(decoded, name), value, name)
+
+    def test_dac_1_fid_20_berth_name_truncated_to_20_chars(self):
+        """The berth name field holds at most 20 six-bit characters."""
+        encoded = encode_dict({
+            "msg_type": 8, "mmsi": 2655619, "dac": 1, "fid": 20,
+            "berth_name": "B" * 30,
+        })
+        decoded = decode(*[part.encode() for part in encoded])
+        assert isinstance(decoded, MessageType8Dac1Fid20)
+        self.assertEqual(decoded.berth_name, "B" * 20)
+
+    def test_dac_1_fid_20_extremes(self):
+        """Sentinel/maximum values for the length and depth fields."""
+        encoded = encode_dict({
+            "msg_type": 8, "mmsi": 2655619, "dac": 1, "fid": 20,
+            "berth_length": 511, "berth_depth": 25.5,
+        })
+        decoded = decode(*[part.encode() for part in encoded])
+        assert isinstance(decoded, MessageType8Dac1Fid20)
+        self.assertEqual(decoded.berth_length, 511)
+        self.assertEqual(decoded.berth_depth, 25.5)
 
     def test_dac_1_fid_31_encode(self):
         encoded = encode_dict({
