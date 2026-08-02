@@ -28,12 +28,53 @@ B_VDM = b"VDM"
 B_VDO = b"VDO"
 B_GH = b"HP"
 TAG_BLOCK_START = b'\\'
+TAG_BLOCK_START_ORD = TAG_BLOCK_START[0]
 MAX_FRAG_CNT = 100
 MAX_PAYLOAD_LEN = 200
 
+# A stream carries only a handful of distinct sentence tags (b'!AIVDM',
+# b'!BSVDM', ...) and channels, repeated for every single line. Splitting and
+# decoding them once and caching the result turns a few slices plus two ASCII
+# decodes into a single dict lookup. The caches are capped so that a malformed
+# or hostile feed cannot grow them without bound.
+_MAX_PARSE_CACHE = 512
+_TAG_CACHE: typing.Dict[bytes, typing.Tuple[bytes, str, str]] = {}
+_ASCII_CACHE: typing.Dict[bytes, str] = {}
+# Fragment counts and sequence ids are small decimal numbers written the same
+# way every time; int() is comparatively expensive for such short inputs.
+_SMALL_INTS: typing.Dict[bytes, int] = {str(i).encode(): i for i in range(256)}
+# The trailing '<fill>*<checksum>' field has only a few thousand possible
+# values, so it repeats constantly across a stream. Caching the parse avoids a
+# split plus two int() conversions per sentence.
+_MAX_CHK_CACHE = 4096
+_CHK_CACHE: typing.Dict[bytes, typing.Tuple[int, int]] = {}
+
+
+def _split_tag(first_field: bytes) -> typing.Tuple[bytes, str, str]:
+    """Split a sentence tag into (delimiter, talker id, type code) and cache it."""
+    tag = (
+        first_field[:1],
+        first_field[1:3].decode('ascii'),
+        first_field[3:].decode('ascii'),
+    )
+    if len(_TAG_CACHE) >= _MAX_PARSE_CACHE:
+        _TAG_CACHE.clear()
+    _TAG_CACHE[first_field] = tag
+    return tag
+
+
+def _ascii(raw: bytes) -> str:
+    """Decode a short, frequently repeated ASCII field, with caching."""
+    val = raw.decode('ascii')
+    if len(_ASCII_CACHE) >= _MAX_PARSE_CACHE:
+        _ASCII_CACHE.clear()
+    _ASCII_CACHE[raw] = val
+    return val
+
 
 def bit_field(
-    width: int, d_type: typing.Type[typing.Any],
+    width: int,
+    d_type: typing.Type[typing.Any],
     from_converter: typing.Optional[typing.Callable[[typing.Any], typing.Any]] = None,
     to_converter: typing.Optional[typing.Callable[[typing.Any], typing.Any]] = None,
     default: typing.Optional[typing.Any] = None,
@@ -92,9 +133,7 @@ class NMEASentenceFactory:
     """
 
     @classmethod
-    def _pre_process(
-        cls, raw: bytes
-    ) -> typing.Tuple[bytes, typing.Optional[bytes]]:
+    def _pre_process(cls, raw: bytes) -> typing.Tuple[bytes, typing.Optional[bytes]]:
         """
         Preprocess the sentence.
         If the sentence has no tag block it is returned as is.
@@ -102,11 +141,10 @@ class NMEASentenceFactory:
         Example with tag block:
         >>> NMEASentenceFactory._pre_process(b'\\s:2573535,c:1671533231*08\\!BSVDM,2,2,8,B,00000000000,2*36')
         (b'!BSVDM,2,2,8,B,00000000000,2*36', b's:2573535,c:1671533231*08')
-
         """
         raw = raw.strip()
 
-        if raw[0] == ord(TAG_BLOCK_START):
+        if raw[0] == TAG_BLOCK_START_ORD:
             ix_start = 0
             ix_end = raw[1:].find(TAG_BLOCK_START) + 1
             tag_block = raw[ix_start + 1:ix_end]
@@ -116,35 +154,42 @@ class NMEASentenceFactory:
         return raw, None
 
     @classmethod
-    def _produce(cls, raw: bytes) -> "NMEASentence":
-        # Parse the first comma separated field
-        fields = raw.split(COMMA)
-        first_field = fields[0]
-        delimiter = first_field[:1]
-        type_code = first_field[3:]
-        type_code = type_code.upper()
-
-        if type_code == B_VDM or type_code == B_VDO:
-            return AISSentence(raw)
-        if delimiter == B_DOLLAR_SIGN:
-            if type_code == B_GH:
-                return GatehouseSentence(raw)
-
-        raise UnknownMessageException(raw)
-
-    @classmethod
     def produce(cls, raw: bytes) -> "NMEASentence":
         """Parse a single bytes string into an NMEA sentence."""
         if not isinstance(raw, bytes):
-            raise TypeError("message must be bytes")
+            raise TypeError(raw)
 
         if len(raw) == 0:
             raise InvalidNMEAMessageException("empty bytes")
 
-        raw_sentence, tb = cls._pre_process(raw)
-        sentence = cls._produce(raw_sentence)
-        if tb:
+        # The common case - a plain sentence with no tag block - is handled
+        # inline here. `_pre_process` and `_produce` remain usable on their
+        # own; they are only called for the rarer tag-block form.
+        raw_sentence = raw.strip()
+        tb = None
+        if raw_sentence[0] == TAG_BLOCK_START_ORD:
+            raw_sentence, tb = cls._pre_process(raw_sentence)
 
+        # [b'!AIVDM', b'1', b'1', b'', b'B', b'133S0:0P00PCsJ:MECBR0gv:0D8N', b'0*7F']
+        fields = raw_sentence.split(COMMA)
+
+        # b'!AIVDM'
+        first_field = fields[0]
+
+        # Almost every sentence is already upper case; only pay for .upper()
+        # when the tag does not match as-is.
+        type_code = first_field[3:]
+        if type_code != B_VDM and type_code != B_VDO:
+            type_code = type_code.upper()
+
+        if type_code == B_VDM or type_code == B_VDO:
+            sentence: NMEASentence = AISSentence(raw_sentence, fields)
+        elif first_field[:1] == B_DOLLAR_SIGN and type_code == B_GH:
+            sentence = GatehouseSentence(raw_sentence, fields)
+        else:
+            raise UnknownMessageException(raw_sentence)
+
+        if tb:
             sentence.tag_block = TagBlock(tb)
         return sentence
 
@@ -424,32 +469,37 @@ class NMEASentence(object):
 
     TYPE = "UNDEFINED"
 
-    def __init__(self, raw: bytes) -> None:
+    def __init__(self, raw: bytes, fields: typing.Optional[typing.List[bytes]] = None) -> None:
         if not isinstance(raw, bytes):
             raise ValueError(f"'NMEAMessage' only accepts bytes, but got '{type(raw)}'")
-
-        # Initial values
-        self.checksum: int = -1
 
         # Store raw data
         self.raw: bytes = raw
 
-        # A NMEA message consists of comma separated parts
-        fields = raw.split(b",")
+        # A NMEA message consists of comma separated parts. The factory has
+        # usually split them already - only split again when called directly.
+        if fields is None:
+            fields = raw.split(COMMA)
 
         # The first field of a sentence is called the "tag" and normally consists
         # of a two-letter talker ID followed by a three-letter type code.
-        first_field = fields[0]
-        self.delimiter = first_field[:1]
-        self.talker_id = first_field[1:3].decode('ascii')
-        self.type = first_field[3:].decode('ascii')
+        first_field = fields[0]  # b'!AIVDM'
+        tag = _TAG_CACHE.get(first_field)
+        if tag is None:
+            tag = _split_tag(first_field)  # (b'!', 'AI', 'VDM')}
+        self.delimiter, self.talker_id, self.type = tag
 
-        checksum = fields[-1]
-        fill, check = chk_to_int(checksum)
-        # Fill bits (0 to 5)
-        self.fill_bits: int = fill
-        # Message Checksum (hex value)
-        self.checksum = check
+        checksum_field = fields[-1]  # b'0*45'
+        parsed = _CHK_CACHE.get(checksum_field)
+        if parsed is None:
+            parsed = chk_to_int(checksum_field)
+            if len(_CHK_CACHE) >= _MAX_CHK_CACHE:
+                _CHK_CACHE.clear()
+            _CHK_CACHE[checksum_field] = parsed
+        # Fill bits (0 to 5) and message checksum (hex value)
+        self.fill_bits: int = parsed[0]
+        self.checksum = parsed[1]
+
         # Set the checksum valid field
         self._is_valid: bool | None = None
 
@@ -511,12 +561,12 @@ class GatehouseSentence(NMEASentence):
         'timestamp',
     )
 
-    def __init__(self, raw: bytes) -> None:
-        super().__init__(raw)
+    def __init__(self, raw: bytes, fields: typing.Optional[typing.List[bytes]] = None) -> None:
+        super().__init__(raw, fields)
 
-        fields = self.data_fields
+        data_fields = self.data_fields
         try:
-            [year, month, day, hour, minute, second, millisecond] = fields[1:8]
+            [year, month, day, hour, minute, second, millisecond] = data_fields[1:8]
             t = datetime.datetime(
                 year=int(year),
                 month=int(month),
@@ -527,13 +577,13 @@ class GatehouseSentence(NMEASentence):
                 microsecond=int(millisecond) * 1000
             )
             # MMSI country code where the message originates from
-            self.country = fields[8].decode('ascii')
+            self.country = data_fields[8].decode('ascii')
             # The MMSI number of the region
-            self.region = fields[9].decode('ascii')
+            self.region = data_fields[9].decode('ascii')
             # MMSI number of the site transponder
-            self.pss = fields[10].decode('ascii')
+            self.pss = data_fields[10].decode('ascii')
             # buffered data from a BSC will be designated with 0, online data with 1
-            self.online_data = int(fields[11])
+            self.online_data = int(data_fields[11])
         except Exception as err:
             raise InvalidNMEAMessageException(raw) from err
 
@@ -554,8 +604,8 @@ class AISSentence(NMEASentence):
         'channel',
     )
 
-    def __init__(self, raw: bytes) -> None:
-        super().__init__(raw)
+    def __init__(self, raw: bytes, fields: typing.Optional[typing.List[bytes]] = None) -> None:
+        super().__init__(raw, fields)
 
         try:
             # Unpack NMEA message parts
@@ -567,14 +617,26 @@ class AISSentence(NMEASentence):
                 payload,
             ) = self.data_fields[:5]
 
+            # These are all short decimal numbers and single letters that repeat
+            # on every line, so the cached lookups below hit almost every time.
             # Total number of fragments
-            self.frag_cnt: int = int(message_fragments)
+            frag_cnt = _SMALL_INTS.get(message_fragments)
+            self.frag_cnt: int = int(message_fragments) if frag_cnt is None else frag_cnt
+
             # Current fragment index
-            self.frag_num: int = int(fragment_number)
+            frag_num = _SMALL_INTS.get(fragment_number)
+            self.frag_num: int = int(fragment_number) if frag_num is None else frag_num
+
             # Optional message index for multiline messages
-            self.seq_id: Optional[int] = int(message_id) if message_id else None
+            if message_id:
+                seq_id = _SMALL_INTS.get(message_id)
+                self.seq_id: Optional[int] = int(message_id) if seq_id is None else seq_id
+            else:
+                self.seq_id = None
+
             # Channel (A or B)
-            self.channel: str = channel.decode('ascii')
+            chan = _ASCII_CACHE.get(channel)
+            self.channel: str = _ascii(channel) if chan is None else chan
             # Decoded message payload as byte string
             self.payload: bytes = payload
 
@@ -588,7 +650,7 @@ class AISSentence(NMEASentence):
             raise InvalidNMEAMessageException("Too many fragments")
 
         # Finally decode bytes into bits
-        self.bv = bit_vector(self.payload, self.fill_bits)
+        self.bv = bit_vector(payload, self.fill_bits)
         self.ais_id = self.bv.get(0, 6)
 
     def asdict(self) -> Dict[str, Any]:
