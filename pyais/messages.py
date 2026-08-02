@@ -1285,11 +1285,9 @@ def _decode_area_notice_subareas(data: bytes) -> typing.List[typing.Dict[str, ty
             points = []
             for k in range(4):
                 off = base + 5 + k * 20
-                angle = _asm_bits(data, off, 10)
                 points.append({
-                    'angle': angle,
                     # True bearing in half-degree steps; 720 (= 360.0) is N/A.
-                    'bearing': angle * 0.5,
+                    'bearing': _asm_bits(data, off, 10) * 0.5,
                     # 0 = no point / no vertex.
                     'distance': _asm_bits(data, off + 10, 10) * factor,
                 })

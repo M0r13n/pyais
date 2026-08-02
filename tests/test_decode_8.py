@@ -1076,18 +1076,18 @@ class MessageType8Dac1Fid22Tests(unittest.TestCase):
         # Bearings are half-degree steps, so 90 raw is 45 degrees.
         self.assertEqual(areas[3], {
             'shape': 3, 'scale': 0, 'points': [
-                {'angle': 90.0, 'bearing': 45.0, 'distance': 500},
-                {'angle': 180.0, 'bearing': 90.0, 'distance': 300},
-                {'angle': 720.0, 'bearing': 360.0, 'distance': 0},   # 720 = N/A
-                {'angle': 720.0, 'bearing': 360.0, 'distance': 0},
+                {'bearing': 45.0, 'distance': 500},
+                {'bearing': 90.0, 'distance': 300},
+                {'bearing': 360.0, 'distance': 0},   # 720 = N/A
+                {'bearing': 360.0, 'distance': 0},
             ],
         })
         self.assertEqual(areas[4], {
             'shape': 4, 'scale': 0, 'points': [
-                {'angle': 00.0, 'bearing': 0.0, 'distance': 100},
-                {'angle': 180.0, 'bearing': 90.0, 'distance': 100},
-                {'angle': 360.0, 'bearing': 180.0, 'distance': 100},
-                {'angle': 540.0, 'bearing': 270.0, 'distance': 100},
+                {'bearing': 0.0, 'distance': 100},
+                {'bearing': 90.0, 'distance': 100},
+                {'bearing': 180.0, 'distance': 100},
+                {'bearing': 270.0, 'distance': 100},
             ],
         })
         self.assertEqual(areas[5], {'shape': 5, 'text': 'DIVERS DOWN'})
