@@ -1226,6 +1226,102 @@ def _decode_synthetic_targets(data: bytes) -> typing.List[typing.Dict[str, typin
     return out
 
 
+# A single Area Notice sub-area indication: a 3-bit shape selector followed by
+# an 84-bit shape-specific payload (IMO289, DAC=1/FID=22 and DAC=1/FID=23).
+_AREA_NOTICE_SUBAREA_BITS = 87
+_AREA_NOTICE_MAX_SUBAREAS = 10
+
+# Sub-area shape selectors.
+AREA_NOTICE_SHAPE_CIRCLE = 0
+AREA_NOTICE_SHAPE_RECTANGLE = 1
+AREA_NOTICE_SHAPE_SECTOR = 2
+AREA_NOTICE_SHAPE_POLYLINE = 3
+AREA_NOTICE_SHAPE_POLYGON = 4
+AREA_NOTICE_SHAPE_TEXT = 5
+
+
+def _decode_area_notice_subareas(data: bytes) -> typing.List[typing.Dict[str, typing.Any]]:
+    """Decode 1-10 Area Notice sub-area indications (87 bits each).
+
+    Each record starts with a 3-bit shape selector that determines how the
+    remaining 84 bits are laid out. Shapes 0-2 carry an absolute position,
+    shapes 3-4 carry offsets from the preceding shape, and shape 5 carries
+    free text.
+
+    `scale` is a power-of-ten multiplier for the linear dimensions of the
+    record. It is reported as-is, and the dimensions it applies to (radius,
+    east, north, distance) are returned already multiplied out, in metres.
+    """
+    out: typing.List[typing.Dict[str, typing.Any]] = []
+    if not data:
+        return out
+
+    n = min((len(data) * 8) // _AREA_NOTICE_SUBAREA_BITS, _AREA_NOTICE_MAX_SUBAREAS)
+    for i in range(n):
+
+        # 3-bit shape selector. Same for every shape.
+        base = i * _AREA_NOTICE_SUBAREA_BITS
+        shape = _asm_bits(data, base, 3)
+        area: typing.Dict[str, typing.Any] = {'shape': shape}
+
+        if shape == AREA_NOTICE_SHAPE_TEXT:
+            # 14 six-bit characters filling the whole 84-bit payload.
+            area['text'] = decode_bytes_as_ascii6(data, base + 3, 84).rstrip('@ ')
+            out.append(area)
+            continue
+
+        if shape > AREA_NOTICE_SHAPE_TEXT:
+            # 6-7 are reserved: keep the raw payload rather than guess a layout.
+            area['data'] = _asm_bits(data, base + 3, 84)
+            out.append(area)
+            continue
+
+        scale = _asm_bits(data, base + 3, 2)
+        factor = 10 ** scale
+        area['scale'] = scale
+
+        if shape in (AREA_NOTICE_SHAPE_POLYLINE, AREA_NOTICE_SHAPE_POLYGON):
+            # Four (bearing, distance) pairs of 20 bits; the last 2 bits spare.
+            points = []
+            for k in range(4):
+                off = base + 5 + k * 20
+                angle = _asm_bits(data, off, 10)
+                points.append({
+                    'angle': angle,
+                    # True bearing in half-degree steps; 720 (= 360.0) is N/A.
+                    'bearing': angle * 0.5,
+                    # 0 = no point / no vertex.
+                    'distance': _asm_bits(data, off + 10, 10) * factor,
+                })
+            area['points'] = points
+            out.append(area)
+            continue
+
+        # Shapes 0-2 share a common position block.
+        area['lon'] = round(_asm_bits(data, base + 5, 25, signed=True) / 60000.0, 5)
+        area['lat'] = round(_asm_bits(data, base + 30, 24, signed=True) / 60000.0, 5)
+        area['precision'] = _asm_bits(data, base + 54, 3)
+
+        if shape == AREA_NOTICE_SHAPE_CIRCLE:
+            # 0 = the shape is a point rather than a circle.
+            area['radius'] = _asm_bits(data, base + 57, 12) * factor
+        elif shape == AREA_NOTICE_SHAPE_RECTANGLE:
+            # 0 = degenerate box, i.e. a N/S line (east) or an E/W line (north).
+            area['east'] = _asm_bits(data, base + 57, 8) * factor
+            area['north'] = _asm_bits(data, base + 65, 8) * factor
+            # Degrees clockwise from true north; 0 = no rotation.
+            area['orientation'] = _asm_bits(data, base + 73, 9)
+        else:  # AREA_NOTICE_SHAPE_SECTOR
+            area['radius'] = _asm_bits(data, base + 57, 12) * factor
+            # Sector boundaries, degrees clockwise from true north.
+            area['left'] = _asm_bits(data, base + 69, 9)
+            area['right'] = _asm_bits(data, base + 78, 9)
+
+        out.append(area)
+
+    return out
+
+
 class CommunicationStateMixin:
     """
     Mixin class to access Communication State values by applicable messages.
@@ -1824,6 +1920,56 @@ class MessageType8Dac1Fid21NonWmo(Payload):
 
 
 @attr.s(slots=True)
+class MessageType8Dac1Fid22(Payload):
+    """Area Notice (broadcast) (IMO289). DAC=1, FID=22.
+
+    Broadcasts time- and location-dependent information about hazards to
+    navigation. There is a related addressed form as Message 6, DAC=1/FID=23,
+    which uses the same sub-area records behind a different header.
+
+    Variable length: a fixed 111-bit header followed by 1 to 10 sub-area
+    indications of 87 bits each, so 198 to 981 bits in total. The sub-areas
+    live in a raw region; use .sub_areas to decode them.
+
+    notice (Notice Description) is a 7-bit code from the IMO289 table, grouped
+    in blocks of 8: 0-21 caution areas, 23-30 environmental caution areas,
+    32-38 restricted areas, 40-45 anchorage areas, 56-58 security alerts,
+    64-76 distress areas, 80-85 instructions, 88-95 information, 96-108 chart
+    features, 112-114 reports from ship, 120-122 routes, 125 = other (see the
+    associated text), 126 = cancel the area identified by linkage,
+    127 = undefined (default).
+
+    duration is the notice lifetime in minutes measured from the UTC timestamp,
+    with 0 = cancel this notice and 262143 = N/A (default).
+
+    linkage ties the notice to a text message sent with the same linkage ID;
+    in this context it also acts as the identifier of the area itself, which
+    is what a notice of 126 cancels.
+
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_area_notice_broadcast
+    """
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=22, signed=False)
+    linkage = bit_field(10, int, default=0, signed=False)
+    notice = bit_field(7, int, default=127, signed=False)
+    month = bit_field(4, int, default=0, signed=False)
+    day = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=24, signed=False)
+    minute = bit_field(6, int, default=60, signed=False)
+    duration = bit_field(18, int, default=262143, signed=False)
+    area_data = bit_field(870, bytes, default=b'', variable_length=True)
+
+    @property
+    def sub_areas(self) -> typing.List[typing.Dict[str, typing.Any]]:
+        """Decode the 1-10 sub-area indications (shape and shape-specific fields)."""
+        return _decode_area_notice_subareas(self.area_data)
+
+
+@attr.s(slots=True)
 class MessageType8Dac1Fid31(Payload):
     """Meteorological and hydrological data (IMO289).
     DAC=1, FID=31."""
@@ -2068,7 +2214,7 @@ _MSG8_VARIANTS: typing.Dict[typing.Tuple[int, int], typing.Type[Payload]] = {
     (1, 19): MessageType8Dac1Fid19,
     (1, 20): MessageType8Dac1Fid20,
     (1, 21): MessageType8Dac1Fid21,
-    # (1, 22): MessageType8Dac1Fid22,
+    (1, 22): MessageType8Dac1Fid22,
     # (1, 23): MessageType8Dac1Fid23,
     # (1, 24): MessageType8Dac1Fid24,
     # (1, 25): MessageType8Dac1Fid25,
@@ -2958,7 +3104,7 @@ ANY_MESSAGE = typing.Union[
     MessageType8Dac1Fid19,
     MessageType8Dac1Fid20,
     MessageType8Dac1Fid21NonWmo,
-    # MessageType8Dac1Fid22,
+    MessageType8Dac1Fid22,
     # MessageType8Dac1Fid23,
     # MessageType8Dac1Fid24,
     # MessageType8Dac1Fid25,

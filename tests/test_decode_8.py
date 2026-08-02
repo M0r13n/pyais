@@ -12,6 +12,7 @@ from pyais.messages import (
     MessageType8Dac1Fid19,
     MessageType8Dac1Fid20,
     MessageType8Dac1Fid21NonWmo,
+    MessageType8Dac1Fid22,
     MessageType8Dac1Fid31,
 )
 
@@ -53,6 +54,86 @@ def _pack_targets(targets) -> bytes:
         bits += _twos(second, 6)
         bits += _twos(speed, 8)
     return int(bits, 2).to_bytes(len(bits) // 8, 'big') if bits else b''
+
+
+def _to_sentences(bits: str):
+    """Turn a bit string of any length into AIVDM sentence(s)."""
+    padded = bits + '0' * (-len(bits) % 8)
+    data = int(padded, 2).to_bytes(len(padded) // 8, 'big')
+    payload, fill_bits = SixBitNibleEncoder().encode(data, len(bits))
+    sentences = ais_to_nmea_0183(payload, 'AI', 'VDM', 'A', fill_bits)
+    return [part.encode() for part in sentences]
+
+
+def _area_notice_header(**over) -> str:
+    """Pack the fixed 111-bit Area Notice header (IMO289 DAC=1/FID=22)."""
+    bits = _twos(8, 6)                                  # Message Type
+    bits += _twos(over.get('repeat', 0), 2)             # Repeat Indicator
+    bits += _twos(over.get('mmsi', 366999707), 30)      # Source MMSI
+    bits += '00'                                        # Spare
+    bits += _twos(1, 10)                                # DAC
+    bits += _twos(22, 6)                                # FID
+    bits += _twos(over.get('linkage', 42), 10)          # Message Linkage ID
+    bits += _twos(over.get('notice', 10), 7)            # Notice Description
+    bits += _twos(over.get('month', 7), 4)              # Month (UTC)
+    bits += _twos(over.get('day', 26), 5)               # Day (UTC)
+    bits += _twos(over.get('hour', 14), 5)              # Hour (UTC)
+    bits += _twos(over.get('minute', 27), 6)            # Minute (UTC)
+    bits += _twos(over.get('duration', 120), 18)        # Duration in minutes
+    assert len(bits) == 111
+    return bits
+
+
+def _sub_circle(lon, lat, radius, scale=0, precision=4) -> str:
+    bits = _twos(0, 3) + _twos(scale, 2)
+    bits += _twos(round(lon * 60000), 25) + _twos(round(lat * 60000), 24)
+    bits += _twos(precision, 3) + _twos(radius, 12) + '0' * 18
+    assert len(bits) == 87
+    return bits
+
+
+def _sub_rectangle(lon, lat, east, north, orientation, scale=0, precision=4) -> str:
+    bits = _twos(1, 3) + _twos(scale, 2)
+    bits += _twos(round(lon * 60000), 25) + _twos(round(lat * 60000), 24)
+    bits += _twos(precision, 3) + _twos(east, 8) + _twos(north, 8)
+    bits += _twos(orientation, 9) + '0' * 5
+    assert len(bits) == 87
+    return bits
+
+
+def _sub_sector(lon, lat, radius, left, right, scale=0, precision=4) -> str:
+    bits = _twos(2, 3) + _twos(scale, 2)
+    bits += _twos(round(lon * 60000), 25) + _twos(round(lat * 60000), 24)
+    bits += _twos(precision, 3) + _twos(radius, 12)
+    bits += _twos(left, 9) + _twos(right, 9)
+    assert len(bits) == 87
+    return bits
+
+
+def _sub_waypoints(shape, points, scale=0) -> str:
+    """Polyline (shape 3) or polygon (shape 4): four (bearing, distance) pairs."""
+    bits = _twos(shape, 3) + _twos(scale, 2)
+    for bearing, distance in points:
+        bits += _twos(bearing, 10) + _twos(distance, 10)
+    bits += '00'
+    assert len(bits) == 87
+    return bits
+
+
+def _sub_text(text) -> str:
+    bits = _twos(5, 3) + _sixbit(text, 14)
+    assert len(bits) == 87
+    return bits
+
+
+def _pack_sub_areas(bits: str) -> bytes:
+    """Left-align a run of 87-bit sub-area records into whole bytes.
+
+    87 is not a multiple of 8, so the records are padded on the right rather
+    than truncated to a byte boundary.
+    """
+    padded = bits + '0' * (-len(bits) % 8)
+    return int(padded, 2).to_bytes(len(padded) // 8, 'big')
 
 
 # (id_type, target_id, lat, lon, course, second, speed)
@@ -915,6 +996,250 @@ class MessageType8Tests(unittest.TestCase):
         self.assertEqual(decoded.wgust, 127)
         self.assertEqual(decoded.wgustdir, 360)
         self.assertEqual(decoded.wspeed, 127)
+
+
+class MessageType8Dac1Fid22Tests(unittest.TestCase):
+    """IMO289 Area Notice (broadcast). DAC=1, FID=22."""
+
+    def test_real_world_right_whale_notice(self):
+        """A real NOAA right whale area notice: one circle sub-area.
+
+        Notice 0 is "Caution Area: Marine mammals habitat" and the radius is
+        926 at scale factor 1, i.e. 9260 m, which is exactly 5 nautical miles.
+        """
+        decoded = decode(b"!AIVDM,1,1,,B,803Ovrh0EP:024`@02PN04da=3V<>N0000,4*39")
+
+        assert isinstance(decoded, MessageType8Dac1Fid22)
+        self.assertEqual(decoded.msg_type, 8)
+        self.assertEqual(decoded.repeat, 0)
+        self.assertEqual(decoded.mmsi, 3669739)
+        self.assertEqual(decoded.dac, 1)
+        self.assertEqual(decoded.fid, 22)
+        self.assertEqual(decoded.linkage, 10)
+        self.assertEqual(decoded.notice, 0)
+        self.assertEqual(decoded.month, 1)
+        self.assertEqual(decoded.day, 1)
+        self.assertEqual(decoded.hour, 5)
+        self.assertEqual(decoded.minute, 2)
+        self.assertEqual(decoded.duration, 20)
+
+        self.assertEqual(len(decoded.sub_areas), 1)
+        self.assertEqual(decoded.sub_areas[0], {
+            'shape': 0,
+            'scale': 1,
+            'lon': -69.86498,
+            'lat': 42.08295,
+            'precision': 4,
+            'radius': 9260,
+        })
+
+    def test_bit_layout_matches_spec(self):
+        """Hand-pack the header plus one sub-area of every shape."""
+        bits = _area_notice_header()
+        bits += _sub_circle(-70.8, 42.3, radius=250, scale=1)
+        bits += _sub_rectangle(-70.9, 42.2, east=200, north=150, orientation=45)
+        bits += _sub_sector(-70.7, 42.4, radius=1000, left=30, right=120)
+        bits += _sub_waypoints(3, [(90, 500), (180, 300), (720, 0), (720, 0)])
+        bits += _sub_waypoints(4, [(0, 100), (180, 100), (360, 100), (540, 100)])
+        bits += _sub_text("DIVERS DOWN")
+        # 111-bit header + 6 sub-areas of 87 bits
+        self.assertEqual(len(bits), 111 + 6 * 87)
+
+        decoded = decode(*_to_sentences(bits))
+
+        assert isinstance(decoded, MessageType8Dac1Fid22)
+        self.assertEqual(decoded.mmsi, 366999707)
+        self.assertEqual(decoded.linkage, 42)
+        self.assertEqual(decoded.notice, 10)  # Caution Area: Divers down
+        self.assertEqual(decoded.month, 7)
+        self.assertEqual(decoded.day, 26)
+        self.assertEqual(decoded.hour, 14)
+        self.assertEqual(decoded.minute, 27)
+        self.assertEqual(decoded.duration, 120)
+
+        areas = decoded.sub_areas
+        self.assertEqual(len(areas), 6)
+
+        # Circle: radius is scaled by 10^scale, so 250 at scale 1 is 2500 m.
+        self.assertEqual(areas[0], {
+            'shape': 0, 'scale': 1, 'lon': -70.8, 'lat': 42.3,
+            'precision': 4, 'radius': 2500,
+        })
+        self.assertEqual(areas[1], {
+            'shape': 1, 'scale': 0, 'lon': -70.9, 'lat': 42.2,
+            'precision': 4, 'east': 200, 'north': 150, 'orientation': 45,
+        })
+        self.assertEqual(areas[2], {
+            'shape': 2, 'scale': 0, 'lon': -70.7, 'lat': 42.4,
+            'precision': 4, 'radius': 1000, 'left': 30, 'right': 120,
+        })
+        # Bearings are half-degree steps, so 90 raw is 45 degrees.
+        self.assertEqual(areas[3], {
+            'shape': 3, 'scale': 0, 'points': [
+                {'angle': 90.0, 'bearing': 45.0, 'distance': 500},
+                {'angle': 180.0, 'bearing': 90.0, 'distance': 300},
+                {'angle': 720.0, 'bearing': 360.0, 'distance': 0},   # 720 = N/A
+                {'angle': 720.0, 'bearing': 360.0, 'distance': 0},
+            ],
+        })
+        self.assertEqual(areas[4], {
+            'shape': 4, 'scale': 0, 'points': [
+                {'angle': 00.0, 'bearing': 0.0, 'distance': 100},
+                {'angle': 180.0, 'bearing': 90.0, 'distance': 100},
+                {'angle': 360.0, 'bearing': 180.0, 'distance': 100},
+                {'angle': 540.0, 'bearing': 270.0, 'distance': 100},
+            ],
+        })
+        self.assertEqual(areas[5], {'shape': 5, 'text': 'DIVERS DOWN'})
+
+    def test_scale_factor_applies_to_linear_dimensions(self):
+        """Each scale step multiplies radius/east/north/distance by ten."""
+        for scale, radius in ((0, 4095), (1, 40950), (2, 409500), (3, 4095000)):
+            bits = _area_notice_header() + _sub_circle(0.0, 0.0, 4095, scale=scale)
+            decoded = decode(*_to_sentences(bits))
+            assert isinstance(decoded, MessageType8Dac1Fid22)
+            self.assertEqual(decoded.sub_areas[0]['radius'], radius)
+
+        bits = _area_notice_header() + _sub_rectangle(0.0, 0.0, 255, 255, 0, scale=2)
+        decoded = decode(*_to_sentences(bits))
+        assert isinstance(decoded, MessageType8Dac1Fid22)
+        self.assertEqual(decoded.sub_areas[0]['east'], 25500)
+        self.assertEqual(decoded.sub_areas[0]['north'], 25500)
+
+        bits = _area_notice_header() + _sub_waypoints(3, [(0, 1023)] * 4, scale=3)
+        decoded = decode(*_to_sentences(bits))
+        assert isinstance(decoded, MessageType8Dac1Fid22)
+        self.assertEqual(decoded.sub_areas[0]['points'][0]['distance'], 1023000)
+
+    def test_single_and_maximum_sub_area_counts(self):
+        """1 sub-area is the minimum (198 bits) and 10 the maximum (981 bits)."""
+        bits = _area_notice_header() + _sub_text("ONE")
+        self.assertEqual(len(bits), 198)
+        decoded = decode(*_to_sentences(bits))
+        assert isinstance(decoded, MessageType8Dac1Fid22)
+        self.assertEqual(len(decoded.sub_areas), 1)
+        self.assertEqual(decoded.sub_areas[0]['text'], 'ONE')
+
+        bits = _area_notice_header()
+        for i in range(10):
+            bits += _sub_circle(1.0 * i, 2.0 * i, radius=i)
+        self.assertEqual(len(bits), 981)
+        decoded = decode(*_to_sentences(bits))
+        assert isinstance(decoded, MessageType8Dac1Fid22)
+        self.assertEqual(len(decoded.sub_areas), 10)
+        self.assertEqual(decoded.sub_areas[9]['lon'], 9.0)
+        self.assertEqual(decoded.sub_areas[9]['lat'], 18.0)
+        self.assertEqual(decoded.sub_areas[9]['radius'], 9)
+
+    def test_defaults_and_na_sentinels(self):
+        """The N/A defaults from the spec table survive a round trip."""
+        bits = _area_notice_header(
+            notice=127,      # Undefined (default)
+            month=0,         # N/A
+            day=0,           # N/A
+            hour=24,         # N/A
+            minute=60,       # N/A
+            duration=262143  # N/A
+        )
+        bits += _sub_text("")
+        decoded = decode(*_to_sentences(bits))
+
+        assert isinstance(decoded, MessageType8Dac1Fid22)
+        self.assertEqual(decoded.notice, 127)
+        self.assertEqual(decoded.month, 0)
+        self.assertEqual(decoded.day, 0)
+        self.assertEqual(decoded.hour, 24)
+        self.assertEqual(decoded.minute, 60)
+        self.assertEqual(decoded.duration, 262143)
+        self.assertEqual(decoded.sub_areas[0], {'shape': 5, 'text': ''})
+
+    def test_notice_126_cancels_the_area_by_linkage_id(self):
+        """Notice 126 plus duration 0 is the documented cancellation form."""
+        bits = _area_notice_header(notice=126, linkage=1023, duration=0)
+        bits += _sub_circle(-70.8, 42.3, radius=0)
+        decoded = decode(*_to_sentences(bits))
+
+        assert isinstance(decoded, MessageType8Dac1Fid22)
+        self.assertEqual(decoded.notice, 126)
+        self.assertEqual(decoded.linkage, 1023)
+        self.assertEqual(decoded.duration, 0)
+        # radius 0 means the shape is a point rather than a circle
+        self.assertEqual(decoded.sub_areas[0]['radius'], 0)
+
+    def test_reserved_shapes_are_kept_raw(self):
+        """Shapes 6-7 are reserved, so the payload is not guessed at."""
+        for shape in (6, 7):
+            bits = _area_notice_header() + _twos(shape, 3) + _twos(12345, 84)
+            decoded = decode(*_to_sentences(bits))
+            assert isinstance(decoded, MessageType8Dac1Fid22)
+            self.assertEqual(decoded.sub_areas[0], {'shape': shape, 'data': 12345})
+
+    def test_negative_and_extreme_coordinates(self):
+        """Positions are signed 1/1000-minute values."""
+        bits = _area_notice_header()
+        bits += _sub_circle(-179.99998, -89.99998, radius=1)
+        bits += _sub_circle(179.99998, 89.99998, radius=1)
+        decoded = decode(*_to_sentences(bits))
+
+        assert isinstance(decoded, MessageType8Dac1Fid22)
+        self.assertEqual(decoded.sub_areas[0]['lon'], -179.99998)
+        self.assertEqual(decoded.sub_areas[0]['lat'], -89.99998)
+        self.assertEqual(decoded.sub_areas[1]['lon'], 179.99998)
+        self.assertEqual(decoded.sub_areas[1]['lat'], 89.99998)
+
+    def test_encode_decode_round_trip(self):
+        """Build a message with create()/encode_msg() and read it back."""
+        area_bits = _sub_circle(11.5, 55.25, radius=300)
+        area_bits += _sub_text("SURVEY OPS")
+        area_data = _pack_sub_areas(area_bits)
+
+        encoded = encode_msg(MessageType8Dac1Fid22.create(
+            mmsi='219000001',
+            linkage=7,
+            notice=13,  # Caution Area: Survey operations
+            month=3,
+            day=9,
+            hour=6,
+            minute=45,
+            duration=600,
+            area_data=area_data,
+        ))
+        decoded = decode(*encoded)
+
+        assert isinstance(decoded, MessageType8Dac1Fid22)
+        self.assertEqual(decoded.mmsi, 219000001)
+        self.assertEqual(decoded.dac, 1)
+        self.assertEqual(decoded.fid, 22)
+        self.assertEqual(decoded.linkage, 7)
+        self.assertEqual(decoded.notice, 13)
+        self.assertEqual(decoded.duration, 600)
+        self.assertEqual(len(decoded.sub_areas), 2)
+        self.assertEqual(decoded.sub_areas[0]['lon'], 11.5)
+        self.assertEqual(decoded.sub_areas[0]['lat'], 55.25)
+        self.assertEqual(decoded.sub_areas[0]['radius'], 300)
+        self.assertEqual(decoded.sub_areas[1]['text'], 'SURVEY OPS')
+
+    def test_encode_dict_round_trip(self):
+        """The (dac, fid) pair routes through encode_dict as well."""
+        area_data = _pack_sub_areas(_sub_text("HIGH WIND"))
+        encoded = encode_dict({
+            'msg_type': 8,
+            'mmsi': '219000001',
+            'dac': 1,
+            'fid': 22,
+            'notice': 26,  # Environmental Caution Area: High wind
+            'area_data': area_data,
+        })
+        decoded = decode(*encoded)
+
+        assert isinstance(decoded, MessageType8Dac1Fid22)
+        self.assertEqual(decoded.notice, 26)
+        self.assertEqual(decoded.sub_areas[0]['text'], 'HIGH WIND')
+
+    def test_empty_area_region_yields_no_sub_areas(self):
+        """A header-only message decodes without raising."""
+        decoded = MessageType8Dac1Fid22.create(mmsi='219000001')
+        self.assertEqual(decoded.sub_areas, [])
 
 
 if __name__ == "__main__":
