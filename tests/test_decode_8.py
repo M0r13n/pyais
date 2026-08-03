@@ -15,6 +15,7 @@ from pyais.messages import (
     MessageType8Dac1Fid22,
     MessageType8Dac1Fid24,
     MessageType8Dac1Fid26,
+    MessageType8Dac1Fid27,
     MessageType8Dac1Fid31,
 )
 from pyais.constants import SOLASStatus, IceClass
@@ -1753,6 +1754,205 @@ class MessageType8Dac1Fid26Tests(unittest.TestCase):
     def test_dispatch_is_registered_not_default(self):
         """DAC=1/FID=26 must route to the structured class, not the fallback."""
         decoded = MessageType8Dac1Fid26.create(mmsi='219000001')
+        self.assertNotIsInstance(decoded, MessageType8Default)
+
+
+def _route_header(**over) -> str:
+    """Pack the fixed 117-bit Route Information header (IMO289 DAC=1/FID=27)."""
+    bits = _twos(8, 6)                                  # Message Type
+    bits += _twos(over.get('repeat', 0), 2)             # Repeat Indicator
+    bits += _twos(over.get('mmsi', 366999707), 30)      # Source MMSI
+    bits += '00'                                        # Spare
+    bits += _twos(1, 10)                                # DAC
+    bits += _twos(27, 6)                                # FID
+    bits += _twos(over.get('linkage', 5), 10)           # Message Linkage ID
+    bits += _twos(over.get('sender', 0), 3)             # Sender Class
+    bits += _twos(over.get('rtype', 2), 5)              # Route Type
+    bits += _twos(over.get('month', 6), 4)              # Start month (UTC)
+    bits += _twos(over.get('day', 15), 5)               # Start day (UTC)
+    bits += _twos(over.get('hour', 10), 5)              # Start hour (UTC)
+    bits += _twos(over.get('minute', 30), 6)            # Start minute (UTC)
+    bits += _twos(over.get('duration', 120), 18)        # Duration
+    bits += _twos(over.get('waycount', 0), 5)           # Waypoint count
+    return bits
+
+
+def _route_waypoint(lon: float, lat: float) -> str:
+    """Pack a single 55-bit (lon, lat) waypoint."""
+    return _twos(round(lon * 600000), 28) + _twos(round(lat * 600000), 27)
+
+
+class MessageType8Dac1Fid27Tests(unittest.TestCase):
+    """IMO289 Route Information (broadcast). DAC=1, FID=27."""
+
+    def test_bit_layout_matches_spec(self):
+        """Hand-pack the header plus three waypoints and decode them back."""
+        bits = _route_header(
+            linkage=99, sender=1, rtype=4, month=11, day=22, hour=8,
+            minute=45, duration=600, waycount=3,
+        )
+        bits += _route_waypoint(-70.5, 42.3)
+        bits += _route_waypoint(-70.6, 42.4)
+        bits += _route_waypoint(-70.7, 42.5)
+        # 117-bit header + 3 waypoints of 55 bits
+        self.assertEqual(len(bits), 117 + 3 * 55)
+
+        decoded = decode(*_to_sentences(bits))
+
+        assert isinstance(decoded, MessageType8Dac1Fid27)
+        self.assertEqual(decoded.msg_type, 8)
+        self.assertEqual(decoded.mmsi, 366999707)
+        self.assertEqual(decoded.dac, 1)
+        self.assertEqual(decoded.fid, 27)
+        self.assertEqual(decoded.linkage, 99)
+        self.assertEqual(decoded.sender, 1)
+        self.assertEqual(decoded.rtype, 4)
+        self.assertEqual(decoded.month, 11)
+        self.assertEqual(decoded.day, 22)
+        self.assertEqual(decoded.hour, 8)
+        self.assertEqual(decoded.minute, 45)
+        self.assertEqual(decoded.duration, 600)
+        self.assertEqual(decoded.waycount, 3)
+
+        waypoints = decoded.waypoints
+        self.assertEqual(len(waypoints), 3)
+        self.assertEqual(waypoints[0], {'lon': -70.5, 'lat': 42.3})
+        self.assertEqual(waypoints[1], {'lon': -70.6, 'lat': 42.4})
+        self.assertEqual(waypoints[2], {'lon': -70.7, 'lat': 42.5})
+
+    def test_defaults_and_na_sentinels(self):
+        """The N/A defaults from the spec table survive a round trip."""
+        bits = _route_header(
+            sender=0,
+            rtype=0,       # Undefined (default)
+            month=0,       # N/A
+            day=0,         # N/A
+            hour=24,       # N/A
+            minute=60,     # N/A
+            duration=262143,  # N/A (default)
+            waycount=0,
+        )
+        decoded = decode(*_to_sentences(bits))
+
+        assert isinstance(decoded, MessageType8Dac1Fid27)
+        self.assertEqual(decoded.sender, 0)
+        self.assertEqual(decoded.rtype, 0)
+        self.assertEqual(decoded.month, 0)
+        self.assertEqual(decoded.day, 0)
+        self.assertEqual(decoded.hour, 24)
+        self.assertEqual(decoded.minute, 60)
+        self.assertEqual(decoded.duration, 262143)
+        self.assertEqual(decoded.waycount, 0)
+        self.assertEqual(decoded.waypoints, [])
+
+    def test_cancel_route_via_duration_zero(self):
+        """Duration 0 is the documented 'cancel route' form."""
+        bits = _route_header(linkage=7, duration=0, waycount=0)
+        decoded = decode(*_to_sentences(bits))
+
+        assert isinstance(decoded, MessageType8Dac1Fid27)
+        self.assertEqual(decoded.linkage, 7)
+        self.assertEqual(decoded.duration, 0)
+
+    def test_single_and_maximum_waypoint_counts(self):
+        """1 waypoint is the minimum (172 bits) and 16 the maximum (997 bits)."""
+        bits = _route_header(waycount=1) + _route_waypoint(0.0, 0.0)
+        self.assertEqual(len(bits), 172)
+        decoded = decode(*_to_sentences(bits))
+        assert isinstance(decoded, MessageType8Dac1Fid27)
+        self.assertEqual(len(decoded.waypoints), 1)
+
+        bits = _route_header(waycount=16)
+        for i in range(16):
+            bits += _route_waypoint(1.0 * i, 2.0 * i)
+        self.assertEqual(len(bits), 997)
+        decoded = decode(*_to_sentences(bits))
+        assert isinstance(decoded, MessageType8Dac1Fid27)
+        self.assertEqual(len(decoded.waypoints), 16)
+        self.assertEqual(decoded.waypoints[15], {'lon': 15.0, 'lat': 30.0})
+
+    def test_waycount_clamped_to_available_data(self):
+        """A waycount that overstates the data doesn't fabricate waypoints."""
+        bits = _route_header(waycount=5) + _route_waypoint(1.0, 2.0)
+        decoded = decode(*_to_sentences(bits))
+        assert isinstance(decoded, MessageType8Dac1Fid27)
+        self.assertEqual(decoded.waycount, 5)
+        self.assertEqual(len(decoded.waypoints), 1)
+
+    def test_negative_and_extreme_coordinates(self):
+        """Positions are signed 1/10000-minute values."""
+        bits = _route_header(waycount=2)
+        bits += _route_waypoint(-179.99998, -89.99998)
+        bits += _route_waypoint(179.99998, 89.99998)
+        decoded = decode(*_to_sentences(bits))
+
+        assert isinstance(decoded, MessageType8Dac1Fid27)
+        self.assertEqual(decoded.waypoints[0], {'lon': -179.99998, 'lat': -89.99998})
+        self.assertEqual(decoded.waypoints[1], {'lon': 179.99998, 'lat': 89.99998})
+
+    def test_encode_decode_round_trip(self):
+        """Build a message with create()/encode_msg() and read it back."""
+        wp_bits = _route_waypoint(11.5, 55.25) + _route_waypoint(11.6, 55.30)
+        padded = wp_bits + '0' * (-len(wp_bits) % 8)
+        waypoints_data = int(padded, 2).to_bytes(len(padded) // 8, 'big')
+
+        encoded = encode_msg(MessageType8Dac1Fid27.create(
+            mmsi='219000001',
+            linkage=3,
+            sender=1,
+            rtype=2,
+            month=5,
+            day=17,
+            hour=9,
+            minute=0,
+            duration=90,
+            waycount=2,
+            waypoints_data=waypoints_data,
+        ))
+        decoded = decode(*encoded)
+
+        assert isinstance(decoded, MessageType8Dac1Fid27)
+        self.assertEqual(decoded.mmsi, 219000001)
+        self.assertEqual(decoded.dac, 1)
+        self.assertEqual(decoded.fid, 27)
+        self.assertEqual(decoded.linkage, 3)
+        self.assertEqual(decoded.sender, 1)
+        self.assertEqual(decoded.rtype, 2)
+        self.assertEqual(decoded.duration, 90)
+        self.assertEqual(decoded.waycount, 2)
+        self.assertEqual(len(decoded.waypoints), 2)
+        self.assertEqual(decoded.waypoints[0], {'lon': 11.5, 'lat': 55.25})
+        self.assertEqual(decoded.waypoints[1], {'lon': 11.6, 'lat': 55.3})
+
+    def test_encode_dict_round_trip(self):
+        """The (dac, fid) pair routes through encode_dict as well."""
+        wp_bits = _route_waypoint(-70.5, 42.3)
+        padded = wp_bits + '0' * (-len(wp_bits) % 8)
+        waypoints_data = int(padded, 2).to_bytes(len(padded) // 8, 'big')
+
+        encoded = encode_dict({
+            'msg_type': 8,
+            'mmsi': '219000001',
+            'dac': 1,
+            'fid': 27,
+            'rtype': 4,  # Recommended route through ice
+            'waycount': 1,
+            'waypoints_data': waypoints_data,
+        })
+        decoded = decode(*encoded)
+
+        assert isinstance(decoded, MessageType8Dac1Fid27)
+        self.assertEqual(decoded.rtype, 4)
+        self.assertEqual(decoded.waypoints, [{'lon': -70.5, 'lat': 42.3}])
+
+    def test_empty_waypoints_region_yields_no_waypoints(self):
+        """A header-only message decodes without raising."""
+        decoded = MessageType8Dac1Fid27.create(mmsi='219000001')
+        self.assertEqual(decoded.waypoints, [])
+
+    def test_dispatch_is_registered_not_default(self):
+        """DAC=1/FID=27 must route to the structured class, not the fallback."""
+        decoded = MessageType8Dac1Fid27.create(mmsi='219000001')
         self.assertNotIsInstance(decoded, MessageType8Default)
 
 

@@ -1533,6 +1533,30 @@ def _decode_environmental_reports(data: bytes) -> typing.List[typing.Dict[str, t
     return out
 
 
+# A single Route Information waypoint: signed longitude/latitude at the same
+# 1/10000-minute resolution as the Common Navigation Block (IMO289,
+# DAC=1/FID=27, and its addressed equivalent DAC=1/FID=28).
+_ROUTE_WAYPOINT_BITS = 55
+_ROUTE_MAX_WAYPOINTS = 16
+
+
+def _decode_route_waypoints(data: bytes, waycount: int) -> typing.List[typing.Dict[str, float]]:
+    """Decode up to 16 (lon, lat) waypoints, 55 bits each."""
+    out: typing.List[typing.Dict[str, float]] = []
+    if not data:
+        return out
+
+    available = (len(data) * 8) // _ROUTE_WAYPOINT_BITS
+    n = max(0, min(waycount, _ROUTE_MAX_WAYPOINTS, available))
+    for i in range(n):
+        base = i * _ROUTE_WAYPOINT_BITS
+        out.append({
+            'lon': round(_asm_bits(data, base, 28, signed=True) / 600000.0, 5),
+            'lat': round(_asm_bits(data, base + 28, 27, signed=True) / 600000.0, 5),
+        })
+    return out
+
+
 class CommunicationStateMixin:
     """
     Mixin class to access Communication State values by applicable messages.
@@ -2282,6 +2306,43 @@ class MessageType8Dac1Fid26(Payload):
 
 
 @attr.s(slots=True)
+class MessageType8Dac1Fid27(Payload):
+    """Route Information (broadcast) (IMO289). DAC=1, FID=27.
+
+    Conveys a start time and a list of waypoints describing a course. There
+    is an addressed equivalent, Message 6, DAC=1/FID=28, using the same
+    fields and waypoint records behind a different (addressed) header.
+
+    Variable length: a fixed 117-bit header followed by 1 to 16 waypoints
+    of 55 bits each, so 172 to 997 bits in total. The waypoints live in a
+    raw region; use `.waypoints` to decode them, bounded by `waycount`.
+
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_route_information_broadcast
+    """
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=27, signed=False)
+    linkage = bit_field(10, int, default=0, signed=False)
+    sender = bit_field(3, int, default=0, signed=False)
+    rtype = bit_field(5, int, default=0, signed=False)
+    month = bit_field(4, int, default=0, signed=False)
+    day = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=24, signed=False)
+    minute = bit_field(6, int, default=60, signed=False)
+    duration = bit_field(18, int, default=262143, signed=False)
+    waycount = bit_field(5, int, default=0, signed=False)
+    waypoints_data = bit_field(880, bytes, default=b'', variable_length=True)
+
+    @property
+    def waypoints(self) -> typing.List[typing.Dict[str, float]]:
+        """Decode up to `waycount` (lon, lat) waypoints, 55 bits each."""
+        return _decode_route_waypoints(self.waypoints_data, self.waycount)
+
+
+@attr.s(slots=True)
 class MessageType8Dac1Fid31(Payload):
     """Meteorological and hydrological data (IMO289).
     DAC=1, FID=31."""
@@ -2528,9 +2589,8 @@ _MSG8_VARIANTS: typing.Dict[typing.Tuple[int, int], typing.Type[Payload]] = {
     (1, 21): MessageType8Dac1Fid21,
     (1, 22): MessageType8Dac1Fid22,
     (1, 24): MessageType8Dac1Fid24,
-    # (1, 25): MessageType8Dac1Fid25,
     (1, 26): MessageType8Dac1Fid26,
-    # (1, 27): MessageType8Dac1Fid27,
+    (1, 27): MessageType8Dac1Fid27,
     # (1, 29): MessageType8Dac1Fid29,
     (1, 31): MessageType8Dac1Fid31,
     (200, 10): MessageType8Dac200Fid10,
@@ -3417,9 +3477,8 @@ ANY_MESSAGE = typing.Union[
     MessageType8Dac1Fid21NonWmo,
     MessageType8Dac1Fid22,
     MessageType8Dac1Fid24,
-    # MessageType8Dac1Fid25,
     MessageType8Dac1Fid26,
-    # MessageType8Dac1Fid27,
+    MessageType8Dac1Fid27,
     # MessageType8Dac1Fid29,
     MessageType8Dac1Fid31,
     MessageType8Dac200Fid10,
