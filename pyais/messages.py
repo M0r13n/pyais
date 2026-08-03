@@ -9,11 +9,31 @@ from typing import Any, Dict, Optional, Sequence, Union
 import attr
 
 from pyais.bit_vector import bit_vector
-from pyais.constants import AtoNDimensionType, AtoNRestrictedUseInidicator, AtoNSationType, EMMATypeCodes, EMMAWinds, SignalImpact, SignalStatus, TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
-    TransmitMode, StationIntervals, TurnRate, InlandLoadedType
+from pyais.constants import (
+    AtoNDimensionType,
+    AtoNRestrictedUseInidicator,
+    AtoNSationType,
+    EMMATypeCodes,
+    EMMAWinds,
+    IceClass,
+    SOLASStatus,
+    SignalImpact,
+    SignalStatus,
+    TalkerID,
+    NavigationStatus,
+    ManeuverIndicator,
+    EpfdType,
+    ShipType,
+    NavAid,
+    StationType,
+    TransmitMode,
+    StationIntervals,
+    TurnRate,
+    InlandLoadedType
+)
 from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitializedException, UnknownMessageException, UnknownPartNoException, \
     InvalidDataTypeException, MissingPayloadException
-from pyais.util import SIX_BIT_ENCODING, ParsedDimensions, SixBitNibleEncoder, checksum, compute_checksum, get_itdma_comm_state, get_sotdma_comm_state, chk_to_int, coerce_val, b64encode_str, is_auxiliary_craft, parse_dimensions
+from pyais.util import SIX_BIT_ENCODING, ParsedDimensions, SixBitNibleEncoder, checksum, compute_checksum, decode_bytes_as_ascii6, get_itdma_comm_state, get_sotdma_comm_state, chk_to_int, coerce_val, b64encode_str, is_auxiliary_craft, parse_dimensions
 
 NMEA_VALUE = typing.Union[str, float, int, bool, bytes]
 _ConverterFunc = typing.Callable[[NMEA_VALUE,], NMEA_VALUE]
@@ -28,12 +48,53 @@ B_VDM = b"VDM"
 B_VDO = b"VDO"
 B_GH = b"HP"
 TAG_BLOCK_START = b'\\'
+TAG_BLOCK_START_ORD = TAG_BLOCK_START[0]
 MAX_FRAG_CNT = 100
 MAX_PAYLOAD_LEN = 200
 
+# A stream carries only a handful of distinct sentence tags (b'!AIVDM',
+# b'!BSVDM', ...) and channels, repeated for every single line. Splitting and
+# decoding them once and caching the result turns a few slices plus two ASCII
+# decodes into a single dict lookup. The caches are capped so that a malformed
+# or hostile feed cannot grow them without bound.
+_MAX_PARSE_CACHE = 512
+_TAG_CACHE: typing.Dict[bytes, typing.Tuple[bytes, str, str]] = {}
+_ASCII_CACHE: typing.Dict[bytes, str] = {}
+# Fragment counts and sequence ids are small decimal numbers written the same
+# way every time; int() is comparatively expensive for such short inputs.
+_SMALL_INTS: typing.Dict[bytes, int] = {str(i).encode(): i for i in range(256)}
+# The trailing '<fill>*<checksum>' field has only a few thousand possible
+# values, so it repeats constantly across a stream. Caching the parse avoids a
+# split plus two int() conversions per sentence.
+_MAX_CHK_CACHE = 4096
+_CHK_CACHE: typing.Dict[bytes, typing.Tuple[int, int]] = {}
+
+
+def _split_tag(first_field: bytes) -> typing.Tuple[bytes, str, str]:
+    """Split a sentence tag into (delimiter, talker id, type code) and cache it."""
+    tag = (
+        first_field[:1],
+        first_field[1:3].decode('ascii'),
+        first_field[3:].decode('ascii'),
+    )
+    if len(_TAG_CACHE) >= _MAX_PARSE_CACHE:
+        _TAG_CACHE.clear()
+    _TAG_CACHE[first_field] = tag
+    return tag
+
+
+def _ascii(raw: bytes) -> str:
+    """Decode a short, frequently repeated ASCII field, with caching."""
+    val = raw.decode('ascii')
+    if len(_ASCII_CACHE) >= _MAX_PARSE_CACHE:
+        _ASCII_CACHE.clear()
+    _ASCII_CACHE[raw] = val
+    return val
+
 
 def bit_field(
-    width: int, d_type: typing.Type[typing.Any],
+    width: int,
+    d_type: typing.Type[typing.Any],
     from_converter: typing.Optional[typing.Callable[[typing.Any], typing.Any]] = None,
     to_converter: typing.Optional[typing.Callable[[typing.Any], typing.Any]] = None,
     default: typing.Optional[typing.Any] = None,
@@ -92,9 +153,7 @@ class NMEASentenceFactory:
     """
 
     @classmethod
-    def _pre_process(
-        cls, raw: bytes
-    ) -> typing.Tuple[bytes, typing.Optional[bytes]]:
+    def _pre_process(cls, raw: bytes) -> typing.Tuple[bytes, typing.Optional[bytes]]:
         """
         Preprocess the sentence.
         If the sentence has no tag block it is returned as is.
@@ -102,11 +161,10 @@ class NMEASentenceFactory:
         Example with tag block:
         >>> NMEASentenceFactory._pre_process(b'\\s:2573535,c:1671533231*08\\!BSVDM,2,2,8,B,00000000000,2*36')
         (b'!BSVDM,2,2,8,B,00000000000,2*36', b's:2573535,c:1671533231*08')
-
         """
         raw = raw.strip()
 
-        if raw[0] == ord(TAG_BLOCK_START):
+        if raw[0] == TAG_BLOCK_START_ORD:
             ix_start = 0
             ix_end = raw[1:].find(TAG_BLOCK_START) + 1
             tag_block = raw[ix_start + 1:ix_end]
@@ -114,23 +172,6 @@ class NMEASentenceFactory:
             return raw[ix_end + 1:], tag_block
 
         return raw, None
-
-    @classmethod
-    def _produce(cls, raw: bytes) -> "NMEASentence":
-        # Parse the first comma separated field
-        fields = raw.split(COMMA)
-        first_field = fields[0]
-        delimiter = first_field[:1]
-        type_code = first_field[3:]
-        type_code = type_code.upper()
-
-        if type_code == B_VDM or type_code == B_VDO:
-            return AISSentence(raw)
-        if delimiter == B_DOLLAR_SIGN:
-            if type_code == B_GH:
-                return GatehouseSentence(raw)
-
-        raise UnknownMessageException(raw)
 
     @classmethod
     def produce(cls, raw: bytes) -> "NMEASentence":
@@ -141,10 +182,32 @@ class NMEASentenceFactory:
         if len(raw) == 0:
             raise InvalidNMEAMessageException("empty bytes")
 
-        raw_sentence, tb = cls._pre_process(raw)
-        sentence = cls._produce(raw_sentence)
-        if tb:
+        # The common case, a plain sentence with no tag block, is handled inline
+        raw_sentence = raw.strip()
+        tb = None
+        if raw_sentence[0] == TAG_BLOCK_START_ORD:
+            raw_sentence, tb = cls._pre_process(raw_sentence)
 
+        # [b'!AIVDM', b'1', b'1', b'', b'B', b'133S0:0P00PCsJ:MECBR0gv:0D8N', b'0*7F']
+        fields = raw_sentence.split(COMMA)
+
+        # b'!AIVDM'
+        first_field = fields[0]
+
+        # Almost every sentence is already upper case; only pay for .upper()
+        # when the tag does not match as-is.
+        type_code = first_field[3:]
+        if type_code != B_VDM and type_code != B_VDO:
+            type_code = type_code.upper()
+
+        if type_code == B_VDM or type_code == B_VDO:
+            sentence: NMEASentence = AISSentence(raw_sentence, fields)
+        elif first_field[:1] == B_DOLLAR_SIGN and type_code == B_GH:
+            sentence = GatehouseSentence(raw_sentence, fields)
+        else:
+            raise UnknownMessageException(raw_sentence)
+
+        if tb:
             sentence.tag_block = TagBlock(tb)
         return sentence
 
@@ -424,32 +487,37 @@ class NMEASentence(object):
 
     TYPE = "UNDEFINED"
 
-    def __init__(self, raw: bytes) -> None:
+    def __init__(self, raw: bytes, fields: typing.Optional[typing.List[bytes]] = None) -> None:
         if not isinstance(raw, bytes):
             raise ValueError(f"'NMEAMessage' only accepts bytes, but got '{type(raw)}'")
-
-        # Initial values
-        self.checksum: int = -1
 
         # Store raw data
         self.raw: bytes = raw
 
-        # A NMEA message consists of comma separated parts
-        fields = raw.split(b",")
+        # A NMEA message consists of comma separated parts. The factory has
+        # usually split them already - only split again when called directly.
+        if fields is None:
+            fields = raw.split(COMMA)
 
         # The first field of a sentence is called the "tag" and normally consists
         # of a two-letter talker ID followed by a three-letter type code.
-        first_field = fields[0]
-        self.delimiter = first_field[:1]
-        self.talker_id = first_field[1:3].decode('ascii')
-        self.type = first_field[3:].decode('ascii')
+        first_field = fields[0]  # b'!AIVDM'
+        tag = _TAG_CACHE.get(first_field)
+        if tag is None:
+            tag = _split_tag(first_field)  # (b'!', 'AI', 'VDM')}
+        self.delimiter, self.talker_id, self.type = tag
 
-        checksum = fields[-1]
-        fill, check = chk_to_int(checksum)
-        # Fill bits (0 to 5)
-        self.fill_bits: int = fill
-        # Message Checksum (hex value)
-        self.checksum = check
+        checksum_field = fields[-1]  # b'0*45'
+        parsed = _CHK_CACHE.get(checksum_field)
+        if parsed is None:
+            parsed = chk_to_int(checksum_field)
+            if len(_CHK_CACHE) >= _MAX_CHK_CACHE:
+                _CHK_CACHE.clear()
+            _CHK_CACHE[checksum_field] = parsed
+        # Fill bits (0 to 5) and message checksum (hex value)
+        self.fill_bits: int = parsed[0]
+        self.checksum = parsed[1]
+
         # Set the checksum valid field
         self._is_valid: bool | None = None
 
@@ -511,12 +579,12 @@ class GatehouseSentence(NMEASentence):
         'timestamp',
     )
 
-    def __init__(self, raw: bytes) -> None:
-        super().__init__(raw)
+    def __init__(self, raw: bytes, fields: typing.Optional[typing.List[bytes]] = None) -> None:
+        super().__init__(raw, fields)
 
-        fields = self.data_fields
+        data_fields = self.data_fields
         try:
-            [year, month, day, hour, minute, second, millisecond] = fields[1:8]
+            [year, month, day, hour, minute, second, millisecond] = data_fields[1:8]
             t = datetime.datetime(
                 year=int(year),
                 month=int(month),
@@ -527,13 +595,13 @@ class GatehouseSentence(NMEASentence):
                 microsecond=int(millisecond) * 1000
             )
             # MMSI country code where the message originates from
-            self.country = fields[8].decode('ascii')
+            self.country = data_fields[8].decode('ascii')
             # The MMSI number of the region
-            self.region = fields[9].decode('ascii')
+            self.region = data_fields[9].decode('ascii')
             # MMSI number of the site transponder
-            self.pss = fields[10].decode('ascii')
+            self.pss = data_fields[10].decode('ascii')
             # buffered data from a BSC will be designated with 0, online data with 1
-            self.online_data = int(fields[11])
+            self.online_data = int(data_fields[11])
         except Exception as err:
             raise InvalidNMEAMessageException(raw) from err
 
@@ -554,8 +622,8 @@ class AISSentence(NMEASentence):
         'channel',
     )
 
-    def __init__(self, raw: bytes) -> None:
-        super().__init__(raw)
+    def __init__(self, raw: bytes, fields: typing.Optional[typing.List[bytes]] = None) -> None:
+        super().__init__(raw, fields)
 
         try:
             # Unpack NMEA message parts
@@ -567,14 +635,26 @@ class AISSentence(NMEASentence):
                 payload,
             ) = self.data_fields[:5]
 
+            # These are all short decimal numbers and single letters that repeat
+            # on every line, so the cached lookups below hit almost every time.
             # Total number of fragments
-            self.frag_cnt: int = int(message_fragments)
+            frag_cnt = _SMALL_INTS.get(message_fragments)
+            self.frag_cnt: int = int(message_fragments) if frag_cnt is None else frag_cnt
+
             # Current fragment index
-            self.frag_num: int = int(fragment_number)
+            frag_num = _SMALL_INTS.get(fragment_number)
+            self.frag_num: int = int(fragment_number) if frag_num is None else frag_num
+
             # Optional message index for multiline messages
-            self.seq_id: Optional[int] = int(message_id) if message_id else None
+            if message_id:
+                seq_id = _SMALL_INTS.get(message_id)
+                self.seq_id: Optional[int] = int(message_id) if seq_id is None else seq_id
+            else:
+                self.seq_id = None
+
             # Channel (A or B)
-            self.channel: str = channel.decode('ascii')
+            chan = _ASCII_CACHE.get(channel)
+            self.channel: str = _ascii(channel) if chan is None else chan
             # Decoded message payload as byte string
             self.payload: bytes = payload
 
@@ -588,7 +668,7 @@ class AISSentence(NMEASentence):
             raise InvalidNMEAMessageException("Too many fragments")
 
         # Finally decode bytes into bits
-        self.bv = bit_vector(self.payload, self.fill_bits)
+        self.bv = bit_vector(payload, self.fill_bits)
         self.ais_id = self.bv.get(0, 6)
 
     def asdict(self) -> Dict[str, Any]:
@@ -987,6 +1067,15 @@ def to_lat_lon_600(v: typing.Union[int, float]) -> float:
     return round(float(v) / 600.0, 6)
 
 
+def from_lat_lon_60000(v: typing.Union[int, float]) -> float:
+    # coordinates expressed in 1/1000 minutes (scale 1/60000 of a degree)
+    return round(float(v) * 60000.0)
+
+
+def to_lat_lon_60000(v: typing.Union[int, float]) -> float:
+    return round(float(v) / 60000.0, 6)
+
+
 def from_10th(v: typing.Union[int, float]) -> float:
     return float(v) * 10.0
 
@@ -1025,6 +1114,445 @@ def from_turn(turn: typing.Optional[typing.Union[int, float, TurnRate]]) -> int:
         return int(turn)
 
     return int(math.copysign(round(4.733 * math.sqrt(abs(turn))), turn))
+
+
+def from_airtemp_leg(v: typing.Union[int, float]) -> float:
+    # legacy FID=11 air temperature: value = raw * 0.1 - 60
+    return round((float(v) + 60.0) / 0.1)
+
+
+def to_airtemp_leg(v: typing.Union[int, float]) -> float:
+    return round(float(v) * 0.1 - 60.0, 1)
+
+
+def from_dewpt_leg(v: typing.Union[int, float]) -> float:
+    return round((float(v) + 20.0) / 0.1)
+
+
+def to_dewpt_leg(v: typing.Union[int, float]) -> float:
+    return round(float(v) * 0.1 - 20.0, 1)
+
+
+def from_press800(v: typing.Union[int, float]) -> int:
+    return int(round(v)) - 800
+
+
+def to_press800(v: typing.Union[int, float]) -> int:
+    return int(v) + 800
+
+
+def from_wl_leg(v: typing.Union[int, float]) -> float:
+    return round((float(v) + 10.0) / 0.1)
+
+
+def to_wl_leg(v: typing.Union[int, float]) -> float:
+    return round(float(v) * 0.1 - 10.0, 1)
+
+
+def from_press799(v: typing.Union[int, float]) -> int:
+    # pressure in hPa, transmitted as (value - 799)
+    return int(round(v)) - 799
+
+
+def to_press799(v: typing.Union[int, float]) -> int:
+    return int(v) + 799
+
+
+def from_wl31(v: typing.Union[int, float]) -> float:
+    # FID=31 water level: value = raw * 0.01 - 10
+    return round((float(v) + 10.0) / 0.01)
+
+
+def to_wl31(v: typing.Union[int, float]) -> float:
+    return round(float(v) * 0.01 - 10.0, 2)
+
+
+def _asm_bits(data: bytes, offset: int, length: int, signed: bool = False) -> int:
+    """Read `length` bits at bit `offset` (MSB-first) from an ASM data region."""
+    if not data:
+        return 0
+    total = len(data) * 8
+    if offset + length > total:
+        return 0
+    acc = int.from_bytes(data, 'big')
+    val = (acc >> (total - offset - length)) & ((1 << length) - 1)
+    if signed and (val & (1 << (length - 1))):
+        val -= (1 << length)
+    return val
+
+
+# Bit offsets inside a single 120-bit VTS target record.
+# IALA IFM 16, Table 44 (identical to the IFM 17 target record).
+_VTS_TARGET_BITS = 120
+_VTS_MAX_TARGETS = 7
+
+
+def _decode_vts_targets(data: bytes,
+                        max_targets: int = _VTS_MAX_TARGETS) -> typing.List[typing.Dict[str, typing.Any]]:
+    """Decode up to `max_targets` VTS target records from a data region.
+
+    Each record is 120 bits (IALA IFM 16, Table 44):
+    id_type(2), target_id(42), spare(4), lat(24), lon(25), course(9), second(6), speed(8)
+
+    `target_id` is decoded as six-bit ASCII when `id_type` is 2 (call sign),
+    otherwise it is returned as an unsigned integer (MMSI or IMO number).
+    """
+    out: typing.List[typing.Dict[str, typing.Any]] = []
+    if not data:
+        return out
+    n = min((len(data) * 8) // _VTS_TARGET_BITS, max_targets)
+    for i in range(n):
+        base = i * _VTS_TARGET_BITS
+        id_type = _asm_bits(data, base, 2)
+        target_id: typing.Union[int, str]
+        if id_type == 2:
+            target_id = decode_bytes_as_ascii6(data, base + 2, 42)
+        else:
+            target_id = _asm_bits(data, base + 2, 42)
+        out.append({
+            'id_type': id_type,
+            'target_id': target_id,
+            'lat': round(_asm_bits(data, base + 48, 24, signed=True) / 60000.0, 6),
+            'lon': round(_asm_bits(data, base + 72, 25, signed=True) / 60000.0, 6),
+            'course': _asm_bits(data, base + 97, 9),
+            'second': _asm_bits(data, base + 106, 6),
+            'speed': _asm_bits(data, base + 112, 8),
+        })
+    return out
+
+
+def _decode_synthetic_targets(data: bytes) -> typing.List[typing.Dict[str, typing.Any]]:
+    """Decode 1-4 synthetic targets (120 bits each) from a FID=17 region."""
+    out: typing.List[typing.Dict[str, typing.Any]] = []
+    if not data:
+        return out
+    n = min((len(data) * 8) // 120, 4)
+    for i in range(n):
+        base = i * 120
+        chars = []
+        for k in range(7):
+            c = _asm_bits(data, base + 2 + k * 6, 6)
+            chars.append(chr(c + 64) if c < 32 else chr(c))
+        ident = ''.join(chars).rstrip('@ ')
+        out.append({
+            'id': ident,
+            'lat': round(_asm_bits(data, base + 48, 24, signed=True) / 60000.0, 5),
+            'lon': round(_asm_bits(data, base + 72, 25, signed=True) / 60000.0, 5),
+            'course': _asm_bits(data, base + 97, 9),
+            'speed': _asm_bits(data, base + 112, 8),
+        })
+    return out
+
+
+# A single Area Notice sub-area indication: a 3-bit shape selector followed by
+# an 84-bit shape-specific payload (IMO289, DAC=1/FID=22 and DAC=1/FID=23).
+_AREA_NOTICE_SUBAREA_BITS = 87
+_AREA_NOTICE_MAX_SUBAREAS = 10
+
+# Sub-area shape selectors.
+AREA_NOTICE_SHAPE_CIRCLE = 0
+AREA_NOTICE_SHAPE_RECTANGLE = 1
+AREA_NOTICE_SHAPE_SECTOR = 2
+AREA_NOTICE_SHAPE_POLYLINE = 3
+AREA_NOTICE_SHAPE_POLYGON = 4
+AREA_NOTICE_SHAPE_TEXT = 5
+
+# Sub Area Types
+_AREA_TYPE_STR = {0: 'circle', 1: 'rectangle', 2: 'sector', 3: 'polyline', 4: 'polygon', 5: 'text'}
+
+
+def _decode_area_notice_subareas(data: bytes) -> typing.List[typing.Dict[str, typing.Any]]:
+    """Decode 1-10 Area Notice sub-area indications (87 bits each).
+
+    Each record starts with a 3-bit shape selector that determines how the
+    remaining 84 bits are laid out. Shapes 0-2 carry an absolute position,
+    shapes 3-4 carry offsets from the preceding shape, and shape 5 carries
+    free text.
+
+    `scale` is a power-of-ten multiplier for the linear dimensions of the
+    record. It is reported as-is, and the dimensions it applies to (radius,
+    east, north, distance) are returned already multiplied out, in metres.
+    """
+    out: typing.List[typing.Dict[str, typing.Any]] = []
+    if not data:
+        return out
+
+    n = min((len(data) * 8) // _AREA_NOTICE_SUBAREA_BITS, _AREA_NOTICE_MAX_SUBAREAS)
+    for i in range(n):
+
+        # 3-bit shape selector. Same for every shape.
+        base = i * _AREA_NOTICE_SUBAREA_BITS
+        shape = _asm_bits(data, base, 3)
+        area: typing.Dict[str, typing.Any] = {
+            'shape': shape,
+            'shape_str': _AREA_TYPE_STR.get(shape, 'reserved')
+        }
+
+        if shape == AREA_NOTICE_SHAPE_TEXT:
+            # 14 six-bit characters filling the whole 84-bit payload.
+            area['text'] = decode_bytes_as_ascii6(data, base + 3, 84).rstrip('@ ')
+            out.append(area)
+            continue
+
+        if shape > AREA_NOTICE_SHAPE_TEXT:
+            # 6-7 are reserved: keep the raw payload rather than guess a layout.
+            area['data'] = _asm_bits(data, base + 3, 84)
+            out.append(area)
+            continue
+
+        scale = _asm_bits(data, base + 3, 2)
+        factor = 10 ** scale
+        area['scale'] = scale
+
+        if shape in (AREA_NOTICE_SHAPE_POLYLINE, AREA_NOTICE_SHAPE_POLYGON):
+            # Four (bearing, distance) pairs of 20 bits; the last 2 bits spare.
+            points = []
+            for k in range(4):
+                off = base + 5 + k * 20
+                points.append({
+                    # True bearing in half-degree steps; 720 (= 360.0) is N/A.
+                    'bearing': _asm_bits(data, off, 10) * 0.5,
+                    # 0 = no point / no vertex.
+                    'distance': _asm_bits(data, off + 10, 10) * factor,
+                })
+            area['points'] = points
+            out.append(area)
+            continue
+
+        # Shapes 0-2 share a common position block.
+        area['lon'] = round(_asm_bits(data, base + 5, 25, signed=True) / 60000.0, 5)
+        area['lat'] = round(_asm_bits(data, base + 30, 24, signed=True) / 60000.0, 5)
+        area['precision'] = _asm_bits(data, base + 54, 3)
+
+        if shape == AREA_NOTICE_SHAPE_CIRCLE:
+            # 0 = the shape is a point rather than a circle.
+            area['radius'] = _asm_bits(data, base + 57, 12) * factor
+        elif shape == AREA_NOTICE_SHAPE_RECTANGLE:
+            # 0 = degenerate box, i.e. a N/S line (east) or an E/W line (north).
+            area['east'] = _asm_bits(data, base + 57, 8) * factor
+            area['north'] = _asm_bits(data, base + 65, 8) * factor
+            # Degrees clockwise from true north; 0 = no rotation.
+            area['orientation'] = _asm_bits(data, base + 73, 9)
+        else:  # AREA_NOTICE_SHAPE_SECTOR
+            area['radius'] = _asm_bits(data, base + 57, 12) * factor
+            # Sector boundaries, degrees clockwise from true north.
+            area['left'] = _asm_bits(data, base + 69, 9)
+            area['right'] = _asm_bits(data, base + 78, 9)
+
+        out.append(area)
+
+    return out
+
+
+# A single Environmental sensor record: a 4-bit report type, a 20-bit
+# timestamp+site header, and an 85-bit type-specific payload (IMO289,
+# DAC=1/FID=26). 27 + 85 = 112 bits per record.
+_ENV_REPORT_BITS = 112
+_ENV_MAX_REPORTS = 5
+
+# Sensor Report Type selectors (Table 38).
+ENV_REPORT_SITE_LOCATION = 0
+ENV_REPORT_STATION_ID = 1
+ENV_REPORT_WIND = 2
+ENV_REPORT_WATER_LEVEL = 3
+ENV_REPORT_CURRENT_2D = 4
+ENV_REPORT_CURRENT_3D = 5
+ENV_REPORT_CURRENT_HORIZONTAL = 6
+ENV_REPORT_SEA_STATE = 7
+ENV_REPORT_SALINITY = 8
+ENV_REPORT_WEATHER = 9
+ENV_REPORT_AIRGAP = 10
+
+_ENV_REPORT_TYPE_STR = {
+    0: 'site_location', 1: 'station_id', 2: 'wind', 3: 'water_level',
+    4: 'current_2d', 5: 'current_3d', 6: 'current_horizontal',
+    7: 'sea_state', 8: 'salinity', 9: 'weather', 10: 'airgap',
+}
+
+
+def _decode_environmental_reports(data: bytes) -> typing.List[typing.Dict[str, typing.Any]]:
+    """Decode 1-5 Environmental sensor records (112 bits each).
+
+    Every record starts with a common 27-bit header (report type, UTC
+    day/hour/minute, and a site ID), followed by an 85-bit payload whose
+    layout depends on the report type. Report type 11 and any other
+    unrecognized value are kept as a raw 85-bit integer rather than guessed
+    at.
+
+    Fields are returned already scaled to their documented units (knots,
+    metres, degrees C, percent, etc.); sentinel/N/A/reserved codes are
+    passed through as-is rather than converted to None, matching how
+    `_decode_area_notice_subareas` handles its own sentinels.
+    """
+    out: typing.List[typing.Dict[str, typing.Any]] = []
+    if not data:
+        return out
+
+    n = min((len(data) * 8) // _ENV_REPORT_BITS, _ENV_MAX_REPORTS)
+    for i in range(n):
+        base = i * _ENV_REPORT_BITS
+        sensor = _asm_bits(data, base, 4)
+        report: typing.Dict[str, typing.Any] = {
+            'sensor': sensor,
+            'sensor_str': _ENV_REPORT_TYPE_STR.get(sensor, 'reserved'),
+            'day': _asm_bits(data, base + 4, 5),
+            'hour': _asm_bits(data, base + 9, 5),
+            'minute': _asm_bits(data, base + 14, 6),
+            'site': _asm_bits(data, base + 20, 7),
+        }
+        p = base + 27  # start of the 85-bit payload
+
+        if sensor == ENV_REPORT_SITE_LOCATION:
+            report['lon'] = round(_asm_bits(data, p, 28, signed=True) / 600000.0, 5)
+            report['lat'] = round(_asm_bits(data, p + 28, 27, signed=True) / 600000.0, 5)
+            report['alt'] = round(_asm_bits(data, p + 55, 11) * 0.1, 1)
+            report['owner'] = _asm_bits(data, p + 66, 4)
+            report['timeout'] = _asm_bits(data, p + 70, 3)
+
+        elif sensor == ENV_REPORT_STATION_ID:
+            report['name'] = decode_bytes_as_ascii6(data, p, 84).rstrip('@ ')
+
+        elif sensor == ENV_REPORT_WIND:
+            report['wspeed'] = _asm_bits(data, p, 7)
+            report['wgust'] = _asm_bits(data, p + 7, 7)
+            report['wdir'] = _asm_bits(data, p + 14, 9)
+            report['wgustdir'] = _asm_bits(data, p + 23, 9)
+            report['sensortype'] = _asm_bits(data, p + 32, 3)
+            report['fwspeed'] = _asm_bits(data, p + 35, 7)
+            report['fwgust'] = _asm_bits(data, p + 42, 7)
+            report['fwdir'] = _asm_bits(data, p + 49, 9)
+            report['fday'] = _asm_bits(data, p + 58, 5)
+            report['fhour'] = _asm_bits(data, p + 63, 5)
+            report['fminute'] = _asm_bits(data, p + 68, 6)
+            report['duration'] = _asm_bits(data, p + 74, 8)
+
+        elif sensor == ENV_REPORT_WATER_LEVEL:
+            report['absolute'] = bool(_asm_bits(data, p, 1))
+            report['level'] = round(_asm_bits(data, p + 1, 16, signed=True) * 0.01, 2)
+            report['leveltrend'] = _asm_bits(data, p + 17, 2)
+            report['datum'] = _asm_bits(data, p + 19, 5)
+            report['sensortype'] = _asm_bits(data, p + 24, 3)
+            report['fabsolute'] = bool(_asm_bits(data, p + 27, 1))
+            # IMO289 documents 16 bits of 2 decimal-place precision for the
+            # forecast level too; the "0.001m" in its prose is inconsistent
+            # with that range, so the 0.01m step from the current-level
+            # field is used here as well.
+            report['flevel'] = round(_asm_bits(data, p + 28, 16, signed=True) * 0.01, 2)
+            report['fday'] = _asm_bits(data, p + 44, 5)
+            report['fhour'] = _asm_bits(data, p + 49, 5)
+            report['fminute'] = _asm_bits(data, p + 54, 6)
+            report['duration'] = _asm_bits(data, p + 60, 8)
+
+        elif sensor == ENV_REPORT_CURRENT_2D:
+            for idx, off in enumerate((0, 26, 52), start=1):
+                report[f'cspeed{idx}'] = round(_asm_bits(data, p + off, 8) * 0.1, 1)
+                report[f'cdir{idx}'] = _asm_bits(data, p + off + 8, 9)
+                report[f'cdepth{idx}'] = _asm_bits(data, p + off + 17, 9)
+            report['sensortype'] = _asm_bits(data, p + 78, 3)
+
+        elif sensor == ENV_REPORT_CURRENT_3D:
+            report['cnorth1'] = round(_asm_bits(data, p, 8) * 0.1, 1)
+            report['ceast1'] = round(_asm_bits(data, p + 8, 8) * 0.1, 1)
+            report['cup1'] = round(_asm_bits(data, p + 16, 8) * 0.1, 1)
+            report['cdepth1'] = _asm_bits(data, p + 24, 9)
+            report['cnorth2'] = round(_asm_bits(data, p + 33, 8) * 0.1, 1)
+            report['ceast2'] = round(_asm_bits(data, p + 41, 8) * 0.1, 1)
+            report['cup2'] = round(_asm_bits(data, p + 49, 8) * 0.1, 1)
+            report['cdepth2'] = _asm_bits(data, p + 57, 9)
+            report['sensortype'] = _asm_bits(data, p + 66, 3)
+
+        elif sensor == ENV_REPORT_CURRENT_HORIZONTAL:
+            report['bearing1'] = _asm_bits(data, p, 9)
+            report['distance1'] = _asm_bits(data, p + 9, 7)
+            report['speed1'] = round(_asm_bits(data, p + 16, 8) * 0.1, 1)
+            report['direction1'] = _asm_bits(data, p + 24, 9)
+            report['depth1'] = _asm_bits(data, p + 33, 9)
+            report['bearing2'] = _asm_bits(data, p + 42, 9)
+            report['distance2'] = _asm_bits(data, p + 51, 7)
+            report['speed2'] = round(_asm_bits(data, p + 58, 8) * 0.1, 1)
+            report['direction2'] = _asm_bits(data, p + 66, 9)
+            report['depth2'] = _asm_bits(data, p + 75, 9)
+
+        elif sensor == ENV_REPORT_SEA_STATE:
+            report['swheight'] = round(_asm_bits(data, p, 8) * 0.1, 1)
+            report['swperiod'] = _asm_bits(data, p + 8, 6)
+            report['swelldir'] = _asm_bits(data, p + 14, 9)
+            report['seastate'] = _asm_bits(data, p + 23, 4)
+            report['swelltype'] = _asm_bits(data, p + 27, 3)
+            report['watertemp'] = round(_asm_bits(data, p + 30, 10, signed=True) * 0.1, 1)
+            report['watertempdepth'] = round(_asm_bits(data, p + 40, 7) * 0.1, 1)
+            report['depthtype'] = _asm_bits(data, p + 47, 3)
+            report['waveheight'] = round(_asm_bits(data, p + 50, 8) * 0.1, 1)
+            report['waveperiod'] = _asm_bits(data, p + 58, 6)
+            report['wavedir'] = _asm_bits(data, p + 64, 9)
+            report['wavetype'] = _asm_bits(data, p + 73, 3)
+            report['salinity'] = round(_asm_bits(data, p + 76, 9) * 0.1, 1)
+
+        elif sensor == ENV_REPORT_SALINITY:
+            report['watertemp'] = round(_asm_bits(data, p, 10, signed=True) * 0.1, 1)
+            report['conductivity'] = round(_asm_bits(data, p + 10, 10) * 0.1, 1)
+            report['pressure'] = round(_asm_bits(data, p + 20, 16) * 0.1, 1)
+            report['salinity'] = round(_asm_bits(data, p + 36, 9) * 0.1, 1)
+            report['salinitytype'] = _asm_bits(data, p + 45, 2)
+            report['sensortype'] = _asm_bits(data, p + 47, 3)
+
+        elif sensor == ENV_REPORT_WEATHER:
+            report['temperature'] = round(_asm_bits(data, p, 11, signed=True) * 0.1, 1)
+            report['sensortype'] = _asm_bits(data, p + 11, 3)
+            report['preciptype'] = _asm_bits(data, p + 14, 2)
+            report['visibility'] = round(_asm_bits(data, p + 16, 8) * 0.1, 1)
+            report['dewpoint'] = round(_asm_bits(data, p + 24, 10, signed=True) * 0.1, 1)
+            report['dewtype'] = _asm_bits(data, p + 34, 3)
+            # Raw code per spec: 0 = <=800hPa, 1-401 = 800-1200hPa (i.e. raw
+            # + 799), 402 = >=1201hPa, 403 = N/A. Kept raw rather than
+            # offset, since a sentinel-safe conversion would need the same
+            # per-field care as the attrs-based pressure fields elsewhere.
+            report['pressure'] = _asm_bits(data, p + 37, 9)
+            report['pressuretend'] = _asm_bits(data, p + 46, 2)
+            report['pressuretype'] = _asm_bits(data, p + 48, 3)
+            report['salinity'] = round(_asm_bits(data, p + 51, 9) * 0.1, 1)
+
+        elif sensor == ENV_REPORT_AIRGAP:
+            report['airdraught'] = round(_asm_bits(data, p, 13) * 0.01, 2)
+            report['airgap'] = round(_asm_bits(data, p + 13, 13) * 0.01, 2)
+            report['gaptrend'] = _asm_bits(data, p + 26, 2)
+            report['fairgap'] = round(_asm_bits(data, p + 28, 13) * 0.01, 2)
+            report['fday'] = _asm_bits(data, p + 41, 5)
+            report['fhour'] = _asm_bits(data, p + 46, 5)
+            report['fminute'] = _asm_bits(data, p + 51, 6)
+
+        else:
+            # Report type 11 is reserved for future use; anything else is
+            # unrecognized. Keep the raw payload rather than guess a layout.
+            report['data'] = _asm_bits(data, p, 85)
+
+        out.append(report)
+
+    return out
+
+
+# A single Route Information waypoint: signed longitude/latitude at the same
+# 1/10000-minute resolution as the Common Navigation Block (IMO289,
+# DAC=1/FID=27, and its addressed equivalent DAC=1/FID=28).
+_ROUTE_WAYPOINT_BITS = 55
+_ROUTE_MAX_WAYPOINTS = 16
+
+
+def _decode_route_waypoints(data: bytes, waycount: int) -> typing.List[typing.Dict[str, float]]:
+    """Decode up to 16 (lon, lat) waypoints, 55 bits each."""
+    out: typing.List[typing.Dict[str, float]] = []
+    if not data:
+        return out
+
+    available = (len(data) * 8) // _ROUTE_WAYPOINT_BITS
+    n = max(0, min(waycount, _ROUTE_MAX_WAYPOINTS, available))
+    for i in range(n):
+        base = i * _ROUTE_WAYPOINT_BITS
+        out.append({
+            'lon': round(_asm_bits(data, base, 28, signed=True) / 600000.0, 5),
+            'lat': round(_asm_bits(data, base + 28, 27, signed=True) / 600000.0, 5),
+        })
+    return out
 
 
 class CommunicationStateMixin:
@@ -1208,8 +1736,8 @@ class MessageType4(Payload, CommunicationStateMixin):
 
         return cls(
             v >> 162,
-            (v >> 160) & 0x3,  # type: ignore
-            (v >> 130) & 0x3fffffff,
+            (v >> 160) & 0x3,
+            (v >> 130) & 0x3fffffff,  # type: ignore
             (v >> 116) & 0x3fff,
             (v >> 112) & 0xf,
             (v >> 107) & 0x1f,
@@ -1299,31 +1827,19 @@ class MessageType8(Payload):
     def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
         dac: int = int(kwargs.get("dac", 0))
         fid: int = int(kwargs.get("fid", 0))
-        if dac == 200 and fid == 10:
-            return MessageType8Dac200Fid10.create(**kwargs)
-        if dac == 200 and fid == 23:
-            return MessageType8Dac200Fid23.create(**kwargs)
-        if dac == 200 and fid == 24:
-            return MessageType8Dac200Fid24.create(**kwargs)
-        if dac == 200 and fid == 40:
-            return MessageType8Dac200Fid40.create(**kwargs)
-        else:
-            return MessageType8Default.create(**kwargs)
+        variant = _msg8_variant(dac, fid)
+        if variant is not None:
+            return variant.create(**kwargs)
+        return MessageType8Default.create(**kwargs)
 
     @classmethod
     def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
         dac: int = bv.get(40, 10)
         fid: int = bv.get(50, 6)
-        if dac == 200 and fid == 10:
-            return MessageType8Dac200Fid10.from_vector(bv)
-        elif dac == 200 and fid == 23:
-            return MessageType8Dac200Fid23.from_vector(bv)
-        elif dac == 200 and fid == 24:
-            return MessageType8Dac200Fid24.from_vector(bv)
-        elif dac == 200 and fid == 40:
-            return MessageType8Dac200Fid40.from_vector(bv)
-        else:
-            return MessageType8Default.from_vector(bv)
+        variant = _msg8_variant(dac, fid)
+        if variant is not None:
+            return variant.from_vector(bv)
+        return MessageType8Default.from_vector(bv)
 
 
 @attr.s(slots=True)
@@ -1340,6 +1856,550 @@ class MessageType8Default(Payload):
     dac = bit_field(10, int, default=0, signed=False)
     fid = bit_field(6, int, default=0, signed=False)
     data = bit_field(952, bytes, default=b"", variable_length=True)
+
+
+@attr.s(slots=True)
+class MessageType8Dac1Fid0(Payload):
+    """ITU-R M.1371 broadcast text using 6-bit ASCII (DAC=1, FID=0)."""
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=0, signed=False)
+    ack_required = bit_field(1, bool, default=False, signed=False)
+    text_sequence = bit_field(11, int, default=0, signed=False)
+    text = bit_field(906, str, default='', variable_length=True)
+
+
+@attr.s(slots=True)
+class MessageType8Dac1Fid11(Payload):
+    """Meteorological and Hydrological Data (IMO236). Superseded by FID=31."""
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=11, signed=False)
+    lat = bit_field(24, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    lon = bit_field(25, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    day = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=24, signed=False)
+    minute = bit_field(6, int, default=60, signed=False)
+    wspeed = bit_field(7, int, default=127, signed=False)
+    wgust = bit_field(7, int, default=127, signed=False)
+    wdir = bit_field(9, int, default=511, signed=False)
+    wgustdir = bit_field(9, int, default=511, signed=False)
+    airtemp = bit_field(11, float, from_converter=from_airtemp_leg, to_converter=to_airtemp_leg, default=0, signed=False)
+    humidity = bit_field(7, int, default=127, signed=False)
+    dewpoint = bit_field(10, float, from_converter=from_dewpt_leg, to_converter=to_dewpt_leg, default=0, signed=False)
+    pressure = bit_field(9, int, from_converter=from_press800, to_converter=to_press800, default=0, signed=False)
+    pressuretend = bit_field(2, int, default=3, signed=False)
+    visibility = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    waterlevel = bit_field(9, float, from_converter=from_wl_leg, to_converter=to_wl_leg, default=0, signed=False)
+    leveltrend = bit_field(2, int, default=3, signed=False)
+    cspeed = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    cdir = bit_field(9, int, default=511, signed=False)
+    cspeed2 = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    cdir2 = bit_field(9, int, default=511, signed=False)
+    cdepth2 = bit_field(5, int, default=31, signed=False)
+    cspeed3 = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    cdir3 = bit_field(9, int, default=511, signed=False)
+    cdepth3 = bit_field(5, int, default=31, signed=False)
+    waveheight = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    waveperiod = bit_field(6, int, default=63, signed=False)
+    wavedir = bit_field(9, int, default=511, signed=False)
+    swellheight = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    swellperiod = bit_field(6, int, default=63, signed=False)
+    swelldir = bit_field(9, int, default=511, signed=False)
+    seastate = bit_field(4, int, default=13, signed=False)
+    watertemp = bit_field(10, float, from_converter=from_wl_leg, to_converter=to_wl_leg, default=0, signed=False)
+    preciptype = bit_field(3, int, default=7, signed=False)
+    salinity = bit_field(9, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    ice = bit_field(2, int, default=3, signed=False)
+
+
+@attr.s(slots=True)
+class MessageType8Dac1Fid16(Payload):
+    """IALA VTS targets (targets derived by means other than AIS). DAC=1, FID=16.
+
+    Variable length: 1 to 7 target records of 120 bits each, so 176 to 896 bits
+    in total. The records live in a raw region; use .targets to decode them.
+
+    Src: https://www.iala.int/asm/vts-targets-targets-derived-means-ais/
+    """
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=16, signed=False)
+    target_data = bit_field(840, bytes, default=b'', variable_length=True)
+
+    @property
+    def targets(self) -> typing.List[typing.Dict[str, typing.Any]]:
+        """Decode the 1-7 VTS targets (id_type, target_id, lat, lon, course, second, speed)."""
+        return _decode_vts_targets(self.target_data)
+
+
+@attr.s(slots=True)
+class MessageType8Dac1Fid17(Payload):
+    """VTS-Generated/Synthetic targets (IMO236).
+    1-4 targets of 120 bits each in a raw region (see .targets)."""
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=17, signed=False)
+    target_data = bit_field(480, bytes, default=b'', variable_length=True)
+
+    @property
+    def targets(self) -> typing.List[typing.Dict[str, typing.Any]]:
+        """Decode the 1-4 synthetic targets (id, lat, lon, course, speed)."""
+        return _decode_synthetic_targets(self.target_data)
+
+
+@attr.s(slots=True)
+class MessageType8Dac1Fid19(Payload):
+    """Marine Traffic Signal (IMO289). DAC=1, FID=19.
+
+    Fixed length: 360 bits (occupies 2 slots).
+
+    status (Status of Signal): 0 = not available (default), 1 = in regular
+    service, 2 = irregular service, 3 = reserved.
+
+    signal / nextsignal (Signal in Service, Table 8.2): 0 = not available
+    (default), 1-7 = IALA port traffic signals 1, 2, 3, 4, 5, 2a, 5a,
+    8-13 = Japan traffic signals I, O, F, XI, XO, X, 14-31 = reserved.
+
+    Src: https://www.iala.int/asm/marine-traffic-signal/
+    """
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=19, signed=False)
+    linkage = bit_field(10, int, default=0, signed=False)
+    station = bit_field(120, str, default='')
+    lon = bit_field(25, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    lat = bit_field(24, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    status = bit_field(2, int, default=0, signed=False)
+    signal = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=24, signed=False)
+    minute = bit_field(6, int, default=60, signed=False)
+    nextsignal = bit_field(5, int, default=0, signed=False)
+    spare_2 = bit_field(102, bytes, default=b'', is_spare=True)
+
+
+@attr.s(slots=True)
+class MessageType8Dac1Fid20(Payload):
+    """Berthing data (IMO289). DAC=1, FID=20.
+
+    Broadcast counterpart of the addressed Message 6 berthing data: the same
+    272-bit application block, carried behind the 56-bit Message 8 header,
+    for a fixed total of 328 bits.
+
+    Provides information on a ship's berth. Sent by a ship it is a berthing
+    request; sent by a competent authority it is a berthing assignment. The
+    UTC timestamp is the time requested or granted for berthing, and
+    berth_lon/berth_lat refer to the centre of the berth.
+
+    berth_length: 1-510 m in 1 m steps, 511 = >= 511 m, 0 = N/A (default).
+    berth_depth: 0.1-25.4 m in 0.1 m steps, 25.5 = >= 25.5 m, 0 = N/A (default).
+
+    position (Mooring Position): 0 = not available (default), 1 = port-side to,
+    2 = starboard-side to, 3 = Mediterranean (end-on) mooring, 4 = mooring
+    buoy, 5 = anchorage, 6-7 = reserved.
+
+    availability is the master flag for the service fields that follow it: the
+    2-bit service values are only meaningful when it is set. Each service uses
+    0 = not available or requested (default), 1 = service available,
+    2 = no data or unknown, 3 = not to be used.
+
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_berthing_data_addressed
+    """
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=20, signed=False)
+    linkage = bit_field(10, int, default=0, signed=False)
+    berth_length = bit_field(9, int, default=0, signed=False)
+    berth_depth = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    position = bit_field(3, int, default=0, signed=False)
+    month = bit_field(4, int, default=0, signed=False)
+    day = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=24, signed=False)
+    minute = bit_field(6, int, default=60, signed=False)
+    availability = bit_field(1, bool, default=False, signed=False)
+    agent = bit_field(2, int, default=0, signed=False)
+    fuel = bit_field(2, int, default=0, signed=False)
+    chandler = bit_field(2, int, default=0, signed=False)
+    stevedore = bit_field(2, int, default=0, signed=False)
+    electrical = bit_field(2, int, default=0, signed=False)
+    water = bit_field(2, int, default=0, signed=False)
+    customs = bit_field(2, int, default=0, signed=False)
+    cartage = bit_field(2, int, default=0, signed=False)
+    crane = bit_field(2, int, default=0, signed=False)
+    lift = bit_field(2, int, default=0, signed=False)
+    medical = bit_field(2, int, default=0, signed=False)
+    navrepair = bit_field(2, int, default=0, signed=False)
+    provisions = bit_field(2, int, default=0, signed=False)
+    shiprepair = bit_field(2, int, default=0, signed=False)
+    surveyor = bit_field(2, int, default=0, signed=False)
+    steam = bit_field(2, int, default=0, signed=False)
+    tugs = bit_field(2, int, default=0, signed=False)
+    solidwaste = bit_field(2, int, default=0, signed=False)
+    liquidwaste = bit_field(2, int, default=0, signed=False)
+    hazardouswaste = bit_field(2, int, default=0, signed=False)
+    ballast = bit_field(2, int, default=0, signed=False)
+    additional = bit_field(2, int, default=0, signed=False)
+    regional1 = bit_field(2, int, default=0, signed=False)
+    regional2 = bit_field(2, int, default=0, signed=False)
+    future1 = bit_field(2, int, default=0, signed=False)
+    future2 = bit_field(2, int, default=0, signed=False)
+    berth_name = bit_field(120, str, default='')
+    berth_lon = bit_field(25, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    berth_lat = bit_field(24, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+
+
+@attr.s(slots=True)
+class MessageType8Dac1Fid21(Payload):
+    """Weather observation report from ship (IMO289). DAC=1, FID=21.
+
+    Two variants share this (DAC, FID) pair and are distinguished by bit 56,
+    the WMO bit; the field layouts diverge completely after it. Like
+    MessageType16, this class only dispatches and is never instantiated
+    itself.
+
+    Only the non-WMO variant (bit 56 = 0) is decoded, as
+    MessageType8Dac1Fid21NonWmo. The WMO BUFR variant (bit 56 = 1) falls back
+    to MessageType8Default, so its payload stays available as raw bytes in
+    `data` rather than being mis-read against the wrong layout.
+
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_weather_observation_report_from_ship
+    """
+
+    @classmethod
+    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
+        if int(kwargs.get('wmo', 0)):
+            return MessageType8Default.create(**kwargs)
+        return MessageType8Dac1Fid21NonWmo.create(**kwargs)
+
+    @classmethod
+    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
+        if bv.get(56, 1):
+            return MessageType8Default.from_vector(bv)
+        return MessageType8Dac1Fid21NonWmo.from_vector(bv)
+
+
+@attr.s(slots=True)
+class MessageType8Dac1Fid21NonWmo(Payload):
+    """Weather observation report from ship, non-WMO variant (IMO289).
+
+    DAC=1, FID=21, WMO bit clear. Fixed length: 360 bits.
+
+    weather (Present Weather, WMO code 45501): 0 = clear (no clouds at any
+    level), 1 = cloudy, 2 = rain, 3 = fog, 4 = snow, 5 = typhoon/hurricane,
+    6 = monsoon, 7 = thunderstorm, 8 = not available (default),
+    9-15 = reserved.
+
+    vislimit, when set, means the maximum range of the visibility equipment
+    was reached, so `visibility` should be read as "greater than" its value.
+
+    pressuretend carries a WMO FM13 code; IMO289 does not enumerate it.
+    """
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=21, signed=False)
+    wmo = bit_field(1, bool, default=False, signed=False)
+    location = bit_field(120, str, default='')
+    lon = bit_field(25, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    lat = bit_field(24, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    day = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=24, signed=False)
+    minute = bit_field(6, int, default=60, signed=False)
+    weather = bit_field(4, int, default=8, signed=False)
+    vislimit = bit_field(1, bool, default=False, signed=False)
+    visibility = bit_field(7, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    humidity = bit_field(7, int, default=127, signed=False)
+    wspeed = bit_field(7, int, default=127, signed=False)
+    wdir = bit_field(9, int, default=360, signed=False)
+    pressure = bit_field(9, int, from_converter=from_press799, to_converter=to_press799, default=0, signed=False)
+    pressuretend = bit_field(4, int, default=15, signed=False)
+    airtemp = bit_field(11, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
+    watertemp = bit_field(10, float, from_converter=from_10th, to_converter=to_10th, default=50.1, signed=True)
+    waveperiod = bit_field(6, int, default=63, signed=False)
+    waveheight = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    wavedir = bit_field(9, int, default=360, signed=False)
+    swellheight = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    swelldir = bit_field(9, int, default=360, signed=False)
+    swellperiod = bit_field(6, int, default=63, signed=False)
+    spare_2 = bit_field(3, bytes, default=b'', is_spare=True)
+
+
+@attr.s(slots=True)
+class MessageType8Dac1Fid22(Payload):
+    """Area Notice (broadcast) (IMO289). DAC=1, FID=22.
+
+    Broadcasts time- and location-dependent information about hazards to
+    navigation. There is a related addressed form as Message 6, DAC=1/FID=23,
+    which uses the same sub-area records behind a different header.
+
+    Variable length: a fixed 111-bit header followed by 1 to 10 sub-area
+    indications of 87 bits each, so 198 to 981 bits in total. The sub-areas
+    live in a raw region; use .sub_areas to decode them.
+
+    notice (Notice Description) is a 7-bit code from the IMO289 table, grouped
+    in blocks of 8: 0-21 caution areas, 23-30 environmental caution areas,
+    32-38 restricted areas, 40-45 anchorage areas, 56-58 security alerts,
+    64-76 distress areas, 80-85 instructions, 88-95 information, 96-108 chart
+    features, 112-114 reports from ship, 120-122 routes, 125 = other (see the
+    associated text), 126 = cancel the area identified by linkage,
+    127 = undefined (default).
+
+    duration is the notice lifetime in minutes measured from the UTC timestamp,
+    with 0 = cancel this notice and 262143 = N/A (default).
+
+    linkage ties the notice to a text message sent with the same linkage ID;
+    in this context it also acts as the identifier of the area itself, which
+    is what a notice of 126 cancels.
+
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_area_notice_broadcast
+    """
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=22, signed=False)
+    linkage = bit_field(10, int, default=0, signed=False)
+    notice = bit_field(7, int, default=127, signed=False)
+    month = bit_field(4, int, default=0, signed=False)
+    day = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=24, signed=False)
+    minute = bit_field(6, int, default=60, signed=False)
+    duration = bit_field(18, int, default=262143, signed=False)
+    area_data = bit_field(870, bytes, default=b'', variable_length=True)
+
+    @property
+    def sub_areas(self) -> typing.List[typing.Dict[str, typing.Any]]:
+        """Decode the 1-10 sub-area indications (shape and shape-specific fields)."""
+        return _decode_area_notice_subareas(self.area_data)
+
+
+@attr.s(slots=True)
+class MessageType8Dac1Fid24(Payload):
+    """Extended Ship Static and Voyage Related Data (IMO289). DAC=1, FID=24.
+
+    Used by a ship to report height over keel (air draught), port-call
+    history, the operational status of a long list of SOLAS-required
+    navigational equipment, ice class, and other voyage-related data.
+    Replaces a deprecated trial message from IMO236. Fixed length: 360 bits.
+
+    airdraught is stored in 0.01 m units (1-8190 -> 0.01-81.90 m). IMO289
+    documents the special value 81.91 m ("81.91 = >= 81.91 m") which is only
+    representable if the true step size is 0.01 m rather than the 0.1 m the
+    prose states elsewhere in the standard; gpsd's AIVDM reference notes this
+    same inconsistency and uses the 0.01 m step, which is what is used here.
+
+    Each `*_state` field reports the operational status of one piece of
+    equipment using the "SOLAS Status" codes (0 = not available/requested,
+    1 = operational, 2 = not operational, 3 = no data).
+
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_extended_ship_static_and_voyage_related_data
+    """
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=24, signed=False)
+    linkage = bit_field(10, int, default=0, signed=False)
+    airdraught = bit_field(13, float, from_converter=from_100th, to_converter=to_100th, default=0, signed=False)
+    lastport = bit_field(30, str, default='')
+    nextport = bit_field(30, str, default='')
+    secondport = bit_field(30, str, default='')
+    ais_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    ata_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    bnwas_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    ecdisb_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    chart_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    sounder_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    epaid_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    steer_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    gnss_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    gyro_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    lrit_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    magcomp_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    navtex_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    arpa_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    sband_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    xband_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    hfradio_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    inmarsat_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    mfradio_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    vhfradio_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    grndlog_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    waterlog_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    thd_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    tcs_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    vdr_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    spare_2 = bit_field(2, bytes, default=b'', is_spare=True)
+    iceclass = bit_field(4, int, default=IceClass.NotAvailable, signed=False, from_converter=IceClass.from_value, to_converter=IceClass.from_value)
+    horsepower = bit_field(18, int, default=262143, signed=False)
+    vhfchan = bit_field(12, int, default=0, signed=False)
+    lshiptype = bit_field(42, str, default='')
+    tonnage = bit_field(18, int, default=262143, signed=False)
+    lading = bit_field(2, int, default=0, signed=False)
+    heavyoil = bit_field(2, int, default=0, signed=False)
+    lightoil = bit_field(2, int, default=0, signed=False)
+    dieseloil = bit_field(2, int, default=0, signed=False)
+    totaloil = bit_field(14, int, default=16382, signed=False)
+    persons = bit_field(13, int, default=0, signed=False)
+    spare_3 = bit_field(10, bytes, default=b'', is_spare=True)
+
+
+@attr.s(slots=True)
+class MessageType8Dac1Fid26(Payload):
+    """Environmental (IMO289). DAC=1, FID=26.
+
+    Broadcasts one or more sensor readings from a fixed shore-based or
+    moored sensor site: location, wind, water level, currents, sea state,
+    salinity, weather, or air gap/air draught, each with its own payload
+    layout selected by the sensor report type.
+
+    Variable length: a fixed 56-bit header followed by 1 to 5 sensor
+    records of 112 bits each, so 168 to 616 bits in total. The records
+    live in a raw region; use `.reports` to decode them.
+
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_environmental
+    """
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=26, signed=False)
+    reports_data = bit_field(560, bytes, default=b'', variable_length=True)
+
+    @property
+    def reports(self) -> typing.List[typing.Dict[str, typing.Any]]:
+        """Decode the 1-5 sensor records (report type and type-specific fields)."""
+        return _decode_environmental_reports(self.reports_data)
+
+
+@attr.s(slots=True)
+class MessageType8Dac1Fid27(Payload):
+    """Route Information (broadcast) (IMO289). DAC=1, FID=27.
+
+    Conveys a start time and a list of waypoints describing a course. There
+    is an addressed equivalent, Message 6, DAC=1/FID=28, using the same
+    fields and waypoint records behind a different (addressed) header.
+
+    Variable length: a fixed 117-bit header followed by 1 to 16 waypoints
+    of 55 bits each, so 172 to 997 bits in total. The waypoints live in a
+    raw region; use `.waypoints` to decode them, bounded by `waycount`.
+
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_route_information_broadcast
+    """
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=27, signed=False)
+    linkage = bit_field(10, int, default=0, signed=False)
+    sender = bit_field(3, int, default=0, signed=False)
+    rtype = bit_field(5, int, default=0, signed=False)
+    month = bit_field(4, int, default=0, signed=False)
+    day = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=24, signed=False)
+    minute = bit_field(6, int, default=60, signed=False)
+    duration = bit_field(18, int, default=262143, signed=False)
+    waycount = bit_field(5, int, default=0, signed=False)
+    waypoints_data = bit_field(880, bytes, default=b'', variable_length=True)
+
+    @property
+    def waypoints(self) -> typing.List[typing.Dict[str, float]]:
+        """Decode up to `waycount` (lon, lat) waypoints, 55 bits each."""
+        return _decode_route_waypoints(self.waypoints_data, self.waycount)
+
+
+@attr.s(slots=True)
+class MessageType8Dac1Fid29(Payload):
+    """IMO289 Text description (broadcast). DAC=1, FID=29.
+
+    This message is intended to provide a text annotation to another message
+    via the Message Linkage ID field.
+
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_text_description_broadcast
+    """
+
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=29, signed=False)
+    linkage = bit_field(10, int, default=0, signed=False)
+    description = bit_field(966, str, default="", variable_length=True)
+
+
+@attr.s(slots=True)
+class MessageType8Dac1Fid31(Payload):
+    """Meteorological and hydrological data (IMO289).
+    DAC=1, FID=31."""
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=31, signed=False)
+    lon = bit_field(25, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    lat = bit_field(24, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    accuracy = bit_field(1, bool, default=False, signed=False)
+    day = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=24, signed=False)
+    minute = bit_field(6, int, default=60, signed=False)
+    wspeed = bit_field(7, int, default=127, signed=False)
+    wgust = bit_field(7, int, default=127, signed=False)
+    wdir = bit_field(9, int, default=360, signed=False)
+    wgustdir = bit_field(9, int, default=360, signed=False)
+    airtemp = bit_field(11, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
+    humidity = bit_field(7, int, default=101, signed=False)
+    dewpoint = bit_field(10, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
+    pressure = bit_field(9, int, from_converter=from_press799, to_converter=to_press799, default=0, signed=False)
+    pressuretend = bit_field(2, int, default=3, signed=False)
+    visgreater = bit_field(1, bool, default=False, signed=False)
+    visibility = bit_field(7, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    waterlevel = bit_field(12, float, from_converter=from_wl31, to_converter=to_wl31, default=0, signed=False)
+    leveltrend = bit_field(2, int, default=3, signed=False)
+    cspeed = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    cdir = bit_field(9, int, default=360, signed=False)
+    cspeed2 = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    cdir2 = bit_field(9, int, default=360, signed=False)
+    cdepth2 = bit_field(5, int, default=31, signed=False)
+    cspeed3 = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    cdir3 = bit_field(9, int, default=360, signed=False)
+    cdepth3 = bit_field(5, int, default=31, signed=False)
+    waveheight = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    waveperiod = bit_field(6, int, default=63, signed=False)
+    wavedir = bit_field(9, int, default=360, signed=False)
+    swellheight = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    swellperiod = bit_field(6, int, default=63, signed=False)
+    swelldir = bit_field(9, int, default=360, signed=False)
+    seastate = bit_field(4, int, default=13, signed=False)
+    watertemp = bit_field(10, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
+    preciptype = bit_field(3, int, default=7, signed=False)
+    salinity = bit_field(9, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    ice = bit_field(2, int, default=3, signed=False)
 
 
 @attr.s(slots=True)
@@ -1523,6 +2583,36 @@ class MessageType8Dac200Fid40(Payload):
             n //= 10
 
         return result
+
+# ---------------------------------------------------------------------------
+# DAC/FID dispatch tables
+# ---------------------------------------------------------------------------
+
+
+_MSG8_VARIANTS: typing.Dict[typing.Tuple[int, int], typing.Type[Payload]] = {
+    (1, 0): MessageType8Dac1Fid0,
+    (1, 11): MessageType8Dac1Fid11,
+    (1, 16): MessageType8Dac1Fid16,
+    (1, 17): MessageType8Dac1Fid17,
+    (1, 19): MessageType8Dac1Fid19,
+    (1, 20): MessageType8Dac1Fid20,
+    (1, 21): MessageType8Dac1Fid21,
+    (1, 22): MessageType8Dac1Fid22,
+    (1, 24): MessageType8Dac1Fid24,
+    (1, 26): MessageType8Dac1Fid26,
+    (1, 27): MessageType8Dac1Fid27,
+    (1, 29): MessageType8Dac1Fid29,
+    (1, 31): MessageType8Dac1Fid31,
+    (200, 10): MessageType8Dac200Fid10,
+    (200, 23): MessageType8Dac200Fid23,
+    (200, 24): MessageType8Dac200Fid24,
+    (200, 40): MessageType8Dac200Fid40,
+}
+
+
+def _msg8_variant(dac: int, fid: int) -> typing.Optional[typing.Type[Payload]]:
+    """Return the MessageType8 subclass for a (DAC, FID) pair, or None for the default."""
+    return _MSG8_VARIANTS.get((dac, fid))
 
 
 @attr.s(slots=True)
@@ -1747,8 +2837,8 @@ class MessageType18(Payload, CommunicationStateMixin):
 
         return cls(
             v >> 162,
-            (v >> 160) & 0x3,  # type: ignore
-            (v >> 130) & 0x3fffffff,
+            (v >> 160) & 0x3,
+            (v >> 130) & 0x3fffffff,  # type: ignore
             (v >> 122) & 0xff,
             to_speed((v >> 112) & 0x3ff),
             bool((v >> 111) & 0x1),
@@ -2388,6 +3478,19 @@ ANY_MESSAGE = typing.Union[
     MessageType6,
     MessageType7,
     MessageType8Default,
+    MessageType8Dac1Fid0,
+    MessageType8Dac1Fid11,
+    MessageType8Dac1Fid16,
+    MessageType8Dac1Fid17,
+    MessageType8Dac1Fid19,
+    MessageType8Dac1Fid20,
+    MessageType8Dac1Fid21NonWmo,
+    MessageType8Dac1Fid22,
+    MessageType8Dac1Fid24,
+    MessageType8Dac1Fid26,
+    MessageType8Dac1Fid27,
+    MessageType8Dac1Fid29,
+    MessageType8Dac1Fid31,
     MessageType8Dac200Fid10,
     MessageType8Dac200Fid23,
     MessageType8Dac200Fid24,

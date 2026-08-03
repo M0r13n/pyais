@@ -3,6 +3,7 @@ This bit vector uses pre-computed lookup tables and stores the entire payload as
 arbitrary-precision int so that every field extraction is a constant-time shift-and-mask operation.
 """
 import typing as t
+from base64 import b64decode
 
 # ASCII ordinal 6-bit AIS payload value
 # Valid input range: ordinals 48 ('0') through 119 ('w').
@@ -10,6 +11,18 @@ import typing as t
 _PAYLOAD_ARMOR: t.Final[tuple[int, ...]] = tuple(
     (c - 48 - 8 if c - 48 > 40 else c - 48) if 48 <= c <= 119 else 0 for c in range(256)
 )
+
+# AIS six-bit armoring is base64 with a different alphabet. Re-mapping the payload
+# onto the standard base64 alphabet lets `base64.b64decode` do the 6-to-8 bit
+# repacking in C, which is several times faster than a Python-level loop.
+# Every one of the 256 input bytes maps onto a valid base64 character, so the
+# decoder never sees (and never silently discards) an out-of-alphabet byte.
+_B64_ALPHABET: t.Final[bytes] = b'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+_ARMOR_TO_B64: t.Final[bytes] = bytes(_B64_ALPHABET[v] for v in _PAYLOAD_ARMOR)
+
+# base64 works on groups of four characters. Pad the payload up to the next
+# multiple of four with 'A' (== six zero bits) and shift the surplus back out.
+_B64_PAD: t.Final[tuple[bytes, ...]] = (b'', b'AAA', b'AA', b'A')
 
 # 6-bit value decoded AIS character (for text fields)
 _SIXBIT_CHAR: t.Final[tuple[str, ...]] = tuple(
@@ -26,12 +39,18 @@ class bit_vector:
     __slots__ = ("_value", "_length")
 
     def __init__(self, data: bytes, pad: int = 0) -> None:
-        # Convert bytes into single large integer
-        value = 0
-        for byte in data:
-            value = (value << 6) | _PAYLOAD_ARMOR[byte]
-
+        # Convert bytes into single large integer.
+        # The payload is re-armored onto the base64 alphabet so that the actual
+        # 6-to-8 bit repacking happens inside `b64decode` rather than in Python.
         length = len(data) * 6
+        remainder = len(data) & 3
+        if remainder:
+            value = int.from_bytes(
+                b64decode(data.translate(_ARMOR_TO_B64) + _B64_PAD[remainder]), 'big'
+            ) >> (6 * (4 - remainder))
+        else:
+            value = int.from_bytes(b64decode(data.translate(_ARMOR_TO_B64)), 'big')
+
         if pad:
             value >>= pad
             length -= pad

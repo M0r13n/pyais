@@ -9,10 +9,29 @@ ANSI_RED = '\x1b[31m'
 ANSI_RESET = '\x1b[0m'
 
 
+ReprEnumT = typing.TypeVar('ReprEnumT', bound='ReprEnum')
+
+
 class ReprEnum(Enum):
 
     def __str__(self) -> str:
         return str(self.value)
+
+    @classmethod
+    def from_value(cls: typing.Type[ReprEnumT], v: typing.Optional[typing.Any]) -> typing.Optional[ReprEnumT]:
+        """Return the member for `v`, or None if `v` is None.
+
+        Unknown values are handed to `cls(v)` so that each enum's `_missing_`
+        hook still decides the fallback. The known-value lookup goes straight
+        to the value map because `EnumType.__call__` is comparatively slow and
+        this runs once per decoded field.
+        """
+        if v is None:
+            return None
+        try:
+            return typing.cast(ReprEnumT, cls._value2member_map_[v])
+        except (KeyError, TypeError):
+            return cls(v)
 
 
 class TurnRate(float, ReprEnum):
@@ -44,10 +63,6 @@ class TalkerID(str, ReprEnum):
     def _missing_(cls, value: typing.Any) -> str:
         return TalkerID.UNDEFINED
 
-    @classmethod
-    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["TalkerID"]:
-        return cls(v) if v is not None else None
-
 
 class NavigationStatus(int, ReprEnum):
     UnderWayUsingEngine = 0
@@ -71,10 +86,6 @@ class NavigationStatus(int, ReprEnum):
     def _missing_(cls, value: object) -> int:
         return NavigationStatus.Undefined
 
-    @classmethod
-    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["NavigationStatus"]:
-        return cls(v) if v is not None else None
-
 
 class ManeuverIndicator(int, ReprEnum):
     NotAvailable = 0
@@ -85,10 +96,6 @@ class ManeuverIndicator(int, ReprEnum):
     @classmethod
     def _missing_(cls, value: object) -> int:
         return ManeuverIndicator.UNDEFINED
-
-    @classmethod
-    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["ManeuverIndicator"]:
-        return cls(v) if v is not None else None
 
 
 class EpfdType(int, ReprEnum):
@@ -106,10 +113,6 @@ class EpfdType(int, ReprEnum):
     @classmethod
     def _missing_(cls, value: object) -> int:
         return EpfdType.Undefined
-
-    @classmethod
-    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["EpfdType"]:
-        return cls(v) if v is not None else None
 
 
 class ShipType(int, ReprEnum):
@@ -208,10 +211,6 @@ class ShipType(int, ReprEnum):
 
         return ShipType.NotAvailable
 
-    @classmethod
-    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["ShipType"]:
-        return cls(v) if v is not None else None
-
 
 class DacFid(int, ReprEnum):
     DangerousCargoIndication = 13
@@ -226,10 +225,6 @@ class DacFid(int, ReprEnum):
     RTA = 222
     AtoN_MonitoringData_UK = 245
     AtoN_MonitoringData_ROI = 260
-
-    @classmethod
-    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["DacFid"]:
-        return cls(v) if v is not None else None
 
 
 class NavAid(int, ReprEnum):
@@ -289,10 +284,6 @@ class NavAid(int, ReprEnum):
     def _missing_(cls, value: object) -> int:
         return NavAid.DEFAULT
 
-    @classmethod
-    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["NavAid"]:
-        return cls(v) if v is not None else None
-
 
 class TransmitMode(int, ReprEnum):
     TXA_TXB_RXA_RXB = 0  # default
@@ -303,10 +294,6 @@ class TransmitMode(int, ReprEnum):
     @classmethod
     def _missing_(cls, value: object) -> int:
         return TransmitMode.TXA_TXB_RXA_RXB
-
-    @classmethod
-    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["TransmitMode"]:
-        return cls(v) if v is not None else None
 
 
 class StationType(int, ReprEnum):
@@ -327,10 +314,6 @@ class StationType(int, ReprEnum):
                 return StationType.RESERVED
         return StationType.ALL
 
-    @classmethod
-    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["StationType"]:
-        return cls(v) if v is not None else None
-
 
 class StationIntervals(int, ReprEnum):
     AUTONOMOUS_MODE = 0
@@ -349,10 +332,6 @@ class StationIntervals(int, ReprEnum):
     @classmethod
     def _missing_(cls, value: object) -> int:
         return StationIntervals.RESERVED
-
-    @classmethod
-    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["StationIntervals"]:
-        return cls(v) if v is not None else None
 
 
 class SyncState(int, ReprEnum):
@@ -669,10 +648,6 @@ class InlandLoadedType(int, ReprEnum):
     def _missing_(cls, value: object) -> int:
         return InlandLoadedType.NotAvailable
 
-    @classmethod
-    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["InlandLoadedType"]:
-        return cls(v) if v is not None else None
-
 
 class AtoNRestrictedUseInidicator(int, ReprEnum):
     UNRESTRICTED = 0
@@ -693,10 +668,6 @@ class AtoNSationType(int, ReprEnum):
     @classmethod
     def _missing_(cls, value: object) -> int:
         return AtoNSationType.RESERVED
-
-    @classmethod
-    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["AtoNSationType"]:
-        return cls(v) if v is not None else None
 
 
 class AtoNDimensionType(int, ReprEnum):
@@ -721,8 +692,10 @@ class AtoNDimensionType(int, ReprEnum):
     def _missing_(cls, value: object) -> int:
         return AtoNSationType.RESERVED
 
+    # Narrower than `ReprEnum.from_value` on purpose: this one takes an int and
+    # always returns a member, falling back to member 0 instead of `_missing_`.
     @classmethod
-    def from_value(cls, val: int) -> "AtoNDimensionType":
+    def from_value(cls, val: int) -> "AtoNDimensionType":  # type: ignore[override]
         try:
             return cls(val)
         except ValueError:
@@ -740,10 +713,6 @@ class EMMATypeCodes(int, ReprEnum):
     HT = 7
     FL = 8
     FI = 9
-
-    @classmethod
-    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["EMMATypeCodes"]:
-        return cls(v) if v is not None else None
 
     @classmethod
     def _missing_(cls, value: object) -> "EMMATypeCodes":
@@ -765,10 +734,6 @@ class EMMAWinds(int, ReprEnum):
     def _missing_(cls, value: object) -> "EMMAWinds":
         return cls.NA
 
-    @classmethod
-    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["EMMAWinds"]:
-        return cls(v) if v is not None else None
-
 
 class SignalImpact(int, ReprEnum):
     Unknown = 0
@@ -780,10 +745,6 @@ class SignalImpact(int, ReprEnum):
     @classmethod
     def _missing_(cls, value: object) -> "SignalImpact":
         return cls.Unknown
-
-    @classmethod
-    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["SignalImpact"]:
-        return cls(v) if v is not None else None
 
 
 class SignalStatus(int, ReprEnum):
@@ -800,9 +761,41 @@ class SignalStatus(int, ReprEnum):
     def _missing_(cls, value: object) -> "SignalStatus":
         return cls.Unknown
 
+
+class SOLASStatus(int, ReprEnum):
+    """Operational state of a piece of SOLAS-required navigational
+    equipment, used by the 2-bit `_state` fields of MessageType8Dac1Fid24."""
+    NotAvailable = 0
+    Operational = 1
+    NotOperational = 2
+    NoData = 3
+
     @classmethod
-    def from_value(cls, v: typing.Optional[typing.Any]) -> typing.Optional["SignalStatus"]:
-        return cls(v) if v is not None else None
+    def _missing_(cls, value: object) -> "SOLASStatus":
+        return cls.NotAvailable
+
+
+class IceClass(int, ReprEnum):
+    """Ice class of a vessel (IACS Polar Class / FSICR / RS), used by
+    MessageType8Dac1Fid24."""
+    NotClassified = 0
+    IacsPC1 = 1
+    IacsPC2 = 2
+    IacsPC3 = 3
+    IacsPC4 = 4
+    IacsPC5 = 5
+    IacsPC6_FsicrIaSuper_RsArc5 = 6
+    IacsPC7_FsicrIa_RsArc4 = 7
+    FsicrIb_RsIce3 = 8
+    FsicrIc_RsIce2 = 9
+    RsIce1 = 10
+    NotAvailable = 15
+
+    @classmethod
+    def _missing_(cls, value: object) -> "IceClass":
+        # 11-14 are reserved for future use; treat any unmapped code
+        # (including those) as not-available rather than raising.
+        return cls.NotAvailable
 
 
 _COG_SPECIAL = {

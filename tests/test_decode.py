@@ -2277,7 +2277,10 @@ class TestAIS(unittest.TestCase):
         self.assertEqual(decoded.msg_type, 8)
         self.assertEqual(decoded.repeat, 1)
         self.assertEqual(decoded.mmsi, 2655619)
-        self.assertEqual(decoded.data, b'\x08\xaa\x97\x9bO\xd8\xe6\xe3?\xff\xb4Z \x06W\xd7\xff\xc5\xfd\x0f\xffh\xff\xb4\x7f\xfe\xd1\xff\xff\xed\x1f\xff\xda5\xf5\xff\xef\xfc')
+        self.assertEqual(decoded.dac, 1)
+        self.assertEqual(decoded.fid, 31)
+        self.assertEqual(decoded.lon, 18.931983)
+        self.assertEqual(decoded.lat, 59.66375)
 
     def test_decode_with_empty_payload(self):
         """Variation of test_that_decode_works_for_fragmented_messages_with_empty_payloads"""
