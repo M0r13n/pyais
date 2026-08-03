@@ -182,9 +182,7 @@ class NMEASentenceFactory:
         if len(raw) == 0:
             raise InvalidNMEAMessageException("empty bytes")
 
-        # The common case - a plain sentence with no tag block - is handled
-        # inline here. `_pre_process` and `_produce` remain usable on their
-        # own; they are only called for the rarer tag-block form.
+        # The common case, a plain sentence with no tag block, is handled inline
         raw_sentence = raw.strip()
         tb = None
         if raw_sentence[0] == TAG_BLOCK_START_ORD:

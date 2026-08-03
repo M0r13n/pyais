@@ -169,7 +169,7 @@ class MessageType8Tests(unittest.TestCase):
     def test_dac_1_fid_11_encode(self):
         encoded = encode_dict({
             "accuracy": True,
-            "airtemp": -102.4,
+            "airtemp": 102.4,
             "cdepth2": 31,
             "cdepth3": 31,
             "cdir": 360,
@@ -783,10 +783,10 @@ class MessageType8Tests(unittest.TestCase):
         bits += _twos(78, 7)                                   # Relative Humidity
         bits += _twos(22, 7)                                   # Average Wind Speed
         bits += _twos(270, 9)                                  # Wind Direction
-        bits += _twos(1013 - 800, 9)                           # Air Pressure (offset 800)
+        bits += _twos(1013 - 799, 9)                           # Air Pressure
         bits += _twos(5, 4)                                    # Pressure Tendency
         bits += _twos(183, 11)                                 # Air Temperature (0.1C)
-        bits += _twos(round((16.7 + 10.0) / 0.1), 10)          # Water Temperature
+        bits += _twos(round((16.7) / 0.1), 10)                 # Water Temperature
         bits += _twos(7, 6)                                    # Wave period
         bits += _twos(14, 8)                                   # Wave height (0.1m)
         bits += _twos(280, 9)                                  # Wave direction
@@ -811,10 +811,10 @@ class MessageType8Tests(unittest.TestCase):
         self.assertEqual(decoded.humidity, 78)
         self.assertEqual(decoded.wspeed, 22)
         self.assertEqual(decoded.wdir, 270)
-        self.assertEqual(decoded.pressure, 1012)
+        self.assertEqual(decoded.pressure, 1013)
         self.assertEqual(decoded.pressuretend, 5)
         self.assertEqual(decoded.airtemp, 18.3)
-        self.assertEqual(decoded.watertemp, 26.7)
+        self.assertEqual(decoded.watertemp, 16.7)
         self.assertEqual(decoded.waveheight, 1.4)
         self.assertEqual(decoded.swellheight, 0.8)
         self.assertEqual(decoded.swellperiod, 9)
