@@ -1239,6 +1239,9 @@ AREA_NOTICE_SHAPE_POLYLINE = 3
 AREA_NOTICE_SHAPE_POLYGON = 4
 AREA_NOTICE_SHAPE_TEXT = 5
 
+# Sub Area Types
+_AREA_TYPE_STR  = {0: 'circle', 1: 'rectangle', 2: 'sector', 3: 'polyline', 4: 'polygon', 5: 'text'}
+
 
 def _decode_area_notice_subareas(data: bytes) -> typing.List[typing.Dict[str, typing.Any]]:
     """Decode 1-10 Area Notice sub-area indications (87 bits each).
@@ -1262,7 +1265,10 @@ def _decode_area_notice_subareas(data: bytes) -> typing.List[typing.Dict[str, ty
         # 3-bit shape selector. Same for every shape.
         base = i * _AREA_NOTICE_SUBAREA_BITS
         shape = _asm_bits(data, base, 3)
-        area: typing.Dict[str, typing.Any] = {'shape': shape}
+        area: typing.Dict[str, typing.Any] = {
+            'shape': shape,
+            'shape_str': _AREA_TYPE_STR.get(shape, 'reserved')
+        }
 
         if shape == AREA_NOTICE_SHAPE_TEXT:
             # 14 six-bit characters filling the whole 84-bit payload.

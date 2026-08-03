@@ -1026,6 +1026,7 @@ class MessageType8Dac1Fid22Tests(unittest.TestCase):
         self.assertEqual(len(decoded.sub_areas), 1)
         self.assertEqual(decoded.sub_areas[0], {
             'shape': 0,
+            'shape_str': 'circle',
             'scale': 1,
             'lon': -69.86498,
             'lat': 42.08295,
@@ -1063,15 +1064,17 @@ class MessageType8Dac1Fid22Tests(unittest.TestCase):
         # Circle: radius is scaled by 10^scale, so 250 at scale 1 is 2500 m.
         self.assertEqual(areas[0], {
             'shape': 0, 'scale': 1, 'lon': -70.8, 'lat': 42.3,
-            'precision': 4, 'radius': 2500,
+            'precision': 4, 'radius': 2500, 'shape_str': 'circle'
         })
         self.assertEqual(areas[1], {
             'shape': 1, 'scale': 0, 'lon': -70.9, 'lat': 42.2,
             'precision': 4, 'east': 200, 'north': 150, 'orientation': 45,
+            'shape_str': 'rectangle'
         })
         self.assertEqual(areas[2], {
             'shape': 2, 'scale': 0, 'lon': -70.7, 'lat': 42.4,
             'precision': 4, 'radius': 1000, 'left': 30, 'right': 120,
+            'shape_str': 'sector'
         })
         # Bearings are half-degree steps, so 90 raw is 45 degrees.
         self.assertEqual(areas[3], {
@@ -1081,6 +1084,7 @@ class MessageType8Dac1Fid22Tests(unittest.TestCase):
                 {'bearing': 360.0, 'distance': 0},   # 720 = N/A
                 {'bearing': 360.0, 'distance': 0},
             ],
+            'shape_str': 'polyline'
         })
         self.assertEqual(areas[4], {
             'shape': 4, 'scale': 0, 'points': [
@@ -1088,9 +1092,9 @@ class MessageType8Dac1Fid22Tests(unittest.TestCase):
                 {'bearing': 90.0, 'distance': 100},
                 {'bearing': 180.0, 'distance': 100},
                 {'bearing': 270.0, 'distance': 100},
-            ],
+            ], 'shape_str': 'polygon'
         })
-        self.assertEqual(areas[5], {'shape': 5, 'text': 'DIVERS DOWN'})
+        self.assertEqual(areas[5], {'shape': 5, 'text': 'DIVERS DOWN', 'shape_str': 'text'})
 
     def test_scale_factor_applies_to_linear_dimensions(self):
         """Each scale step multiplies radius/east/north/distance by ten."""
@@ -1151,7 +1155,7 @@ class MessageType8Dac1Fid22Tests(unittest.TestCase):
         self.assertEqual(decoded.hour, 24)
         self.assertEqual(decoded.minute, 60)
         self.assertEqual(decoded.duration, 262143)
-        self.assertEqual(decoded.sub_areas[0], {'shape': 5, 'text': ''})
+        self.assertEqual(decoded.sub_areas[0], {'shape': 5, 'shape_str': 'text', 'text': ''})
 
     def test_notice_126_cancels_the_area_by_linkage_id(self):
         """Notice 126 plus duration 0 is the documented cancellation form."""
@@ -1172,7 +1176,7 @@ class MessageType8Dac1Fid22Tests(unittest.TestCase):
             bits = _area_notice_header() + _twos(shape, 3) + _twos(12345, 84)
             decoded = decode(*_to_sentences(bits))
             assert isinstance(decoded, MessageType8Dac1Fid22)
-            self.assertEqual(decoded.sub_areas[0], {'shape': shape, 'data': 12345})
+            self.assertEqual(decoded.sub_areas[0], {'shape': shape, 'shape_str': 'reserved', 'data': 12345})
 
     def test_negative_and_extreme_coordinates(self):
         """Positions are signed 1/1000-minute values."""
