@@ -1559,8 +1559,8 @@ def _env_wind(wspeed=0, wgust=0, wdir=0, wgustdir=0, sensortype=0,
 
 
 def _env_water_level(absolute=False, level=0, leveltrend=3, datum=14, sensortype=0,
-                      fabsolute=False, flevel=0, fday=0, fhour=24, fminute=60,
-                      duration=255, **over) -> str:
+                     fabsolute=False, flevel=0, fday=0, fhour=24, fminute=60,
+                     duration=255, **over) -> str:
     bits = _env_record_header(3, **over)
     bits += _twos(int(absolute), 1)
     bits += _twos(round(level * 100), 16)
@@ -1573,7 +1573,7 @@ def _env_water_level(absolute=False, level=0, leveltrend=3, datum=14, sensortype
 
 
 def _env_airgap(airdraught=0, airgap=0, gaptrend=3, fairgap=0,
-                 fday=0, fhour=24, fminute=60, **over) -> str:
+                fday=0, fhour=24, fminute=60, **over) -> str:
     bits = _env_record_header(10, **over)
     bits += _twos(round(airdraught * 100), 13)
     bits += _twos(round(airgap * 100), 13)
@@ -1591,11 +1591,11 @@ class MessageType8Dac1Fid26Tests(unittest.TestCase):
         """Two records of different sensor types decode independently."""
         bits = _env_header(mmsi=366999707)
         bits += _env_site_location(lon=-70.5, lat=42.3, alt=150, owner=4,
-                                    timeout=2, day=15, hour=12, minute=30, site=5)
+                                   timeout=2, day=15, hour=12, minute=30, site=5)
         bits += _env_wind(wspeed=12, wgust=18, wdir=270, wgustdir=280,
-                           sensortype=1, fwspeed=10, fwgust=15, fwdir=275,
-                           fday=16, fhour=14, fminute=0, duration=60,
-                           day=16, hour=13, minute=45, site=9)
+                          sensortype=1, fwspeed=10, fwgust=15, fwdir=275,
+                          fday=16, fhour=14, fminute=0, duration=60,
+                          day=16, hour=13, minute=45, site=9)
         self.assertEqual(len(bits), 56 + 2 * 112)
 
         decoded = decode(*_to_sentences(bits))
