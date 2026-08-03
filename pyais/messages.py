@@ -1346,6 +1346,193 @@ def _decode_area_notice_subareas(data: bytes) -> typing.List[typing.Dict[str, ty
     return out
 
 
+# A single Environmental sensor record: a 4-bit report type, a 20-bit
+# timestamp+site header, and an 85-bit type-specific payload (IMO289,
+# DAC=1/FID=26). 27 + 85 = 112 bits per record.
+_ENV_REPORT_BITS = 112
+_ENV_MAX_REPORTS = 5
+
+# Sensor Report Type selectors (Table 38).
+ENV_REPORT_SITE_LOCATION = 0
+ENV_REPORT_STATION_ID = 1
+ENV_REPORT_WIND = 2
+ENV_REPORT_WATER_LEVEL = 3
+ENV_REPORT_CURRENT_2D = 4
+ENV_REPORT_CURRENT_3D = 5
+ENV_REPORT_CURRENT_HORIZONTAL = 6
+ENV_REPORT_SEA_STATE = 7
+ENV_REPORT_SALINITY = 8
+ENV_REPORT_WEATHER = 9
+ENV_REPORT_AIRGAP = 10
+
+_ENV_REPORT_TYPE_STR = {
+    0: 'site_location', 1: 'station_id', 2: 'wind', 3: 'water_level',
+    4: 'current_2d', 5: 'current_3d', 6: 'current_horizontal',
+    7: 'sea_state', 8: 'salinity', 9: 'weather', 10: 'airgap',
+}
+
+
+def _decode_environmental_reports(data: bytes) -> typing.List[typing.Dict[str, typing.Any]]:
+    """Decode 1-5 Environmental sensor records (112 bits each).
+
+    Every record starts with a common 27-bit header (report type, UTC
+    day/hour/minute, and a site ID), followed by an 85-bit payload whose
+    layout depends on the report type. Report type 11 and any other
+    unrecognized value are kept as a raw 85-bit integer rather than guessed
+    at.
+
+    Fields are returned already scaled to their documented units (knots,
+    metres, degrees C, percent, etc.); sentinel/N/A/reserved codes are
+    passed through as-is rather than converted to None, matching how
+    `_decode_area_notice_subareas` handles its own sentinels.
+    """
+    out: typing.List[typing.Dict[str, typing.Any]] = []
+    if not data:
+        return out
+
+    n = min((len(data) * 8) // _ENV_REPORT_BITS, _ENV_MAX_REPORTS)
+    for i in range(n):
+        base = i * _ENV_REPORT_BITS
+        sensor = _asm_bits(data, base, 4)
+        report: typing.Dict[str, typing.Any] = {
+            'sensor': sensor,
+            'sensor_str': _ENV_REPORT_TYPE_STR.get(sensor, 'reserved'),
+            'day': _asm_bits(data, base + 4, 5),
+            'hour': _asm_bits(data, base + 9, 5),
+            'minute': _asm_bits(data, base + 14, 6),
+            'site': _asm_bits(data, base + 20, 7),
+        }
+        p = base + 27  # start of the 85-bit payload
+
+        if sensor == ENV_REPORT_SITE_LOCATION:
+            report['lon'] = round(_asm_bits(data, p, 28, signed=True) / 600000.0, 5)
+            report['lat'] = round(_asm_bits(data, p + 28, 27, signed=True) / 600000.0, 5)
+            report['alt'] = round(_asm_bits(data, p + 55, 11) * 0.1, 1)
+            report['owner'] = _asm_bits(data, p + 66, 4)
+            report['timeout'] = _asm_bits(data, p + 70, 3)
+
+        elif sensor == ENV_REPORT_STATION_ID:
+            report['name'] = decode_bytes_as_ascii6(data, p, 84).rstrip('@ ')
+
+        elif sensor == ENV_REPORT_WIND:
+            report['wspeed'] = _asm_bits(data, p, 7)
+            report['wgust'] = _asm_bits(data, p + 7, 7)
+            report['wdir'] = _asm_bits(data, p + 14, 9)
+            report['wgustdir'] = _asm_bits(data, p + 23, 9)
+            report['sensortype'] = _asm_bits(data, p + 32, 3)
+            report['fwspeed'] = _asm_bits(data, p + 35, 7)
+            report['fwgust'] = _asm_bits(data, p + 42, 7)
+            report['fwdir'] = _asm_bits(data, p + 49, 9)
+            report['fday'] = _asm_bits(data, p + 58, 5)
+            report['fhour'] = _asm_bits(data, p + 63, 5)
+            report['fminute'] = _asm_bits(data, p + 68, 6)
+            report['duration'] = _asm_bits(data, p + 74, 8)
+
+        elif sensor == ENV_REPORT_WATER_LEVEL:
+            report['absolute'] = bool(_asm_bits(data, p, 1))
+            report['level'] = round(_asm_bits(data, p + 1, 16, signed=True) * 0.01, 2)
+            report['leveltrend'] = _asm_bits(data, p + 17, 2)
+            report['datum'] = _asm_bits(data, p + 19, 5)
+            report['sensortype'] = _asm_bits(data, p + 24, 3)
+            report['fabsolute'] = bool(_asm_bits(data, p + 27, 1))
+            # IMO289 documents 16 bits of 2 decimal-place precision for the
+            # forecast level too; the "0.001m" in its prose is inconsistent
+            # with that range, so the 0.01m step from the current-level
+            # field is used here as well.
+            report['flevel'] = round(_asm_bits(data, p + 28, 16, signed=True) * 0.01, 2)
+            report['fday'] = _asm_bits(data, p + 44, 5)
+            report['fhour'] = _asm_bits(data, p + 49, 5)
+            report['fminute'] = _asm_bits(data, p + 54, 6)
+            report['duration'] = _asm_bits(data, p + 60, 8)
+
+        elif sensor == ENV_REPORT_CURRENT_2D:
+            for idx, off in enumerate((0, 26, 52), start=1):
+                report[f'cspeed{idx}'] = round(_asm_bits(data, p + off, 8) * 0.1, 1)
+                report[f'cdir{idx}'] = _asm_bits(data, p + off + 8, 9)
+                report[f'cdepth{idx}'] = _asm_bits(data, p + off + 17, 9)
+            report['sensortype'] = _asm_bits(data, p + 78, 3)
+
+        elif sensor == ENV_REPORT_CURRENT_3D:
+            report['cnorth1'] = round(_asm_bits(data, p, 8) * 0.1, 1)
+            report['ceast1'] = round(_asm_bits(data, p + 8, 8) * 0.1, 1)
+            report['cup1'] = round(_asm_bits(data, p + 16, 8) * 0.1, 1)
+            report['cdepth1'] = _asm_bits(data, p + 24, 9)
+            report['cnorth2'] = round(_asm_bits(data, p + 33, 8) * 0.1, 1)
+            report['ceast2'] = round(_asm_bits(data, p + 41, 8) * 0.1, 1)
+            report['cup2'] = round(_asm_bits(data, p + 49, 8) * 0.1, 1)
+            report['cdepth2'] = _asm_bits(data, p + 57, 9)
+            report['sensortype'] = _asm_bits(data, p + 66, 3)
+
+        elif sensor == ENV_REPORT_CURRENT_HORIZONTAL:
+            report['bearing1'] = _asm_bits(data, p, 9)
+            report['distance1'] = _asm_bits(data, p + 9, 7)
+            report['speed1'] = round(_asm_bits(data, p + 16, 8) * 0.1, 1)
+            report['direction1'] = _asm_bits(data, p + 24, 9)
+            report['depth1'] = _asm_bits(data, p + 33, 9)
+            report['bearing2'] = _asm_bits(data, p + 42, 9)
+            report['distance2'] = _asm_bits(data, p + 51, 7)
+            report['speed2'] = round(_asm_bits(data, p + 58, 8) * 0.1, 1)
+            report['direction2'] = _asm_bits(data, p + 66, 9)
+            report['depth2'] = _asm_bits(data, p + 75, 9)
+
+        elif sensor == ENV_REPORT_SEA_STATE:
+            report['swheight'] = round(_asm_bits(data, p, 8) * 0.1, 1)
+            report['swperiod'] = _asm_bits(data, p + 8, 6)
+            report['swelldir'] = _asm_bits(data, p + 14, 9)
+            report['seastate'] = _asm_bits(data, p + 23, 4)
+            report['swelltype'] = _asm_bits(data, p + 27, 3)
+            report['watertemp'] = round(_asm_bits(data, p + 30, 10, signed=True) * 0.1, 1)
+            report['watertempdepth'] = round(_asm_bits(data, p + 40, 7) * 0.1, 1)
+            report['depthtype'] = _asm_bits(data, p + 47, 3)
+            report['waveheight'] = round(_asm_bits(data, p + 50, 8) * 0.1, 1)
+            report['waveperiod'] = _asm_bits(data, p + 58, 6)
+            report['wavedir'] = _asm_bits(data, p + 64, 9)
+            report['wavetype'] = _asm_bits(data, p + 73, 3)
+            report['salinity'] = round(_asm_bits(data, p + 76, 9) * 0.1, 1)
+
+        elif sensor == ENV_REPORT_SALINITY:
+            report['watertemp'] = round(_asm_bits(data, p, 10, signed=True) * 0.1, 1)
+            report['conductivity'] = round(_asm_bits(data, p + 10, 10) * 0.1, 1)
+            report['pressure'] = round(_asm_bits(data, p + 20, 16) * 0.1, 1)
+            report['salinity'] = round(_asm_bits(data, p + 36, 9) * 0.1, 1)
+            report['salinitytype'] = _asm_bits(data, p + 45, 2)
+            report['sensortype'] = _asm_bits(data, p + 47, 3)
+
+        elif sensor == ENV_REPORT_WEATHER:
+            report['temperature'] = round(_asm_bits(data, p, 11, signed=True) * 0.1, 1)
+            report['sensortype'] = _asm_bits(data, p + 11, 3)
+            report['preciptype'] = _asm_bits(data, p + 14, 2)
+            report['visibility'] = round(_asm_bits(data, p + 16, 8) * 0.1, 1)
+            report['dewpoint'] = round(_asm_bits(data, p + 24, 10, signed=True) * 0.1, 1)
+            report['dewtype'] = _asm_bits(data, p + 34, 3)
+            # Raw code per spec: 0 = <=800hPa, 1-401 = 800-1200hPa (i.e. raw
+            # + 799), 402 = >=1201hPa, 403 = N/A. Kept raw rather than
+            # offset, since a sentinel-safe conversion would need the same
+            # per-field care as the attrs-based pressure fields elsewhere.
+            report['pressure'] = _asm_bits(data, p + 37, 9)
+            report['pressuretend'] = _asm_bits(data, p + 46, 2)
+            report['pressuretype'] = _asm_bits(data, p + 48, 3)
+            report['salinity'] = round(_asm_bits(data, p + 51, 9) * 0.1, 1)
+
+        elif sensor == ENV_REPORT_AIRGAP:
+            report['airdraught'] = round(_asm_bits(data, p, 13) * 0.01, 2)
+            report['airgap'] = round(_asm_bits(data, p + 13, 13) * 0.01, 2)
+            report['gaptrend'] = _asm_bits(data, p + 26, 2)
+            report['fairgap'] = round(_asm_bits(data, p + 28, 13) * 0.01, 2)
+            report['fday'] = _asm_bits(data, p + 41, 5)
+            report['fhour'] = _asm_bits(data, p + 46, 5)
+            report['fminute'] = _asm_bits(data, p + 51, 6)
+
+        else:
+            # Report type 11 is reserved for future use; anything else is
+            # unrecognized. Keep the raw payload rather than guess a layout.
+            report['data'] = _asm_bits(data, p, 85)
+
+        out.append(report)
+
+    return out
+
+
 class CommunicationStateMixin:
     """
     Mixin class to access Communication State values by applicable messages.
@@ -2066,6 +2253,35 @@ class MessageType8Dac1Fid24(Payload):
 
 
 @attr.s(slots=True)
+class MessageType8Dac1Fid26(Payload):
+    """Environmental (IMO289). DAC=1, FID=26.
+
+    Broadcasts one or more sensor readings from a fixed shore-based or
+    moored sensor site: location, wind, water level, currents, sea state,
+    salinity, weather, or air gap/air draught, each with its own payload
+    layout selected by the sensor report type.
+
+    Variable length: a fixed 56-bit header followed by 1 to 5 sensor
+    records of 112 bits each, so 168 to 616 bits in total. The records
+    live in a raw region; use `.reports` to decode them.
+
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_environmental
+    """
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=26, signed=False)
+    reports_data = bit_field(560, bytes, default=b'', variable_length=True)
+
+    @property
+    def reports(self) -> typing.List[typing.Dict[str, typing.Any]]:
+        """Decode the 1-5 sensor records (report type and type-specific fields)."""
+        return _decode_environmental_reports(self.reports_data)
+
+
+@attr.s(slots=True)
 class MessageType8Dac1Fid31(Payload):
     """Meteorological and hydrological data (IMO289).
     DAC=1, FID=31."""
@@ -2313,7 +2529,7 @@ _MSG8_VARIANTS: typing.Dict[typing.Tuple[int, int], typing.Type[Payload]] = {
     (1, 22): MessageType8Dac1Fid22,
     (1, 24): MessageType8Dac1Fid24,
     # (1, 25): MessageType8Dac1Fid25,
-    # (1, 26): MessageType8Dac1Fid26,
+    (1, 26): MessageType8Dac1Fid26,
     # (1, 27): MessageType8Dac1Fid27,
     # (1, 29): MessageType8Dac1Fid29,
     (1, 31): MessageType8Dac1Fid31,
@@ -3202,7 +3418,7 @@ ANY_MESSAGE = typing.Union[
     MessageType8Dac1Fid22,
     MessageType8Dac1Fid24,
     # MessageType8Dac1Fid25,
-    # MessageType8Dac1Fid26,
+    MessageType8Dac1Fid26,
     # MessageType8Dac1Fid27,
     # MessageType8Dac1Fid29,
     MessageType8Dac1Fid31,

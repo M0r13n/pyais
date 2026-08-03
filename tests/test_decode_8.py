@@ -14,6 +14,7 @@ from pyais.messages import (
     MessageType8Dac1Fid21NonWmo,
     MessageType8Dac1Fid22,
     MessageType8Dac1Fid24,
+    MessageType8Dac1Fid26,
     MessageType8Dac1Fid31,
 )
 from pyais.constants import SOLASStatus, IceClass
@@ -1502,6 +1503,256 @@ class MessageType8Dac1Fid24Tests(unittest.TestCase):
     def test_dispatch_is_registered_not_default(self):
         """DAC=1/FID=24 must route to the structured class, not the fallback."""
         decoded = MessageType8Dac1Fid24.create(mmsi='219000001')
+        self.assertNotIsInstance(decoded, MessageType8Default)
+
+
+def _env_header(**over) -> str:
+    """Pack the fixed 56-bit Environmental header (IMO289 DAC=1/FID=26)."""
+    bits = _twos(8, 6)                                  # Message Type
+    bits += _twos(over.get('repeat', 0), 2)             # Repeat Indicator
+    bits += _twos(over.get('mmsi', 366999707), 30)      # Source MMSI
+    bits += '00'                                        # Spare
+    bits += _twos(1, 10)                                # DAC
+    bits += _twos(26, 6)                                # FID
+    return bits
+
+
+def _env_record_header(sensor: int, **over) -> str:
+    """Pack the common 27-bit record header shared by every sensor type."""
+    bits = _twos(sensor, 4)
+    bits += _twos(over.get('day', 0), 5)
+    bits += _twos(over.get('hour', 24), 5)
+    bits += _twos(over.get('minute', 60), 6)
+    bits += _twos(over.get('site', 0), 7)
+    return bits
+
+
+def _env_site_location(lon=0.0, lat=0.0, alt=0, owner=0, timeout=0, **over) -> str:
+    bits = _env_record_header(0, **over)
+    bits += _twos(round(lon * 600000), 28)
+    bits += _twos(round(lat * 600000), 27)
+    bits += _twos(alt, 11)
+    bits += _twos(owner, 4)
+    bits += _twos(timeout, 3)
+    bits += '0' * 12
+    return bits
+
+
+def _env_station_id(name='', **over) -> str:
+    bits = _env_record_header(1, **over)
+    bits += _sixbit(name, 14)
+    bits += '0'
+    return bits
+
+
+def _env_wind(wspeed=0, wgust=0, wdir=0, wgustdir=0, sensortype=0,
+              fwspeed=0, fwgust=0, fwdir=0, fday=0, fhour=24, fminute=60,
+              duration=255, **over) -> str:
+    bits = _env_record_header(2, **over)
+    bits += _twos(wspeed, 7) + _twos(wgust, 7) + _twos(wdir, 9) + _twos(wgustdir, 9)
+    bits += _twos(sensortype, 3)
+    bits += _twos(fwspeed, 7) + _twos(fwgust, 7) + _twos(fwdir, 9)
+    bits += _twos(fday, 5) + _twos(fhour, 5) + _twos(fminute, 6) + _twos(duration, 8)
+    bits += '0' * 3
+    return bits
+
+
+def _env_water_level(absolute=False, level=0, leveltrend=3, datum=14, sensortype=0,
+                      fabsolute=False, flevel=0, fday=0, fhour=24, fminute=60,
+                      duration=255, **over) -> str:
+    bits = _env_record_header(3, **over)
+    bits += _twos(int(absolute), 1)
+    bits += _twos(round(level * 100), 16)
+    bits += _twos(leveltrend, 2) + _twos(datum, 5) + _twos(sensortype, 3)
+    bits += _twos(int(fabsolute), 1)
+    bits += _twos(round(flevel * 100), 16)
+    bits += _twos(fday, 5) + _twos(fhour, 5) + _twos(fminute, 6) + _twos(duration, 8)
+    bits += '0' * 17
+    return bits
+
+
+def _env_airgap(airdraught=0, airgap=0, gaptrend=3, fairgap=0,
+                 fday=0, fhour=24, fminute=60, **over) -> str:
+    bits = _env_record_header(10, **over)
+    bits += _twos(round(airdraught * 100), 13)
+    bits += _twos(round(airgap * 100), 13)
+    bits += _twos(gaptrend, 2)
+    bits += _twos(round(fairgap * 100), 13)
+    bits += _twos(fday, 5) + _twos(fhour, 5) + _twos(fminute, 6)
+    bits += '0' * 28
+    return bits
+
+
+class MessageType8Dac1Fid26Tests(unittest.TestCase):
+    """IMO289 Environmental. DAC=1, FID=26."""
+
+    def test_site_location_and_wind_reports(self):
+        """Two records of different sensor types decode independently."""
+        bits = _env_header(mmsi=366999707)
+        bits += _env_site_location(lon=-70.5, lat=42.3, alt=150, owner=4,
+                                    timeout=2, day=15, hour=12, minute=30, site=5)
+        bits += _env_wind(wspeed=12, wgust=18, wdir=270, wgustdir=280,
+                           sensortype=1, fwspeed=10, fwgust=15, fwdir=275,
+                           fday=16, fhour=14, fminute=0, duration=60,
+                           day=16, hour=13, minute=45, site=9)
+        self.assertEqual(len(bits), 56 + 2 * 112)
+
+        decoded = decode(*_to_sentences(bits))
+
+        assert isinstance(decoded, MessageType8Dac1Fid26)
+        self.assertEqual(decoded.mmsi, 366999707)
+        self.assertEqual(decoded.dac, 1)
+        self.assertEqual(decoded.fid, 26)
+
+        reports = decoded.reports
+        self.assertEqual(len(reports), 2)
+
+        site = reports[0]
+        self.assertEqual(site['sensor'], 0)
+        self.assertEqual(site['sensor_str'], 'site_location')
+        self.assertEqual(site['day'], 15)
+        self.assertEqual(site['hour'], 12)
+        self.assertEqual(site['minute'], 30)
+        self.assertEqual(site['site'], 5)
+        self.assertEqual(site['lon'], -70.5)
+        self.assertEqual(site['lat'], 42.3)
+        self.assertEqual(site['alt'], 15.0)
+        self.assertEqual(site['owner'], 4)
+        self.assertEqual(site['timeout'], 2)
+
+        wind = reports[1]
+        self.assertEqual(wind['sensor'], 2)
+        self.assertEqual(wind['sensor_str'], 'wind')
+        self.assertEqual(wind['wspeed'], 12)
+        self.assertEqual(wind['wgust'], 18)
+        self.assertEqual(wind['wdir'], 270)
+        self.assertEqual(wind['wgustdir'], 280)
+        self.assertEqual(wind['sensortype'], 1)
+        self.assertEqual(wind['fwspeed'], 10)
+        self.assertEqual(wind['fwgust'], 15)
+        self.assertEqual(wind['fwdir'], 275)
+        self.assertEqual(wind['fday'], 16)
+        self.assertEqual(wind['fhour'], 14)
+        self.assertEqual(wind['fminute'], 0)
+        self.assertEqual(wind['duration'], 60)
+
+    def test_station_id_report(self):
+        """Station ID is 14 six-bit characters filling the whole payload."""
+        bits = _env_header() + _env_station_id(name='BUOY42', day=1, hour=0, minute=0, site=1)
+        decoded = decode(*_to_sentences(bits))
+
+        assert isinstance(decoded, MessageType8Dac1Fid26)
+        report = decoded.reports[0]
+        self.assertEqual(report['sensor'], 1)
+        self.assertEqual(report['sensor_str'], 'station_id')
+        self.assertEqual(report['name'], 'BUOY42')
+
+    def test_water_level_report(self):
+        """Signed level in 0.01m steps, plus a forecast level/time."""
+        bits = _env_header() + _env_water_level(
+            absolute=True, level=1.23, leveltrend=1, datum=6, sensortype=2,
+            fabsolute=False, flevel=-4.56, fday=2, fhour=3, fminute=4, duration=30,
+        )
+        decoded = decode(*_to_sentences(bits))
+
+        assert isinstance(decoded, MessageType8Dac1Fid26)
+        report = decoded.reports[0]
+        self.assertEqual(report['sensor'], 3)
+        self.assertEqual(report['sensor_str'], 'water_level')
+        self.assertTrue(report['absolute'])
+        self.assertEqual(report['level'], 1.23)
+        self.assertEqual(report['leveltrend'], 1)
+        self.assertEqual(report['datum'], 6)
+        self.assertEqual(report['sensortype'], 2)
+        self.assertFalse(report['fabsolute'])
+        self.assertEqual(report['flevel'], -4.56)
+        self.assertEqual(report['fday'], 2)
+        self.assertEqual(report['fhour'], 3)
+        self.assertEqual(report['fminute'], 4)
+        self.assertEqual(report['duration'], 30)
+
+    def test_airgap_report(self):
+        """Air draught/air gap in 0.01m steps, with a forecast time."""
+        bits = _env_header() + _env_airgap(
+            airdraught=25.50, airgap=30.10, gaptrend=1, fairgap=29.90,
+            fday=5, fhour=6, fminute=7,
+        )
+        decoded = decode(*_to_sentences(bits))
+
+        assert isinstance(decoded, MessageType8Dac1Fid26)
+        report = decoded.reports[0]
+        self.assertEqual(report['sensor'], 10)
+        self.assertEqual(report['sensor_str'], 'airgap')
+        self.assertEqual(report['airdraught'], 25.50)
+        self.assertEqual(report['airgap'], 30.10)
+        self.assertEqual(report['gaptrend'], 1)
+        self.assertEqual(report['fairgap'], 29.90)
+        self.assertEqual(report['fday'], 5)
+        self.assertEqual(report['fhour'], 6)
+        self.assertEqual(report['fminute'], 7)
+
+    def test_reserved_and_unknown_sensor_types_kept_raw(self):
+        """Type 11 (reserved) and other out-of-range codes are kept raw."""
+        for sensor in (11, 12, 15):
+            bits = _env_header() + _env_record_header(sensor) + _twos(999, 85)
+            decoded = decode(*_to_sentences(bits))
+            assert isinstance(decoded, MessageType8Dac1Fid26)
+            report = decoded.reports[0]
+            self.assertEqual(report['sensor'], sensor)
+            self.assertEqual(report['sensor_str'], 'reserved')
+            self.assertEqual(report['data'], 999)
+
+    def test_single_and_maximum_report_counts(self):
+        """1 report is the minimum (168 bits) and 5 the maximum (560 bits)."""
+        bits = _env_header() + _env_station_id(name='A')
+        self.assertEqual(len(bits), 168)
+        decoded = decode(*_to_sentences(bits))
+        assert isinstance(decoded, MessageType8Dac1Fid26)
+        self.assertEqual(len(decoded.reports), 1)
+
+        bits = _env_header()
+        for i in range(5):
+            bits += _env_site_location(lon=1.0 * i, lat=2.0 * i, site=i)
+        self.assertEqual(len(bits), 56 + 5 * 112)
+        decoded = decode(*_to_sentences(bits))
+        assert isinstance(decoded, MessageType8Dac1Fid26)
+        self.assertEqual(len(decoded.reports), 5)
+        self.assertEqual(decoded.reports[4]['lon'], 4.0)
+        self.assertEqual(decoded.reports[4]['lat'], 8.0)
+        self.assertEqual(decoded.reports[4]['site'], 4)
+
+    def test_empty_reports_region_yields_no_reports(self):
+        """A header-only message decodes without raising."""
+        decoded = MessageType8Dac1Fid26.create(mmsi='219000001')
+        self.assertEqual(decoded.reports, [])
+
+    def test_encode_decode_round_trip(self):
+        """Build a message with create()/encode_msg() and read it back."""
+        # Sensor records are packed the same way sub-areas are: raw bits to bytes.
+        bits = _env_wind(wspeed=8, wgust=11, wdir=90, wgustdir=95, day=3, hour=4, minute=5, site=2)
+        padded = bits + '0' * (-len(bits) % 8)
+        reports_data = int(padded, 2).to_bytes(len(padded) // 8, 'big')
+
+        encoded = encode_msg(MessageType8Dac1Fid26.create(
+            mmsi='219000001',
+            reports_data=reports_data,
+        ))
+        decoded = decode(*encoded)
+
+        assert isinstance(decoded, MessageType8Dac1Fid26)
+        self.assertEqual(decoded.mmsi, 219000001)
+        self.assertEqual(decoded.dac, 1)
+        self.assertEqual(decoded.fid, 26)
+        report = decoded.reports[0]
+        self.assertEqual(report['sensor_str'], 'wind')
+        self.assertEqual(report['wspeed'], 8)
+        self.assertEqual(report['wgust'], 11)
+        self.assertEqual(report['wdir'], 90)
+        self.assertEqual(report['wgustdir'], 95)
+
+    def test_dispatch_is_registered_not_default(self):
+        """DAC=1/FID=26 must route to the structured class, not the fallback."""
+        decoded = MessageType8Dac1Fid26.create(mmsi='219000001')
         self.assertNotIsInstance(decoded, MessageType8Default)
 
 
