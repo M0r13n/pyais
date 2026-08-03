@@ -9,8 +9,28 @@ from typing import Any, Dict, Optional, Sequence, Union
 import attr
 
 from pyais.bit_vector import bit_vector
-from pyais.constants import AtoNDimensionType, AtoNRestrictedUseInidicator, AtoNSationType, EMMATypeCodes, EMMAWinds, SignalImpact, SignalStatus, TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
-    TransmitMode, StationIntervals, TurnRate, InlandLoadedType
+from pyais.constants import (
+    AtoNDimensionType,
+    AtoNRestrictedUseInidicator,
+    AtoNSationType,
+    EMMATypeCodes,
+    EMMAWinds,
+    IceClass,
+    SOLASStatus,
+    SignalImpact,
+    SignalStatus,
+    TalkerID,
+    NavigationStatus,
+    ManeuverIndicator,
+    EpfdType,
+    ShipType,
+    NavAid,
+    StationType,
+    TransmitMode,
+    StationIntervals,
+    TurnRate,
+    InlandLoadedType
+)
 from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitializedException, UnknownMessageException, UnknownPartNoException, \
     InvalidDataTypeException, MissingPayloadException
 from pyais.util import SIX_BIT_ENCODING, ParsedDimensions, SixBitNibleEncoder, checksum, compute_checksum, decode_bytes_as_ascii6, get_itdma_comm_state, get_sotdma_comm_state, chk_to_int, coerce_val, b64encode_str, is_auxiliary_craft, parse_dimensions
@@ -1240,7 +1260,7 @@ AREA_NOTICE_SHAPE_POLYGON = 4
 AREA_NOTICE_SHAPE_TEXT = 5
 
 # Sub Area Types
-_AREA_TYPE_STR  = {0: 'circle', 1: 'rectangle', 2: 'sector', 3: 'polyline', 4: 'polygon', 5: 'text'}
+_AREA_TYPE_STR = {0: 'circle', 1: 'rectangle', 2: 'sector', 3: 'polyline', 4: 'polygon', 5: 'text'}
 
 
 def _decode_area_notice_subareas(data: bytes) -> typing.List[typing.Dict[str, typing.Any]]:
@@ -1974,6 +1994,78 @@ class MessageType8Dac1Fid22(Payload):
 
 
 @attr.s(slots=True)
+class MessageType8Dac1Fid24(Payload):
+    """Extended Ship Static and Voyage Related Data (IMO289). DAC=1, FID=24.
+
+    Used by a ship to report height over keel (air draught), port-call
+    history, the operational status of a long list of SOLAS-required
+    navigational equipment, ice class, and other voyage-related data.
+    Replaces a deprecated trial message from IMO236. Fixed length: 360 bits.
+
+    airdraught is stored in 0.01 m units (1-8190 -> 0.01-81.90 m). IMO289
+    documents the special value 81.91 m ("81.91 = >= 81.91 m") which is only
+    representable if the true step size is 0.01 m rather than the 0.1 m the
+    prose states elsewhere in the standard; gpsd's AIVDM reference notes this
+    same inconsistency and uses the 0.01 m step, which is what is used here.
+
+    Each `*_state` field reports the operational status of one piece of
+    equipment using the "SOLAS Status" codes (0 = not available/requested,
+    1 = operational, 2 = not operational, 3 = no data).
+
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_extended_ship_static_and_voyage_related_data
+    """
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=24, signed=False)
+    linkage = bit_field(10, int, default=0, signed=False)
+    airdraught = bit_field(13, float, from_converter=from_100th, to_converter=to_100th, default=0, signed=False)
+    lastport = bit_field(30, str, default='')
+    nextport = bit_field(30, str, default='')
+    secondport = bit_field(30, str, default='')
+    ais_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    ata_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    bnwas_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    ecdisb_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    chart_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    sounder_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    epaid_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    steer_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    gnss_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    gyro_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    lrit_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    magcomp_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    navtex_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    arpa_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    sband_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    xband_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    hfradio_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    inmarsat_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    mfradio_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    vhfradio_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    grndlog_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    waterlog_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    thd_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    tcs_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    vdr_state = bit_field(2, int, default=SOLASStatus.NotAvailable, signed=False, from_converter=SOLASStatus.from_value, to_converter=SOLASStatus.from_value)
+    spare_2 = bit_field(2, bytes, default=b'', is_spare=True)
+    iceclass = bit_field(4, int, default=IceClass.NotAvailable, signed=False, from_converter=IceClass.from_value, to_converter=IceClass.from_value)
+    horsepower = bit_field(18, int, default=262143, signed=False)
+    vhfchan = bit_field(12, int, default=0, signed=False)
+    lshiptype = bit_field(42, str, default='')
+    tonnage = bit_field(18, int, default=262143, signed=False)
+    lading = bit_field(2, int, default=0, signed=False)
+    heavyoil = bit_field(2, int, default=0, signed=False)
+    lightoil = bit_field(2, int, default=0, signed=False)
+    dieseloil = bit_field(2, int, default=0, signed=False)
+    totaloil = bit_field(14, int, default=16382, signed=False)
+    persons = bit_field(13, int, default=0, signed=False)
+    spare_3 = bit_field(10, bytes, default=b'', is_spare=True)
+
+
+@attr.s(slots=True)
 class MessageType8Dac1Fid31(Payload):
     """Meteorological and hydrological data (IMO289).
     DAC=1, FID=31."""
@@ -2219,8 +2311,7 @@ _MSG8_VARIANTS: typing.Dict[typing.Tuple[int, int], typing.Type[Payload]] = {
     (1, 20): MessageType8Dac1Fid20,
     (1, 21): MessageType8Dac1Fid21,
     (1, 22): MessageType8Dac1Fid22,
-    # (1, 23): MessageType8Dac1Fid23,
-    # (1, 24): MessageType8Dac1Fid24,
+    (1, 24): MessageType8Dac1Fid24,
     # (1, 25): MessageType8Dac1Fid25,
     # (1, 26): MessageType8Dac1Fid26,
     # (1, 27): MessageType8Dac1Fid27,
@@ -3109,8 +3200,7 @@ ANY_MESSAGE = typing.Union[
     MessageType8Dac1Fid20,
     MessageType8Dac1Fid21NonWmo,
     MessageType8Dac1Fid22,
-    # MessageType8Dac1Fid23,
-    # MessageType8Dac1Fid24,
+    MessageType8Dac1Fid24,
     # MessageType8Dac1Fid25,
     # MessageType8Dac1Fid26,
     # MessageType8Dac1Fid27,

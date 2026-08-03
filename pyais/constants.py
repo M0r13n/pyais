@@ -762,6 +762,42 @@ class SignalStatus(int, ReprEnum):
         return cls.Unknown
 
 
+class SOLASStatus(int, ReprEnum):
+    """Operational state of a piece of SOLAS-required navigational
+    equipment, used by the 2-bit `_state` fields of MessageType8Dac1Fid24."""
+    NotAvailable = 0
+    Operational = 1
+    NotOperational = 2
+    NoData = 3
+
+    @classmethod
+    def _missing_(cls, value: object) -> "SOLASStatus":
+        return cls.NotAvailable
+
+
+class IceClass(int, ReprEnum):
+    """Ice class of a vessel (IACS Polar Class / FSICR / RS), used by
+    MessageType8Dac1Fid24."""
+    NotClassified = 0
+    IacsPC1 = 1
+    IacsPC2 = 2
+    IacsPC3 = 3
+    IacsPC4 = 4
+    IacsPC5 = 5
+    IacsPC6_FsicrIaSuper_RsArc5 = 6
+    IacsPC7_FsicrIa_RsArc4 = 7
+    FsicrIb_RsIce3 = 8
+    FsicrIc_RsIce2 = 9
+    RsIce1 = 10
+    NotAvailable = 15
+
+    @classmethod
+    def _missing_(cls, value: object) -> "IceClass":
+        # 11-14 are reserved for future use; treat any unmapped code
+        # (including those) as not-available rather than raising.
+        return cls.NotAvailable
+
+
 _COG_SPECIAL = {
     360: 'unreported',
     361: 'dynamically positioned',

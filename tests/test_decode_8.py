@@ -13,8 +13,10 @@ from pyais.messages import (
     MessageType8Dac1Fid20,
     MessageType8Dac1Fid21NonWmo,
     MessageType8Dac1Fid22,
+    MessageType8Dac1Fid24,
     MessageType8Dac1Fid31,
 )
+from pyais.constants import SOLASStatus, IceClass
 
 
 def _twos(value: int, bits: int) -> str:
@@ -1244,6 +1246,263 @@ class MessageType8Dac1Fid22Tests(unittest.TestCase):
         """A header-only message decodes without raising."""
         decoded = MessageType8Dac1Fid22.create(mmsi='219000001')
         self.assertEqual(decoded.sub_areas, [])
+
+
+def _fid24_message(**over) -> str:
+    """Pack the fixed 360-bit IMO289 Extended Ship Static and Voyage
+    Related Data message (DAC=1, FID=24) field-by-field per the spec."""
+    states = [
+        'ais_state', 'ata_state', 'bnwas_state', 'ecdisb_state', 'chart_state',
+        'sounder_state', 'epaid_state', 'steer_state', 'gnss_state', 'gyro_state',
+        'lrit_state', 'magcomp_state', 'navtex_state', 'arpa_state', 'sband_state',
+        'xband_state', 'hfradio_state', 'inmarsat_state', 'mfradio_state',
+        'vhfradio_state', 'grndlog_state', 'waterlog_state', 'thd_state',
+        'tcs_state', 'vdr_state',
+    ]
+    bits = _twos(8, 6)                                      # Message Type
+    bits += _twos(over.get('repeat', 0), 2)                 # Repeat Indicator
+    bits += _twos(over.get('mmsi', 219000001), 30)          # Source MMSI
+    bits += '00'                                            # Spare
+    bits += _twos(1, 10)                                    # DAC
+    bits += _twos(24, 6)                                    # FID
+    bits += _twos(over.get('linkage', 7), 10)               # Message Linkage ID
+    bits += _twos(over.get('airdraught', 2550), 13)         # Air Draught (0.01m units)
+    bits += _sixbit(over.get('lastport', 'USNYC'), 5)
+    bits += _sixbit(over.get('nextport', 'NLRTM'), 5)
+    bits += _sixbit(over.get('secondport', 'DEHAM'), 5)
+    for name in states:
+        bits += _twos(over.get(name, 0), 2)
+    bits += '00'                                            # Reserved
+    bits += _twos(over.get('iceclass', 15), 4)
+    bits += _twos(over.get('horsepower', 262143), 18)
+    bits += _twos(over.get('vhfchan', 0), 12)
+    bits += _sixbit(over.get('lshiptype', ''), 7)
+    bits += _twos(over.get('tonnage', 262143), 18)
+    bits += _twos(over.get('lading', 0), 2)
+    bits += _twos(over.get('heavyoil', 0), 2)
+    bits += _twos(over.get('lightoil', 0), 2)
+    bits += _twos(over.get('dieseloil', 0), 2)
+    bits += _twos(over.get('totaloil', 16382), 14)
+    bits += _twos(over.get('persons', 0), 13)
+    bits += '0' * 10                                        # Spare
+    return bits
+
+
+class MessageType8Dac1Fid24Tests(unittest.TestCase):
+    """IMO289 Extended Ship Static and Voyage Related Data. DAC=1, FID=24."""
+
+    def test_bit_layout_matches_spec(self):
+        """Hand-pack every field with a distinct value and decode it back."""
+        bits = _fid24_message(
+            mmsi=366999707,
+            linkage=99,
+            airdraught=1234,
+            lastport='NLRTM',
+            nextport='USNYC',
+            secondport='DEHAM',
+            ais_state=1, ata_state=2, bnwas_state=3, ecdisb_state=0,
+            chart_state=1, sounder_state=2, epaid_state=3, steer_state=0,
+            gnss_state=1, gyro_state=2, lrit_state=3, magcomp_state=0,
+            navtex_state=1, arpa_state=2, sband_state=3, xband_state=0,
+            hfradio_state=1, inmarsat_state=2, mfradio_state=3, vhfradio_state=0,
+            grndlog_state=1, waterlog_state=2, thd_state=3, tcs_state=0,
+            vdr_state=1,
+            iceclass=7,
+            horsepower=54321,
+            vhfchan=16,
+            lshiptype='TANKERS',
+            tonnage=123456 % 262142,
+            lading=1,
+            heavyoil=2,
+            lightoil=1,
+            dieseloil=2,
+            totaloil=8000,
+            persons=42,
+        )
+        self.assertEqual(len(bits), 360)
+
+        decoded = decode(*_to_sentences(bits))
+
+        assert isinstance(decoded, MessageType8Dac1Fid24)
+        self.assertEqual(decoded.msg_type, 8)
+        self.assertEqual(decoded.mmsi, 366999707)
+        self.assertEqual(decoded.dac, 1)
+        self.assertEqual(decoded.fid, 24)
+        self.assertEqual(decoded.linkage, 99)
+        self.assertEqual(decoded.airdraught, 12.34)
+        self.assertEqual(decoded.lastport, 'NLRTM')
+        self.assertEqual(decoded.nextport, 'USNYC')
+        self.assertEqual(decoded.secondport, 'DEHAM')
+
+        self.assertEqual(decoded.ais_state, SOLASStatus.Operational)
+        self.assertEqual(decoded.ata_state, SOLASStatus.NotOperational)
+        self.assertEqual(decoded.bnwas_state, SOLASStatus.NoData)
+        self.assertEqual(decoded.ecdisb_state, SOLASStatus.NotAvailable)
+        self.assertEqual(decoded.chart_state, SOLASStatus.Operational)
+        self.assertEqual(decoded.sounder_state, SOLASStatus.NotOperational)
+        self.assertEqual(decoded.epaid_state, SOLASStatus.NoData)
+        self.assertEqual(decoded.steer_state, SOLASStatus.NotAvailable)
+        self.assertEqual(decoded.gnss_state, SOLASStatus.Operational)
+        self.assertEqual(decoded.gyro_state, SOLASStatus.NotOperational)
+        self.assertEqual(decoded.lrit_state, SOLASStatus.NoData)
+        self.assertEqual(decoded.magcomp_state, SOLASStatus.NotAvailable)
+        self.assertEqual(decoded.navtex_state, SOLASStatus.Operational)
+        self.assertEqual(decoded.arpa_state, SOLASStatus.NotOperational)
+        self.assertEqual(decoded.sband_state, SOLASStatus.NoData)
+        self.assertEqual(decoded.xband_state, SOLASStatus.NotAvailable)
+        self.assertEqual(decoded.hfradio_state, SOLASStatus.Operational)
+        self.assertEqual(decoded.inmarsat_state, SOLASStatus.NotOperational)
+        self.assertEqual(decoded.mfradio_state, SOLASStatus.NoData)
+        self.assertEqual(decoded.vhfradio_state, SOLASStatus.NotAvailable)
+        self.assertEqual(decoded.grndlog_state, SOLASStatus.Operational)
+        self.assertEqual(decoded.waterlog_state, SOLASStatus.NotOperational)
+        self.assertEqual(decoded.thd_state, SOLASStatus.NoData)
+        self.assertEqual(decoded.tcs_state, SOLASStatus.NotAvailable)
+        self.assertEqual(decoded.vdr_state, SOLASStatus.Operational)
+
+        self.assertEqual(decoded.iceclass, IceClass.IacsPC7_FsicrIa_RsArc4)
+        self.assertEqual(decoded.horsepower, 54321)
+        self.assertEqual(decoded.vhfchan, 16)
+        self.assertEqual(decoded.lshiptype, 'TANKERS')
+        self.assertEqual(decoded.tonnage, 123456 % 262142)
+        self.assertEqual(decoded.lading, 1)
+        self.assertEqual(decoded.heavyoil, 2)
+        self.assertEqual(decoded.lightoil, 1)
+        self.assertEqual(decoded.dieseloil, 2)
+        self.assertEqual(decoded.totaloil, 8000)
+        self.assertEqual(decoded.persons, 42)
+
+    def test_defaults_and_na_sentinels(self):
+        """The N/A defaults from the spec table survive a round trip."""
+        bits = _fid24_message(
+            airdraught=0,       # N/A
+            lastport='',
+            nextport='',
+            secondport='',
+            iceclass=15,        # N/A (default)
+            horsepower=262143,  # N/A (default)
+            vhfchan=0,          # N/A (default)
+            lshiptype='',
+            tonnage=262143,     # N/A (default)
+            lading=0,
+            heavyoil=0,
+            lightoil=0,
+            dieseloil=0,
+            totaloil=16382,     # N/A (default)
+            persons=0,          # N/A (default)
+        )
+        decoded = decode(*_to_sentences(bits))
+
+        assert isinstance(decoded, MessageType8Dac1Fid24)
+        self.assertEqual(decoded.airdraught, 0)
+        self.assertEqual(decoded.lastport, '')
+        self.assertEqual(decoded.nextport, '')
+        self.assertEqual(decoded.secondport, '')
+        self.assertEqual(decoded.iceclass, IceClass.NotAvailable)
+        self.assertEqual(decoded.horsepower, 262143)
+        self.assertEqual(decoded.vhfchan, 0)
+        self.assertEqual(decoded.lshiptype, '')
+        self.assertEqual(decoded.tonnage, 262143)
+        self.assertEqual(decoded.totaloil, 16382)
+        self.assertEqual(decoded.persons, 0)
+
+        for name in (
+            'ais_state', 'ata_state', 'bnwas_state', 'ecdisb_state', 'chart_state',
+            'sounder_state', 'epaid_state', 'steer_state', 'gnss_state', 'gyro_state',
+            'lrit_state', 'magcomp_state', 'navtex_state', 'arpa_state', 'sband_state',
+            'xband_state', 'hfradio_state', 'inmarsat_state', 'mfradio_state',
+            'vhfradio_state', 'grndlog_state', 'waterlog_state', 'thd_state',
+            'tcs_state', 'vdr_state',
+        ):
+            self.assertEqual(getattr(decoded, name), SOLASStatus.NotAvailable)
+
+    def test_ice_class_reserved_codes_fall_back_to_not_available(self):
+        """Codes 11-14 are reserved for future use; treat them as N/A."""
+        for code in (11, 12, 13, 14):
+            bits = _fid24_message(iceclass=code)
+            decoded = decode(*_to_sentences(bits))
+            assert isinstance(decoded, MessageType8Dac1Fid24)
+            self.assertEqual(decoded.iceclass, IceClass.NotAvailable)
+
+    def test_airdraught_special_value(self):
+        """8191 raw (81.91m) is the documented '>= 81.91 m' sentinel."""
+        bits = _fid24_message(airdraught=8191)
+        decoded = decode(*_to_sentences(bits))
+        assert isinstance(decoded, MessageType8Dac1Fid24)
+        self.assertEqual(decoded.airdraught, 81.91)
+
+    def test_encode_decode_round_trip(self):
+        """Build a message with create()/encode_msg() and read it back."""
+        encoded = encode_msg(MessageType8Dac1Fid24.create(
+            mmsi='219000001',
+            linkage=3,
+            airdraught=25.5,
+            lastport='USNYC',
+            nextport='NLRTM',
+            secondport='DEHAM',
+            gnss_state=SOLASStatus.Operational,
+            bnwas_state=SOLASStatus.NotOperational,
+            thd_state=SOLASStatus.NoData,
+            iceclass=IceClass.IacsPC6_FsicrIaSuper_RsArc5,
+            horsepower=12000,
+            vhfchan=16,
+            lshiptype='TANKER',
+            tonnage=50000,
+            lading=1,
+            heavyoil=2,
+            lightoil=1,
+            dieseloil=1,
+            totaloil=500,
+            persons=20,
+        ))
+        decoded = decode(*encoded)
+
+        assert isinstance(decoded, MessageType8Dac1Fid24)
+        self.assertEqual(decoded.mmsi, 219000001)
+        self.assertEqual(decoded.dac, 1)
+        self.assertEqual(decoded.fid, 24)
+        self.assertEqual(decoded.linkage, 3)
+        self.assertEqual(decoded.airdraught, 25.5)
+        self.assertEqual(decoded.lastport, 'USNYC')
+        self.assertEqual(decoded.nextport, 'NLRTM')
+        self.assertEqual(decoded.secondport, 'DEHAM')
+        self.assertEqual(decoded.gnss_state, SOLASStatus.Operational)
+        self.assertEqual(decoded.bnwas_state, SOLASStatus.NotOperational)
+        self.assertEqual(decoded.thd_state, SOLASStatus.NoData)
+        self.assertEqual(decoded.iceclass, IceClass.IacsPC6_FsicrIaSuper_RsArc5)
+        self.assertEqual(decoded.horsepower, 12000)
+        self.assertEqual(decoded.vhfchan, 16)
+        self.assertEqual(decoded.lshiptype, 'TANKER')
+        self.assertEqual(decoded.tonnage, 50000)
+        self.assertEqual(decoded.lading, 1)
+        self.assertEqual(decoded.heavyoil, 2)
+        self.assertEqual(decoded.lightoil, 1)
+        self.assertEqual(decoded.dieseloil, 1)
+        self.assertEqual(decoded.totaloil, 500)
+        self.assertEqual(decoded.persons, 20)
+
+    def test_encode_dict_round_trip(self):
+        """The (dac, fid) pair routes through encode_dict as well."""
+        encoded = encode_dict({
+            'msg_type': 8,
+            'mmsi': '219000001',
+            'dac': 1,
+            'fid': 24,
+            'linkage': 11,
+            'iceclass': 6,
+            'persons': 5,
+        })
+        decoded = decode(*encoded)
+
+        assert isinstance(decoded, MessageType8Dac1Fid24)
+        self.assertEqual(decoded.linkage, 11)
+        self.assertEqual(decoded.iceclass, IceClass.IacsPC6_FsicrIaSuper_RsArc5)
+        self.assertEqual(decoded.persons, 5)
+
+    def test_dispatch_is_registered_not_default(self):
+        """DAC=1/FID=24 must route to the structured class, not the fallback."""
+        decoded = MessageType8Dac1Fid24.create(mmsi='219000001')
+        self.assertNotIsInstance(decoded, MessageType8Default)
 
 
 if __name__ == "__main__":
