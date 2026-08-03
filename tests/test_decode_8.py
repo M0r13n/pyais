@@ -4,6 +4,7 @@ from pyais import decode
 from pyais.encode import encode_dict, encode_msg, ais_to_nmea_0183
 from pyais.util import SixBitNibleEncoder, to_six_bit
 from pyais.messages import (
+    MessageType8Dac1Fid29,
     MessageType8Default,
     MessageType8Dac1Fid0,
     MessageType8Dac1Fid11,
@@ -403,7 +404,7 @@ class MessageType8Tests(unittest.TestCase):
         bits += _twos(19, 6)                                   # FI
         bits += _twos(337, 10)                                 # Message Linkage ID
         station = "KIEL HOLTENAU".ljust(20, '@')
-        bits += ''.join(to_six_bit(c) for c in station)     # Name of Signal Station
+        bits += ''.join(to_six_bit(c) for c in station)        # Name of Signal Station
         bits += _twos(round(9.9576 * 60000), 25)               # Longitude
         bits += _twos(round(54.3661 * 60000), 24)              # Latitude
         bits += _twos(1, 2)                                    # Status of Signal
@@ -1953,6 +1954,53 @@ class MessageType8Dac1Fid27Tests(unittest.TestCase):
     def test_dispatch_is_registered_not_default(self):
         """DAC=1/FID=27 must route to the structured class, not the fallback."""
         decoded = MessageType8Dac1Fid27.create(mmsi='219000001')
+        self.assertNotIsInstance(decoded, MessageType8Default)
+
+
+class MessageType8Dac1Fid29Tests(unittest.TestCase):
+    def test_text_description_decode(self):
+        bits = _twos(8, 6)                                      # Message Type
+        bits += _twos(0, 2)                                     # Repeat Indicator
+        bits += _twos(123456789, 30)                            # Source MMSI
+        bits += '00'                                            # Spare
+        bits += _twos(1, 10)                                    # DAC
+        bits += _twos(29, 6)                                    # FID
+        bits += _twos(333, 10)                                 # Message Linkage ID
+        description = "Lorem ipsum dolor sit amet consectetur adipiscing elit".upper()
+        bits += _sixbit(description, len(description))
+
+        decoded = decode(*_to_sentences(bits))
+
+        self.assertEqual(decoded.mmsi, 123456789)
+        self.assertEqual(decoded.dac, 1)
+        self.assertEqual(decoded.fid, 29)
+        self.assertEqual(decoded.linkage, 333)
+        self.assertEqual(decoded.description, description)
+
+    def test_text_description_encode(self):
+        msg = MessageType8Dac1Fid29.create(
+            mmsi=123456789,
+            dac=1,
+            fid=29,
+            linkage=333,
+            description="Hello, world!!",
+        )
+
+        encoded = encode_msg(msg)
+
+        self.assertEqual(encoded, ['!AIVDO,1,1,,A,81mg=5@0GE=85<<?dPG?B<4QQ,0*54'])
+
+        decoded = decode(*encoded)
+
+        self.assertEqual(decoded.mmsi, 123456789)
+        self.assertEqual(decoded.dac, 1)
+        self.assertEqual(decoded.fid, 29)
+        self.assertEqual(decoded.linkage, 333)
+        self.assertEqual(decoded.description, "Hello, world!!".upper())
+
+    def test_dispatch_is_registered_not_default(self):
+        """DAC=1/FID=29 must route to the structured class, not the fallback."""
+        decoded = MessageType8Dac1Fid29.create(mmsi='219000001')
         self.assertNotIsInstance(decoded, MessageType8Default)
 
 

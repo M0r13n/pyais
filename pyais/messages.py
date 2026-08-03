@@ -2343,6 +2343,26 @@ class MessageType8Dac1Fid27(Payload):
 
 
 @attr.s(slots=True)
+class MessageType8Dac1Fid29(Payload):
+    """IMO289 Text description (broadcast). DAC=1, FID=29.
+
+    This message is intended to provide a text annotation to another message
+    via the Message Linkage ID field.
+
+    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_text_description_broadcast
+    """
+
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=29, signed=False)
+    linkage = bit_field(10, int, default=0, signed=False)
+    description = bit_field(966, str, default="", variable_length=True)
+
+
+@attr.s(slots=True)
 class MessageType8Dac1Fid31(Payload):
     """Meteorological and hydrological data (IMO289).
     DAC=1, FID=31."""
@@ -2591,7 +2611,7 @@ _MSG8_VARIANTS: typing.Dict[typing.Tuple[int, int], typing.Type[Payload]] = {
     (1, 24): MessageType8Dac1Fid24,
     (1, 26): MessageType8Dac1Fid26,
     (1, 27): MessageType8Dac1Fid27,
-    # (1, 29): MessageType8Dac1Fid29,
+    (1, 29): MessageType8Dac1Fid29,
     (1, 31): MessageType8Dac1Fid31,
     (200, 10): MessageType8Dac200Fid10,
     (200, 23): MessageType8Dac200Fid23,
@@ -3479,7 +3499,7 @@ ANY_MESSAGE = typing.Union[
     MessageType8Dac1Fid24,
     MessageType8Dac1Fid26,
     MessageType8Dac1Fid27,
-    # MessageType8Dac1Fid29,
+    MessageType8Dac1Fid29,
     MessageType8Dac1Fid31,
     MessageType8Dac200Fid10,
     MessageType8Dac200Fid23,
