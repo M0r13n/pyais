@@ -2,6 +2,20 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 3.2.0 03 Aug 2026
+-------------------------------------------------------------------------------
+* significantly improved decoding performance
+  * optimized AIS payload decoding using a base64-backed bit unpacker
+  * reduced NMEA parsing overhead through caching and parser optimizations
+  * improved enum lookup performance
+* added support for additional AIS Application Specific Messages (Message Type 8)
+  * environmental reports (DAC = 1 FID = 26)
+  * area notices (DAC = 1 FID = 22/23)
+  * route information (DAC = 1 FID = 27/28)
+  * VTS and synthetic target reports
+* added new enums for SOLAS equipment status and vessel ice class
+* improved support for decoding application-specific AIS payloads
+-------------------------------------------------------------------------------
  Version 3.1.0 06 Jun 2026
 -------------------------------------------------------------------------------
 * implemented a pre-computed decoder plan for each class (#206)

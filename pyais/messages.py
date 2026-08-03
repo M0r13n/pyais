@@ -177,7 +177,7 @@ class NMEASentenceFactory:
     def produce(cls, raw: bytes) -> "NMEASentence":
         """Parse a single bytes string into an NMEA sentence."""
         if not isinstance(raw, bytes):
-            raise TypeError(raw)
+            raise TypeError("message must be bytes")
 
         if len(raw) == 0:
             raise InvalidNMEAMessageException("empty bytes")
@@ -2113,14 +2113,6 @@ class MessageType8Dac1Fid21NonWmo(Payload):
     was reached, so `visibility` should be read as "greater than" its value.
 
     pressuretend carries a WMO FM13 code; IMO289 does not enumerate it.
-
-    Note on `pressure`: gpsd's prose ("add 400 to value") and its
-    DAC1FID21_NONWMO_PRESSURE_OFFSET constant both say 400, but that cannot be
-    right -- a 9 bit field with a 400 offset tops out at 911 hPa, and the
-    documented sentinels (402 = >1201 hPa, 403 = N/A) would then land at 802
-    and 803 hPa. An 800 hPa offset is the only reading under which the stated
-    800-1200 hPa range and those sentinels are consistent, and it matches the
-    sibling FID=11 field, so that is what is used here.
     """
     msg_type = bit_field(6, int, default=8, signed=False)
     repeat = bit_field(2, int, default=0, signed=False)

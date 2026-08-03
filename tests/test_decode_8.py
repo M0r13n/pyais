@@ -726,7 +726,7 @@ class MessageType8Tests(unittest.TestCase):
         )
 
     def test_dac_1_fid_21_decode(self):
-        decoded = decode(b"!AIVDM,1,1,,A,802R5Ph0EAI8aT1Q8q2RI1:00000009B6hig0KCVjm9iJ7=EAK`F>7AP8UQ8,0*2F")
+        decoded = decode(b"!AIVDO,1,1,,A,802R5Ph0EAI8aT1Q8q2RI1:00000009B6hig0KCVjm9iJ7=IAKU>>7AP8UQ8,0*6C")
         assert isinstance(decoded, MessageType8Dac1Fid21NonWmo)
         self.assertEqual(decoded.msg_type, 8)
         self.assertEqual(decoded.mmsi, 2655619)
@@ -745,10 +745,10 @@ class MessageType8Tests(unittest.TestCase):
         self.assertEqual(decoded.humidity, 78)
         self.assertEqual(decoded.wspeed, 22)
         self.assertEqual(decoded.wdir, 270)
-        self.assertEqual(decoded.pressure, 1012)
+        self.assertEqual(decoded.pressure, 1013)
         self.assertEqual(decoded.pressuretend, 5)
         self.assertEqual(decoded.airtemp, 18.3)
-        self.assertEqual(decoded.watertemp, 26.7)
+        self.assertEqual(decoded.watertemp, 16.7)
         self.assertEqual(decoded.waveperiod, 7)
         self.assertEqual(decoded.waveheight, 1.4)
         self.assertEqual(decoded.wavedir, 280)
