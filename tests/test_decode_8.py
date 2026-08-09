@@ -1586,6 +1586,20 @@ def _env_airgap(airdraught=0, airgap=0, gaptrend=3, fairgap=0,
     return bits
 
 
+def _env_weather(temperature=0.0, sensortype=0, preciptype=3, visibility=0.0,
+                 dewpoint=-20.0, dewtype=0, pressure=403, pressuretend=3,
+                 pressuretype=0, salinity=0.0, **over) -> str:
+    bits = _env_record_header(9, **over)
+    bits += _twos(round(temperature * 10), 11) + _twos(sensortype, 3)
+    bits += _twos(preciptype, 2)
+    bits += _twos(round(visibility * 10), 8)
+    bits += _twos(round((dewpoint) * 10), 10) + _twos(dewtype, 3)
+    bits += _twos(pressure, 9) + _twos(pressuretend, 2) + _twos(pressuretype, 3)
+    bits += _twos(round(salinity * 10), 9)
+    bits += '0' * 25
+    return bits
+
+
 class MessageType8Dac1Fid26Tests(unittest.TestCase):
     """IMO289 Environmental. DAC=1, FID=26."""
 
@@ -1757,6 +1771,63 @@ class MessageType8Dac1Fid26Tests(unittest.TestCase):
         """DAC=1/FID=26 must route to the structured class, not the fallback."""
         decoded = MessageType8Dac1Fid26.create(mmsi='219000001')
         self.assertNotIsInstance(decoded, MessageType8Default)
+
+    def test_weather(self):
+        bits = _env_weather(temperature=-5.4, sensortype=1, preciptype=1, visibility=12.5,
+                            dewpoint=-7.5, dewtype=2, pressure=214, pressuretend=2,
+                            pressuretype=1, salinity=30.2
+                            )
+        padded = bits + '0' * (-len(bits) % 8)
+        reports_data = int(padded, 2).to_bytes(len(padded) // 8, 'big')
+
+        encoded = encode_msg(MessageType8Dac1Fid26.create(
+            mmsi='219000001',
+            reports_data=reports_data,
+        ))
+        decoded = decode(*encoded)
+
+        assert isinstance(decoded, MessageType8Dac1Fid26)
+        report = decoded.reports[0]
+        self.assertEqual(report['sensor'], 9)
+        self.assertEqual(report['sensor_str'], 'weather')
+        self.assertEqual(report['temperature'], -5.4)
+        self.assertEqual(report['sensortype'], 1)
+        self.assertEqual(report['preciptype'], 1)
+        self.assertEqual(report['visibility'], 12.5)
+        self.assertEqual(report['dewpoint'], -7.5)
+        self.assertEqual(report['dewtype'], 2)
+        # Raw code: 214 is 1013 hPa on the spec's 800 hPa offset scale.
+        self.assertEqual(report['pressure'], 214)
+        self.assertEqual(report['pressure_hpa'], 1013)
+        self.assertEqual(report['pressuretend'], 2)
+        self.assertEqual(report['pressuretype'], 1)
+        self.assertEqual(report['salinity'], 30.2)
+
+    def test_pressure_out_of_bounds(self):
+        pressure_sentinels = [
+            (0, None),
+            (1, 800),
+            (401, 1200),
+            (402, None),
+            (403, None),
+            (511, None),
+        ]
+        for pressure, pressure_hpa in pressure_sentinels:
+            bits = _env_weather(
+                temperature=-5.4, sensortype=1, preciptype=1, visibility=12.5,
+                dewpoint=-7.5, dewtype=2, pressure=pressure, pressuretend=2,
+                pressuretype=1, salinity=30.2
+            )
+            padded = bits + '0' * (-len(bits) % 8)
+            reports_data = int(padded, 2).to_bytes(len(padded) // 8, 'big')
+
+            encoded = encode_msg(MessageType8Dac1Fid26.create(
+                mmsi='219000001',
+                reports_data=reports_data,
+            ))
+            decoded = decode(*encoded)
+            self.assertEqual(decoded.reports[0]['pressure'], pressure)
+            self.assertEqual(decoded.reports[0]['pressure_hpa'], pressure_hpa)
 
 
 def _route_header(**over) -> str:
@@ -2319,7 +2390,7 @@ class MessageType8Dac367Fid33Tests(unittest.TestCase):
             duration=30,
         )
 
-        # AIVDM,1,1,,A,85MwpViKpC1Sh107e<WtL268?000,0*1F
+        # !AIVDM,1,1,,A,85MwpViKpC1Sh107e<WtL268?000,0*1F
         decoded = decode(*_to_sentences(bits))
 
         assert isinstance(decoded, MessageType8Dac367Fid33)
@@ -2486,6 +2557,25 @@ class MessageType8Dac367Fid33Tests(unittest.TestCase):
         self.assertEqual(report['pressuretend'], 2)
         self.assertEqual(report['pressuretype'], 1)
         self.assertEqual(report['salinity'], 30.2)
+
+    def test_pressure_out_of_bounds(self):
+        pressure_sentinels = [
+            (0, None),
+            (1, 800),
+            (401, 1200),
+            (402, None),
+            (403, None),
+            (511, None),
+        ]
+        for pressure, pressure_hpa in pressure_sentinels:
+            bits = _us_env_header() + _us_weather(
+                temperature=-5.4, sensortype=1, preciptype=1, visibility=12.5,
+                dewpoint=-7.5, dewtype=2, pressure=pressure, pressuretend=2,
+                pressuretype=1, salinity=30.2,
+            )
+            decoded = decode(*_to_sentences(bits))
+            self.assertEqual(decoded.reports[0]['pressure'], pressure)
+            self.assertEqual(decoded.reports[0]['pressure_hpa'], pressure_hpa)
 
     def test_airgap_report(self):
         """Table 17: centimetre steps plus a sensor data description."""

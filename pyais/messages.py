@@ -1504,13 +1504,10 @@ def _decode_environmental_reports(data: bytes) -> typing.List[typing.Dict[str, t
             report['dewpoint'] = round(_asm_bits(data, p + 24, 10, signed=True) * 0.1, 1)
             report['dewtype'] = _asm_bits(data, p + 34, 3)
             # Raw code per spec: 0 = <=800hPa, 1-401 = 800-1200hPa (i.e. raw
-            # + 799), 402 = >=1201hPa, 403 = N/A. Kept raw rather than
-            # offset, since a sentinel-safe conversion would need the same
-            # per-field care as the attrs-based pressure fields elsewhere.
+            # + 799), 402 = >=1201hPa, 403 = N/A
             pressure = _asm_bits(data, p + 37, 9)
             report['pressure'] = pressure
             report['pressure_hpa'] = pressure + 799 if 1 <= pressure <= 401 else None
-
             report['pressuretend'] = _asm_bits(data, p + 46, 2)
             report['pressuretype'] = _asm_bits(data, p + 48, 3)
             report['salinity'] = round(_asm_bits(data, p + 51, 9) * 0.1, 1)
@@ -1587,7 +1584,7 @@ def _decode_us_environmental_reports(data: bytes) -> typing.List[typing.Dict[str
             report['lon'] = round(bv.get_signed(p + 6, 28) / 600000.0, 5)
             report['lat'] = round(bv.get_signed(p + 34, 27) / 600000.0, 5)
             report['precision'] = bv.get(p + 61, 3)
-            report['alt'] = round(bv.get_signed(p + 64, 12,) * 0.1, 1)
+            report['alt'] = round(bv.get_signed(p + 64, 12) * 0.1, 1)
             report['owner'] = bv.get(p + 76, 4)
             report['timeout'] = bv.get(p + 80, 3)
 
@@ -1632,7 +1629,7 @@ def _decode_us_environmental_reports(data: bytes) -> typing.List[typing.Dict[str
             report['datum'] = bv.get(p + 19, 5)
             report['sensortype'] = bv.get(p + 24, 3)
             report['fabsolute'] = bool(bv.get(p + 27, 1))
-            report['flevel'] = round(bv.get_signed(p + 28, 16,) * 0.01, 2)
+            report['flevel'] = round(bv.get_signed(p + 28, 16) * 0.01, 2)
             report['fday'] = bv.get(p + 44, 5)
             report['fhour'] = bv.get(p + 49, 5)
             report['fminute'] = bv.get(p + 54, 6)
@@ -1641,7 +1638,7 @@ def _decode_us_environmental_reports(data: bytes) -> typing.List[typing.Dict[str
         elif sensor == ENV_REPORT_CURRENT_2D:
             # Table 10: three (speed, direction, measuring level) triples.
             for idx, off in enumerate((0, 26, 52), start=1):
-                report[f'cspeed{idx}'] = round(bv.get_num(p + off, 8) * 0.1, 1)
+                report[f'cspeed{idx}'] = round(bv.get(p + off, 8) * 0.1, 1)
                 report[f'cdir{idx}'] = bv.get(p + off + 8, 9)
                 report[f'cdepth{idx}'] = bv.get(p + off + 17, 9)
             report['sensortype'] = bv.get(p + 78, 3)
@@ -1695,8 +1692,7 @@ def _decode_us_environmental_reports(data: bytes) -> typing.List[typing.Dict[str
 
         elif sensor == ENV_REPORT_WEATHER:
             # Table 16. Air temperature is signed; the dew point is an
-            # unsigned code offset by -20C. Air pressure is kept raw (0 =
-            # below 800 hPa, 1-401 = 800-1200 hPa, 403 = N/A).
+            # unsigned code offset by -20C
             report['temperature'] = round(bv.get_signed(p, 11) * 0.1, 1)
             report['sensortype'] = bv.get(p + 11, 3)
             report['preciptype'] = bv.get(p + 14, 2)
