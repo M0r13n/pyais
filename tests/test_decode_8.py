@@ -2247,7 +2247,6 @@ class MessageType8Dac367Fid33Tests(unittest.TestCase):
         self.assertEqual(report['owner'], 1)
         self.assertEqual(report['timeout'], 3)
 
-
     def test_site_location_altitude_extremes(self):
         """Altitude is signed with a +-200 m range in 0.1 m steps."""
         for alt in (-200.0, -0.1, 0.0, 200.0):
@@ -2255,7 +2254,6 @@ class MessageType8Dac367Fid33Tests(unittest.TestCase):
             decoded = decode(*_to_sentences(bits))
             assert isinstance(decoded, MessageType8Dac367Fid33)
             self.assertEqual(decoded.reports[0]['alt'], alt)
-
 
     def test_wind_report(self):
         """Table 8: 10 minute averages plus a forecast and its valid time."""
@@ -2483,7 +2481,8 @@ class MessageType8Dac367Fid33Tests(unittest.TestCase):
         self.assertEqual(report['dewpoint'], -7.5)
         self.assertEqual(report['dewtype'], 2)
         # Raw code: 214 is 1013 hPa on the spec's 800 hPa offset scale.
-        self.assertEqual(report['pressure'], 1013)
+        self.assertEqual(report['pressure'], 214)
+        self.assertEqual(report['pressure_hpa'], 1013)
         self.assertEqual(report['pressuretend'], 2)
         self.assertEqual(report['pressuretype'], 1)
         self.assertEqual(report['salinity'], 30.2)

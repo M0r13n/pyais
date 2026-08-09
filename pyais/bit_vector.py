@@ -59,7 +59,7 @@ class bit_vector:
         self._length: int = length
 
     @classmethod
-    def from_bytes(cls, data:bytes) -> 'bit_vector':
+    def from_bytes(cls, data: bytes) -> 'bit_vector':
         """Create a bit vector from raw bytes without AIS six-bit dearmoring."""
         bv = cls(b"", 0)
         bv._value = int.from_bytes(data, 'big')
