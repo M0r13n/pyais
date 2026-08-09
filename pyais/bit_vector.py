@@ -58,6 +58,14 @@ class bit_vector:
         self._value: int = value
         self._length: int = length
 
+    @classmethod
+    def from_bytes(cls, data: bytes) -> 'bit_vector':
+        """Create a bit vector from raw bytes without AIS six-bit dearmoring."""
+        bv = cls(b"", 0)
+        bv._value = int.from_bytes(data, 'big')
+        bv._length = len(data) * 8
+        return bv
+
     def get_num(self, start: int, width: int, signed: bool = False) -> int:
         """Return an unsigned integer of *width* bits at bit position *start*.
         Takes an additional argument *signed* if the number is signed.
