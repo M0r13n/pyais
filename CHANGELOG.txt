@@ -2,6 +2,11 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 3.2.1 09 Aug 2026
+-------------------------------------------------------------------------------
+* added support for an additional AIS Application Specific Message (Message Type 8)
+  * US environmental reports (DAC = 367 FID = 33)
+-------------------------------------------------------------------------------
  Version 3.2.0 03 Aug 2026
 -------------------------------------------------------------------------------
 * significantly improved decoding performance
