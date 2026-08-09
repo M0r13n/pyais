@@ -1562,163 +1562,165 @@ def _decode_us_environmental_reports(data: bytes) -> typing.List[typing.Dict[str
         return out
 
     n = min((len(data) * 8) // _ENV_REPORT_BITS, _US_ENV_MAX_REPORTS)
+    bv = bit_vector.from_bytes(data)
     for i in range(n):
         base = i * _ENV_REPORT_BITS
-        sensor = _asm_bits(data, base, 4)
+        sensor = bv.get(base, 4)
+
         report: typing.Dict[str, typing.Any] = {
             'sensor': sensor,
             'sensor_str': _US_ENV_REPORT_TYPE_STR.get(sensor, 'reserved'),
-            'day': _asm_bits(data, base + 4, 5),
-            'hour': _asm_bits(data, base + 9, 5),
-            'minute': _asm_bits(data, base + 14, 6),
-            'site': _asm_bits(data, base + 20, 7),
+            'day': bv.get(base + 4, 5),
+            'hour': bv.get( base + 9, 5),
+            'minute': bv.get( base + 14, 6),
+            'site': bv.get( base + 20, 7),
         }
         p = base + 27  # start of the 85-bit payload
 
         if sensor == ENV_REPORT_SITE_LOCATION:
             # Table 5. Unlike IMO289 this carries a message version and a
             # lat/lon precision code, and the altitude is signed.
-            report['version'] = _asm_bits(data, p, 6)
-            report['lon'] = round(_asm_bits(data, p + 6, 28, signed=True) / 600000.0, 5)
-            report['lat'] = round(_asm_bits(data, p + 34, 27, signed=True) / 600000.0, 5)
-            report['precision'] = _asm_bits(data, p + 61, 3)
-            report['alt'] = round(_asm_bits(data, p + 64, 12, signed=True) * 0.1, 1)
-            report['owner'] = _asm_bits(data, p + 76, 4)
-            report['timeout'] = _asm_bits(data, p + 80, 3)
+            report['version'] = bv.get(p, 6)
+            report['lon'] = round(bv.get_signed( p + 6, 28) / 600000.0, 5)
+            report['lat'] = round(bv.get_signed( p + 34, 27) / 600000.0, 5)
+            report['precision'] = bv.get( p + 61, 3)
+            report['alt'] = round(bv.get_signed( p + 64, 12,) * 0.1, 1)
+            report['owner'] = bv.get( p + 76, 4)
+            report['timeout'] = bv.get( p + 80, 3)
 
         elif sensor == ENV_REPORT_STATION_ID:
             report['name'] = decode_bytes_as_ascii6(data, p, 84).rstrip('@ ')
 
         elif sensor == ENV_REPORT_WIND:
             # Table 8: 10 minute averaging window.
-            report['wspeed'] = _asm_bits(data, p, 7)
-            report['wgust'] = _asm_bits(data, p + 7, 7)
-            report['wdir'] = _asm_bits(data, p + 14, 9)
-            report['wgustdir'] = _asm_bits(data, p + 23, 9)
-            report['sensortype'] = _asm_bits(data, p + 32, 3)
-            report['fwspeed'] = _asm_bits(data, p + 35, 7)
-            report['fwgust'] = _asm_bits(data, p + 42, 7)
-            report['fwdir'] = _asm_bits(data, p + 49, 9)
-            report['fday'] = _asm_bits(data, p + 58, 5)
-            report['fhour'] = _asm_bits(data, p + 63, 5)
-            report['fminute'] = _asm_bits(data, p + 68, 6)
-            report['duration'] = _asm_bits(data, p + 74, 8)
+            report['wspeed'] = bv.get( p, 7)
+            report['wgust'] = bv.get( p + 7, 7)
+            report['wdir'] = bv.get( p + 14, 9)
+            report['wgustdir'] = bv.get( p + 23, 9)
+            report['sensortype'] = bv.get( p + 32, 3)
+            report['fwspeed'] = bv.get( p + 35, 7)
+            report['fwgust'] = bv.get( p + 42, 7)
+            report['fwdir'] = bv.get( p + 49, 9)
+            report['fday'] = bv.get( p + 58, 5)
+            report['fhour'] = bv.get( p + 63, 5)
+            report['fminute'] = bv.get( p + 68, 6)
+            report['duration'] = bv.get( p + 74, 8)
 
         elif sensor == US_ENV_REPORT_WIND_V2:
             # Table 18: same as Table 8 but with an explicit averaging time
             # and no gust direction; the forecast start has no UTC day.
-            report['wspeed'] = _asm_bits(data, p, 7)
-            report['wgust'] = _asm_bits(data, p + 7, 7)
-            report['wdir'] = _asm_bits(data, p + 14, 9)
-            report['averaging_time'] = _asm_bits(data, p + 23, 6)
-            report['sensortype'] = _asm_bits(data, p + 29, 3)
-            report['fwspeed'] = _asm_bits(data, p + 32, 7)
-            report['fwgust'] = _asm_bits(data, p + 39, 7)
-            report['fwdir'] = _asm_bits(data, p + 46, 9)
-            report['fhour'] = _asm_bits(data, p + 55, 5)
-            report['fminute'] = _asm_bits(data, p + 60, 6)
-            report['duration'] = _asm_bits(data, p + 66, 8)
+            report['wspeed'] = bv.get( p, 7)
+            report['wgust'] = bv.get( p + 7, 7)
+            report['wdir'] = bv.get( p + 14, 9)
+            report['averaging_time'] = bv.get( p + 23, 6)
+            report['sensortype'] = bv.get( p + 29, 3)
+            report['fwspeed'] = bv.get( p + 32, 7)
+            report['fwgust'] = bv.get( p + 39, 7)
+            report['fwdir'] = bv.get( p + 46, 9)
+            report['fhour'] = bv.get( p + 55, 5)
+            report['fminute'] = bv.get( p + 60, 6)
+            report['duration'] = bv.get( p + 66, 8)
 
         elif sensor == ENV_REPORT_WATER_LEVEL:
             # Table 9. Water level is in centimetres, signed.
-            report['absolute'] = bool(_asm_bits(data, p, 1))
-            report['level'] = round(_asm_bits(data, p + 1, 16, signed=True) * 0.01, 2)
-            report['leveltrend'] = _asm_bits(data, p + 17, 2)
-            report['datum'] = _asm_bits(data, p + 19, 5)
-            report['sensortype'] = _asm_bits(data, p + 24, 3)
-            report['fabsolute'] = bool(_asm_bits(data, p + 27, 1))
-            report['flevel'] = round(_asm_bits(data, p + 28, 16, signed=True) * 0.01, 2)
-            report['fday'] = _asm_bits(data, p + 44, 5)
-            report['fhour'] = _asm_bits(data, p + 49, 5)
-            report['fminute'] = _asm_bits(data, p + 54, 6)
-            report['duration'] = _asm_bits(data, p + 60, 8)
+            report['absolute'] = bool(bv.get( p, 1))
+            report['level'] = round(bv.get_signed( p + 1, 16) * 0.01, 2)
+            report['leveltrend'] = bv.get( p + 17, 2)
+            report['datum'] = bv.get( p + 19, 5)
+            report['sensortype'] = bv.get( p + 24, 3)
+            report['fabsolute'] = bool(bv.get( p + 27, 1))
+            report['flevel'] = round(bv.get_signed( p + 28, 16,) * 0.01, 2)
+            report['fday'] = bv.get( p + 44, 5)
+            report['fhour'] = bv.get( p + 49, 5)
+            report['fminute'] = bv.get( p + 54, 6)
+            report['duration'] = bv.get( p + 60, 8)
 
         elif sensor == ENV_REPORT_CURRENT_2D:
             # Table 10: three (speed, direction, measuring level) triples.
             for idx, off in enumerate((0, 26, 52), start=1):
-                report[f'cspeed{idx}'] = round(_asm_bits(data, p + off, 8) * 0.1, 1)
-                report[f'cdir{idx}'] = _asm_bits(data, p + off + 8, 9)
-                report[f'cdepth{idx}'] = _asm_bits(data, p + off + 17, 9)
-            report['sensortype'] = _asm_bits(data, p + 78, 3)
+                report[f'cspeed{idx}'] = round(bv.get_num( p + off, 8) * 0.1, 1)
+                report[f'cdir{idx}'] = bv.get( p + off + 8, 9)
+                report[f'cdepth{idx}'] = bv.get( p + off + 17, 9)
+            report['sensortype'] = bv.get( p + 78, 3)
 
         elif sensor == ENV_REPORT_CURRENT_3D:
             # Table 11: two currents as signed 9-bit north/east/up vector
             # components, unlike the 8-bit unsigned components of IMO289.
             for idx, off in enumerate((0, 36), start=1):
-                report[f'cnorth{idx}'] = round(_asm_bits(data, p + off, 9, signed=True) * 0.1, 1)
-                report[f'ceast{idx}'] = round(_asm_bits(data, p + off + 9, 9, signed=True) * 0.1, 1)
-                report[f'cup{idx}'] = round(_asm_bits(data, p + off + 18, 9, signed=True) * 0.1, 1)
-                report[f'cdepth{idx}'] = _asm_bits(data, p + off + 27, 9)
-            report['sensortype'] = _asm_bits(data, p + 72, 3)
+                report[f'cnorth{idx}'] = round(bv.get_signed( p + off, 9 ) * 0.1, 1)
+                report[f'ceast{idx}'] = round(bv.get_signed( p + off + 9, 9) * 0.1, 1)
+                report[f'cup{idx}'] = round(bv.get_signed( p + off + 18, 9) * 0.1, 1)
+                report[f'cdepth{idx}'] = bv.get( p + off + 27, 9)
+            report['sensortype'] = bv.get( p + 72, 3)
 
         elif sensor == ENV_REPORT_CURRENT_HORIZONTAL:
             # Table 12: one shared bearing, then two readings along it. The
             # distances are 9 bits here (7 in IMO289) and there is a trailing
             # sensor data description.
-            report['bearing'] = _asm_bits(data, p, 9)
+            report['bearing'] = bv.get( p, 9)
             for idx, off in enumerate((9, 44), start=1):
-                report[f'distance{idx}'] = _asm_bits(data, p + off, 9)
-                report[f'speed{idx}'] = round(_asm_bits(data, p + off + 9, 8) * 0.1, 1)
-                report[f'direction{idx}'] = _asm_bits(data, p + off + 17, 9)
-                report[f'depth{idx}'] = _asm_bits(data, p + off + 26, 9)
-            report['sensortype'] = _asm_bits(data, p + 79, 3)
+                report[f'distance{idx}'] = bv.get( p + off, 9)
+                report[f'speed{idx}'] = round(bv.get( p + off + 9, 8) * 0.1, 1)
+                report[f'direction{idx}'] = bv.get( p + off + 17, 9)
+                report[f'depth{idx}'] = bv.get( p + off + 26, 9)
+            report['sensortype'] = bv.get( p + 79, 3)
 
         elif sensor == ENV_REPORT_SEA_STATE:
             # Table 13. Water temperature is an unsigned code offset by -10C.
-            report['swheight'] = round(_asm_bits(data, p, 8) * 0.1, 1)
-            report['swperiod'] = _asm_bits(data, p + 8, 6)
-            report['swelldir'] = _asm_bits(data, p + 14, 9)
-            report['seastate'] = _asm_bits(data, p + 23, 4)
-            report['swelltype'] = _asm_bits(data, p + 27, 3)
-            report['watertemp'] = round(_asm_bits(data, p + 30, 10) / 10.0 - 10.0, 1)
-            report['watertempdepth'] = round(_asm_bits(data, p + 40, 7) * 0.1, 1)
-            report['depthtype'] = _asm_bits(data, p + 47, 3)
-            report['waveheight'] = round(_asm_bits(data, p + 50, 8) * 0.1, 1)
-            report['waveperiod'] = _asm_bits(data, p + 58, 6)
-            report['wavedir'] = _asm_bits(data, p + 64, 9)
-            report['wavetype'] = _asm_bits(data, p + 73, 3)
-            report['salinity'] = round(_asm_bits(data, p + 76, 9) * 0.1, 1)
+            report['swheight'] = round(bv.get( p, 8) * 0.1, 1)
+            report['swperiod'] = bv.get( p + 8, 6)
+            report['swelldir'] = bv.get( p + 14, 9)
+            report['seastate'] = bv.get( p + 23, 4)
+            report['swelltype'] = bv.get( p + 27, 3)
+            report['watertemp'] = round(bv.get( p + 30, 10) / 10.0 - 10.0, 1)
+            report['watertempdepth'] = round(bv.get( p + 40, 7) * 0.1, 1)
+            report['depthtype'] = bv.get( p + 47, 3)
+            report['waveheight'] = round(bv.get( p + 50, 8) * 0.1, 1)
+            report['waveperiod'] = bv.get( p + 58, 6)
+            report['wavedir'] = bv.get( p + 64, 9)
+            report['wavetype'] = bv.get( p + 73, 3)
+            report['salinity'] = round(bv.get( p + 76, 9) * 0.1, 1)
 
         elif sensor == ENV_REPORT_SALINITY:
             # Table 15. Conductivity is 0.01 S/m and pressure 0.1 decibar.
-            report['watertemp'] = round(_asm_bits(data, p, 10) / 10.0 - 10.0, 1)
-            report['conductivity'] = round(_asm_bits(data, p + 10, 10) * 0.01, 2)
-            report['pressure'] = round(_asm_bits(data, p + 20, 16) * 0.1, 1)
-            report['salinity'] = round(_asm_bits(data, p + 36, 9) * 0.1, 1)
-            report['salinitytype'] = _asm_bits(data, p + 45, 2)
-            report['sensortype'] = _asm_bits(data, p + 47, 3)
+            report['watertemp'] = round(bv.get( p, 10) / 10.0 - 10.0, 1)
+            report['conductivity'] = round(bv.get( p + 10, 10) * 0.01, 2)
+            report['pressure'] = round(bv.get( p + 20, 16) * 0.1, 1)
+            report['salinity'] = round(bv.get( p + 36, 9) * 0.1, 1)
+            report['salinitytype'] = bv.get( p + 45, 2)
+            report['sensortype'] = bv.get( p + 47, 3)
 
         elif sensor == ENV_REPORT_WEATHER:
             # Table 16. Air temperature is signed; the dew point is an
             # unsigned code offset by -20C. Air pressure is kept raw (0 =
             # below 800 hPa, 1-401 = 800-1200 hPa, 403 = N/A).
-            report['temperature'] = round(_asm_bits(data, p, 11, signed=True) * 0.1, 1)
-            report['sensortype'] = _asm_bits(data, p + 11, 3)
-            report['preciptype'] = _asm_bits(data, p + 14, 2)
-            report['visibility'] = round(_asm_bits(data, p + 16, 8) * 0.1, 1)
-            report['dewpoint'] = round(_asm_bits(data, p + 24, 10) / 10.0 - 20.0, 1)
-            report['dewtype'] = _asm_bits(data, p + 34, 3)
-            report['pressure'] = round(_asm_bits(data, p + 37, 9)) + 799
-            report['pressuretend'] = _asm_bits(data, p + 46, 2)
-            report['pressuretype'] = _asm_bits(data, p + 48, 3)
-            report['salinity'] = round(_asm_bits(data, p + 51, 9) * 0.1, 1)
+            report['temperature'] = round(bv.get_signed( p, 11) * 0.1, 1)
+            report['sensortype'] = bv.get( p + 11, 3)
+            report['preciptype'] = bv.get( p + 14, 2)
+            report['visibility'] = round(bv.get( p + 16, 8) * 0.1, 1)
+            report['dewpoint'] = round(bv.get( p + 24, 10) / 10.0 - 20.0, 1)
+            report['dewtype'] = bv.get( p + 34, 3)
+            report['pressure'] = round(bv.get( p + 37, 9)) + 799
+            report['pressuretend'] = bv.get( p + 46, 2)
+            report['pressuretype'] = bv.get( p + 48, 3)
+            report['salinity'] = round(bv.get( p + 51, 9) * 0.1, 1)
 
         elif sensor == ENV_REPORT_AIRGAP:
             # Table 17. Centimetre steps, plus a sensor data description that
             # the IMO289 layout does not carry.
-            report['airdraught'] = round(_asm_bits(data, p, 13) * 0.01, 2)
-            report['airgap'] = round(_asm_bits(data, p + 13, 13) * 0.01, 2)
-            report['gaptrend'] = _asm_bits(data, p + 26, 2)
-            report['fairgap'] = round(_asm_bits(data, p + 28, 13) * 0.01, 2)
-            report['fday'] = _asm_bits(data, p + 41, 5)
-            report['fhour'] = _asm_bits(data, p + 46, 5)
-            report['fminute'] = _asm_bits(data, p + 51, 6)
-            report['sensortype'] = _asm_bits(data, p + 57, 3)
+            report['airdraught'] = round(bv.get( p, 13) * 0.01, 2)
+            report['airgap'] = round(bv.get( p + 13, 13) * 0.01, 2)
+            report['gaptrend'] = bv.get( p + 26, 2)
+            report['fairgap'] = round(bv.get( p + 28, 13) * 0.01, 2)
+            report['fday'] = bv.get( p + 41, 5)
+            report['fhour'] = bv.get( p + 46, 5)
+            report['fminute'] = bv.get( p + 51, 6)
+            report['sensortype'] = bv.get( p + 57, 3)
 
         else:
             # Report types 12-15 are reserved for future use. Keep the raw
             # payload rather than guess a layout.
-            report['data'] = _asm_bits(data, p, 85)
+            report['data'] = bv.get( p, 85)
 
         out.append(report)
 
