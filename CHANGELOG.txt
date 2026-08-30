@@ -2,6 +2,11 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 3.2.2 30 Aug 2026
+-------------------------------------------------------------------------------
+* fixed: https://github.com/M0r13n/pyais/issues/213
+* previously, pyais incorrectly handled messages that span multiple recv calls
+-------------------------------------------------------------------------------
  Version 3.2.1 09 Aug 2026
 -------------------------------------------------------------------------------
 * added support for an additional AIS Application Specific Message (Message Type 8)

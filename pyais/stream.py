@@ -334,6 +334,7 @@ class ByteStream(Stream[None]):
 
 class SocketStream(Stream[socket]):
     BUF_SIZE = 4096
+    MAX_PARTIAL_SIZE = 16384
 
     def recv(self) -> bytes:
         return self._fobj.recv(self.BUF_SIZE)
@@ -343,24 +344,27 @@ class SocketStream(Stream[socket]):
         while True:
             body = self.recv()
 
-            # Server closed connection
+            # Server closed connection.
+            # Drop unterminated final line.
             if not body:
                 return None
 
-            lines = body.splitlines(keepends=True)
+            # Prevent unbounded growth of partial
+            if len(partial) > self.MAX_PARTIAL_SIZE:
+                partial = b''
+                _, sep, body = body.partition(b'\n')
+                if not sep or not body:
+                    continue
 
-            # last incomplete line
-            line = partial + lines[0]
-            if line:
-                yield line
-            partial = b''
+            lines = (partial + body).splitlines(keepends=True)
 
             if lines[-1].endswith(b'\n'):
                 # all lines are complete
-                yield from lines[1:]
+                yield from lines
+                partial = b''
             else:
                 # the last line was only partially received
-                yield from lines[1:-1]
+                yield from lines[:-1]
                 partial = lines[-1]
 
 
