@@ -3,7 +3,7 @@ from tests.utils.timeout import time_limit
 from tests.utils.skip import is_linux
 import threading
 import unittest
-from pyais.stream import TCPConnection
+from pyais.stream import SocketStream, TCPConnection
 
 MESSAGES = [
     b"!AIVDM,1,1,,B,133S0:0P00PCsJ:MECBR0gv:0D8N,0*7F",
@@ -67,3 +67,58 @@ class TestTCPStream(unittest.TestCase):
                         break
 
         self.server_thread.join()
+
+    def test_many_small_chunks(self):
+        """A user reported a bug where multipart messages were not processed when messages
+        span more than a single recv() call.
+
+        Issue: https://github.com/M0r13n/pyais/issues/213
+
+        This was caused by prematurely yielding/dropping incomplete fragments.
+        """
+        class TestStream(SocketStream):
+
+            msg = b"!AIVDM,2,1,7,B,54eJaT81vuKh<L=P000LDu8LF1:10D58dE<0000k48j976=d003UEBh00000,0*4A\r\n!AIVDM,2,2,7,B,00000000000,2*20\r\n"
+
+            def __init__(self, *args, chunk_size=1, **kwargs) -> None:
+                super().__init__(*args, **kwargs)
+                self.parts = [self.msg[i: i + chunk_size] for i in range(0, len(self.msg), chunk_size)]
+
+            def recv(self) -> bytes:
+                return self.parts.pop(0) if self.parts else b''
+
+        for chunk_size in (1, 2, 3, 5, 7, len(TestStream.msg)):
+            received = []
+            for msg in TestStream(None, chunk_size=chunk_size):
+                received.append(msg)
+
+            self.assertEqual(len(received), 1)
+            self.assertEqual(
+                received[0].raw,
+                b'!AIVDM,2,1,7,B,54eJaT81vuKh<L=P000LDu8LF1:10D58dE<0000k48j976=d003UEBh00000,0*4A\n!AIVDM,2,2,7,B,00000000000,2*20'
+            )
+
+    def test_unbounded_partial_growth(self):
+        """Ensure that partial messages can not grow unboundedly."""
+        class TestStream(SocketStream):
+
+            msg = b"!AIVDM,2,1,7,B,54eJaT81vuKh<L=P000LDu8LF1:10D58dE<0000k48j976=d003UEBh00000,0*4A\r\n!AIVDM,2,2,7,B,00000000000,2*20\r\n"
+
+            def __init__(self, *args, **kwargs) -> None:
+                super().__init__(*args, **kwargs)
+                self.chunks = [b"A" * (self.MAX_PARTIAL_SIZE + 1), b"AAA\n" + self.msg]
+
+            def recv(self) -> bytes:
+                if self.chunks:
+                    return self.chunks.pop(0)
+                return b""
+
+        received = []
+        for msg in TestStream(None):
+            received.append(msg)
+
+        self.assertEqual(len(received), 1)
+        self.assertEqual(
+            received[0].raw,
+            b'!AIVDM,2,1,7,B,54eJaT81vuKh<L=P000LDu8LF1:10D58dE<0000k48j976=d003UEBh00000,0*4A\n!AIVDM,2,2,7,B,00000000000,2*20'
+        )
