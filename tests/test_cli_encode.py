@@ -72,7 +72,8 @@ class TestCreateParser(unittest.TestCase):
         args = self.parser.parse_args([])
 
         self.assertEqual(args.mode, 'auto')
-        self.assertEqual(args.talker, 'AIVDM')
+        self.assertEqual(args.talker_id, 'AI')
+        self.assertEqual(args.sentence_type, 'VDM')
         self.assertEqual(args.radio, 'A')
 
     def test_mode_choices(self):
@@ -91,12 +92,12 @@ class TestCreateParser(unittest.TestCase):
     def test_talker_choices(self):
         """Test talker ID choices and case conversion"""
         # Test uppercase
-        args = self.parser.parse_args(['--talker', 'AIVDO'])
-        self.assertEqual(args.talker, 'AIVDO')
+        args = self.parser.parse_args(['--talker-id', 'AI'])
+        self.assertEqual(args.talker_id, 'AI')
 
         # Test lowercase conversion
-        args = self.parser.parse_args(['--talker', 'aivdo'])
-        self.assertEqual(args.talker, 'AIVDO')
+        args = self.parser.parse_args(['--talker-id', 'ai'])
+        self.assertEqual(args.talker_id, 'AI')
 
     def test_radio_choices(self):
         """Test radio channel choices and case conversion"""
@@ -107,11 +108,6 @@ class TestCreateParser(unittest.TestCase):
         # Test lowercase conversion
         args = self.parser.parse_args(['--radio', 'b'])
         self.assertEqual(args.radio, 'B')
-
-    def test_invalid_talker(self):
-        """Test invalid talker raises SystemExit"""
-        with self.assertRaises(SystemExit):
-            self.parser.parse_args(['--talker', 'INVALID'])
 
     def test_invalid_radio(self):
         """Test invalid radio channel raises SystemExit"""
@@ -275,7 +271,8 @@ class TestMain(unittest.TestCase):
         self.assertEqual(result, 0)
         mock_encode.assert_called_once_with(
             {"msg_type": 1, "mmsi": 123456789},
-            talker_id='AIVDM',
+            talker_id='AI',
+            sentence_type='VDM',
             radio_channel='A'
         )
         output = mock_stdout.getvalue()
@@ -283,19 +280,20 @@ class TestMain(unittest.TestCase):
 
     @patch('pyais.ais_encode.encode_dict')
     @patch('pyais.ais_encode.read')
-    @patch('pyais.ais_encode.sys.argv', ['ais-encode', '--talker', 'AIVDO', '--radio', 'B'])
+    @patch('pyais.ais_encode.sys.argv', ['ais-encode', '--talker-id', 'AI', '--radio', 'B'])
     @patch('pyais.ais_encode.sys.stdout', new_callable=StringIO)
     def test_main_with_custom_args(self, mock_stdout, mock_read, mock_encode):
         """Test main with custom talker and radio arguments"""
         mock_read.return_value = [{"msg_type": 1, "mmsi": 123456789}]
-        mock_encode.return_value = ["!AIVDO,1,1,,B,15M:@d001H@Hb4,0*56"]
+        mock_encode.return_value = ["!AIVDM,1,1,,B,15M:@d001H@Hb4,0*56"]
 
         result = main()
 
         self.assertEqual(result, 0)
         mock_encode.assert_called_once_with(
             {"msg_type": 1, "mmsi": 123456789},
-            talker_id='AIVDO',
+            talker_id='AI',
+            sentence_type='VDM',
             radio_channel='B'
         )
 
