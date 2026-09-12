@@ -93,10 +93,16 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        '--talker',
-        choices=['AIVDM', 'AIVDO',],
-        default='AIVDM',
-        help='AIVDM (default) is used for reports from other ships. AIVDO is used for own ship.',
+        '--talker-id',
+        default='AI',
+        help='NMEA talker ID (e.g. AI for mobile AIS stations (most common — vessels))',
+        type=str.upper
+    )
+
+    parser.add_argument(
+        '--sentence-type',
+        default='VDM',
+        help='NMEA sentence type (typically, either VDM or VDO)',
         type=str.upper
     )
 
@@ -166,7 +172,7 @@ def main() -> int:
         for data in read(args.mode):
             try:
                 # encode NMEA AIS message
-                encoded = encode_dict(data, talker_id=args.talker, radio_channel=args.radio)
+                encoded = encode_dict(data, talker_id=args.talker_id, sentence_type=args.sentence_type, radio_channel=args.radio)
             except Exception as e:
                 print(f'Failed to encode: {e}.', file=sys.stderr)
                 continue
