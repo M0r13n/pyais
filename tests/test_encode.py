@@ -11,7 +11,7 @@ from pyais.messages import MessageType1, MessageType26BroadcastUnstructured, Mes
     MessageType25AddressedUnstructured, MessageType25BroadcastStructured, MessageType25AddressedStructured, \
     MessageType24PartB, MessageType24PartA, MessageType22Broadcast, MessageType22Addressed, MessageType27, \
     MessageType23, MessageType21, MessageType20, MessageType19, MessageType18, MessageType17, MessageType16DestinationA, \
-    MessageType15, MessageType28, MessageType4, MessageType5, MessageType6, MessageType7, MessageType8Dac200Fid23, MessageType8Dac200Fid24, MessageType8Dac200Fid40, MessageType8Default, MessageType2, MessageType3, \
+    MessageType15, MessageType28, MessageType4, MessageType5, MessageType6Default, MessageType7, MessageType8Dac200Fid23, MessageType8Dac200Fid24, MessageType8Dac200Fid40, MessageType8Default, MessageType2, MessageType3, \
     MSG_CLASS, MessageType16DestinationAB
 from pyais.util import json_to_data, to_six_bit, int_to_bytes
 
@@ -26,7 +26,7 @@ def test_widths():
     tot_width = sum(field.metadata['width'] for field in MessageType5.fields())
     assert tot_width == 424
 
-    tot_width = sum(field.metadata['width'] for field in MessageType6.fields())
+    tot_width = sum(field.metadata['width'] for field in MessageType6Default.fields())
     assert tot_width == 1008
 
     tot_width = sum(field.metadata['width'] for field in MessageType7.fields())
@@ -162,7 +162,7 @@ def test_data_to_payload():
     assert data_to_payload(3, {'mmsi': 123}).__class__ == MessageType3
     assert data_to_payload(4, {'mmsi': 123}).__class__ == MessageType4
     assert data_to_payload(5, {'mmsi': 123}).__class__ == MessageType5
-    assert data_to_payload(6, {'mmsi': 123, 'dest_mmsi': 1234}).__class__ == MessageType6
+    assert data_to_payload(6, {'mmsi': 123, 'dest_mmsi': 1234}).__class__ == MessageType6Default
     assert data_to_payload(7, {'mmsi': 123}).__class__ == MessageType7
     assert data_to_payload(8, {'mmsi': 123}).__class__ == MessageType8Default
 

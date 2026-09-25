@@ -1,3 +1,6 @@
+from tests.utils import _twos, _sixbit
+import pathlib
+import sys
 import unittest
 
 from pyais import decode
@@ -22,22 +25,7 @@ from pyais.messages import (
 )
 from pyais.constants import SOLASStatus, IceClass
 
-
-def _twos(value: int, bits: int) -> str:
-    """Render `value` as a `bits`-wide two's complement bit string."""
-    if value < 0:
-        value += 1 << bits
-    return format(value & ((1 << bits) - 1), f'0{bits}b')
-
-
-def _sixbit(text: str, chars: int) -> str:
-    """Encode `text` as `chars` six-bit ASCII characters."""
-    padded = text.ljust(chars, '@')[:chars]
-    out = ''
-    for ch in padded:
-        c = ord(ch)
-        out += format((c - 64) if c >= 64 else c, '06b')
-    return out
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
 
 def _pack_targets(targets) -> bytes:

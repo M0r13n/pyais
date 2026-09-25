@@ -1982,20 +1982,105 @@ class MessageType5(Payload):
 
 @attr.s(slots=True)
 class MessageType6(Payload):
+    @classmethod
+    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
+        dac: int = int(kwargs.get("dac", 0))
+        fid: int = int(kwargs.get("fid", 0))
+        variant = _msg6_variant(dac, fid)
+        if variant is not None:
+            return variant.create(**kwargs)
+        return MessageType6Default.create(**kwargs)
+
+    @classmethod
+    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
+        dac: int = bv.get(72, 10)
+        fid: int = bv.get(82, 6)
+
+        if len(bv) <= 72:
+            # Edge case for short variants of DAC 1, FID 16 sub types
+            dac = bv.get(40, 10)
+            fid = bv.get(50, 6)
+            if dac == 1 and fid == 16:
+                return MessageType6Dac1Fid16A.from_vector(bv)
+
+        variant = _msg6_variant(dac, fid)
+        if variant is not None:
+            return variant.from_vector(bv)
+        return MessageType6Default.from_vector(bv)
+
+
+@attr.s(slots=True)
+class MessageType6Default(Payload):
     """
-    Binary Addresses Message
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_6_binary_addressed_message
+    Binary addressed message with unspecified binary payload.
+    https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_6_binary_addressed_message
     """
     msg_type = bit_field(6, int, default=6)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
     seqno = bit_field(2, int, default=0, signed=False)
-    dest_mmsi = bit_field(30, int, from_converter=from_mmsi)
+    dest_mmsi = bit_field(30, int, from_converter=from_mmsi, default=0)
     retransmit = bit_field(1, bool, default=False, signed=False)
     spare_1 = bit_field(1, bytes, default=b'', is_spare=True)
     dac = bit_field(10, int, default=0, signed=False)
     fid = bit_field(6, int, default=0, signed=False)
     data = bit_field(920, bytes, default=b'', variable_length=True)
+
+
+@attr.s(slots=True)
+class MessageType6Dac1Fid16A(Payload):
+    """
+    Type 6: Number of persons on board
+    https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo236_number_of_persons_on_board
+
+    NOTE: There seem to be two variants of this message:
+
+          1. one with no destination address (variant A)
+          2. one with a destination address (variant B)
+
+    Bit length is used to distinguish them.
+    """
+    msg_type = bit_field(6, int, default=6)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=0, signed=False)
+    fid = bit_field(6, int, default=0, signed=False)
+    persons = bit_field(13, int, default=0, signed=False)  # NOTE: according to gpsd this field has 14 bits
+    spare_2 = bit_field(3, bytes, default=b'', is_spare=True)
+
+
+@attr.s(slots=True)
+class MessageType6Dac1Fid16B(Payload):
+    """
+    Type 6: Number of persons on board
+    https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo236_number_of_persons_on_board
+    """
+    msg_type = bit_field(6, int, default=6)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    seqno = bit_field(2, int, default=0, signed=False)
+    dest_mmsi = bit_field(30, int, from_converter=from_mmsi, default=0)
+    retransmit = bit_field(1, bool, default=False, signed=False)
+    spare_1 = bit_field(1, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=0, signed=False)
+    fid = bit_field(6, int, default=0, signed=False)
+    persons = bit_field(13, int, default=0, signed=False)
+    spare_2 = bit_field(35, bytes, default=b'', is_spare=True)
+
+
+# ---------------------------------------------------------------------------
+# DAC/FID dispatch tables
+# ---------------------------------------------------------------------------
+
+_MSG6_VARIANTS: typing.Dict[typing.Tuple[int, int], typing.Type[Payload]] = {
+    (1, 16): MessageType6Dac1Fid16B,  # Type 6 messages are addressed. Thus, this variant is the default.
+}
+
+
+def _msg6_variant(dac: int, fid: int, ) -> typing.Optional[typing.Type[Payload]]:
+    """Return the MessageType6 subclass for a (DAC, FID) pair, or None for the default."""
+    return _MSG6_VARIANTS.get((dac, fid))
 
 
 @attr.s(slots=True)
@@ -3705,7 +3790,9 @@ ANY_MESSAGE = typing.Union[
     MessageType3,
     MessageType4,
     MessageType5,
-    MessageType6,
+    MessageType6Default,
+    MessageType6Dac1Fid16A,
+    MessageType6Dac1Fid16B,
     MessageType7,
     MessageType8Default,
     MessageType8Dac1Fid0,
