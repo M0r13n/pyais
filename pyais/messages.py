@@ -2044,8 +2044,8 @@ class MessageType6Dac1Fid16A(Payload):
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
     spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
-    dac = bit_field(10, int, default=0, signed=False)
-    fid = bit_field(6, int, default=0, signed=False)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=16, signed=False)
     persons = bit_field(13, int, default=0, signed=False)  # NOTE: according to gpsd this field has 14 bits
     spare_2 = bit_field(3, bytes, default=b'', is_spare=True)
 
@@ -2063,10 +2063,38 @@ class MessageType6Dac1Fid16B(Payload):
     dest_mmsi = bit_field(30, int, from_converter=from_mmsi, default=0)
     retransmit = bit_field(1, bool, default=False, signed=False)
     spare_1 = bit_field(1, bytes, default=b'', is_spare=True)
-    dac = bit_field(10, int, default=0, signed=False)
-    fid = bit_field(6, int, default=0, signed=False)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=16, signed=False)
     persons = bit_field(13, int, default=0, signed=False)
     spare_2 = bit_field(35, bytes, default=b'', is_spare=True)
+
+
+@attr.s(slots=True)
+class MessageType6Dac1Fid18(Payload):
+    """
+    Type 6: Clearance time to enter port
+    https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_clearance_time_to_enter_port
+    """
+    msg_type = bit_field(6, int, default=6)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    seqno = bit_field(2, int, default=0, signed=False)
+    dest_mmsi = bit_field(30, int, from_converter=from_mmsi, default=0)
+    retransmit = bit_field(1, bool, default=False, signed=False)
+    spare_1 = bit_field(1, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=18, signed=False)
+
+    linkage = bit_field(10, int, default=0, signed=False)
+    month = bit_field(4, int, default=0, signed=False)
+    day = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=24, signed=False)
+    minute = bit_field(6, int, default=60, signed=False)
+    port_name = bit_field(120, str, default='')
+    destination = bit_field(30, str, default='')
+    lon = bit_field(25, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    lat = bit_field(24, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    spare_2 = bit_field(43, bytes, default=b'', is_spare=True)
 
 
 # ---------------------------------------------------------------------------
@@ -2075,6 +2103,7 @@ class MessageType6Dac1Fid16B(Payload):
 
 _MSG6_VARIANTS: typing.Dict[typing.Tuple[int, int], typing.Type[Payload]] = {
     (1, 16): MessageType6Dac1Fid16B,  # Type 6 messages are addressed. Thus, this variant is the default.
+    (1, 18): MessageType6Dac1Fid18,
 }
 
 

@@ -1,16 +1,11 @@
 
-from tests.utils import _twos
-import pathlib
-import sys
 import unittest
 
 from pyais import decode
 from pyais.encode import ais_to_nmea_0183, encode_dict
-from pyais.messages import ANY_MESSAGE, MessageType6Dac1Fid16A, MessageType6Dac1Fid16B, MessageType6Default
-from pyais.util import SixBitNibleEncoder
-
-
-sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
+from pyais.messages import ANY_MESSAGE, MessageType6Dac1Fid16A, MessageType6Dac1Fid16B, MessageType6Dac1Fid18, MessageType6Default
+from pyais.util import SixBitNibleEncoder, to_six_bit
+from tests.utils import _twos
 
 
 def encode_bits(bits: str) -> ANY_MESSAGE:
@@ -21,11 +16,83 @@ def encode_bits(bits: str) -> ANY_MESSAGE:
     return decoded
 
 
+class MessageType6Dac1Fid18TestCase(unittest.TestCase):
+
+    def test_bit_layout_matches_spec(self):
+        bits = ''
+        bits += _twos(6, 6)                                    # Message ID
+        bits += _twos(0, 2)                                    # Repeat Indicator
+        bits += _twos(22334455, 30)                            # MMSI
+        bits += _twos(0, 2)                                    # Sequence Number
+        bits += _twos(22222222, 30)                            # Dest MMSI
+        bits += _twos(0, 1)                                    # Retransmit
+        bits += _twos(0, 1)                                    # Spare
+        bits += _twos(1, 10)                                   # DAC
+        bits += _twos(18, 6)                                   # FID
+
+        bits += _twos(69, 10)                                  # Message Linkage ID
+        bits += _twos(9, 4)                                    # UTC Month
+        bits += _twos(26, 5)                                   # UTC Day
+        bits += _twos(13, 5)                                   # UTC Hour
+        bits += _twos(0, 6)                                   # UTC Minute
+        bits += ''.join(to_six_bit(c) for c in "Mallorca")     # Name of Port & Berth
+        bits += _twos(0, 72)
+        bits += ''.join(to_six_bit(c) for c in "Palma")        # Destination
+        bits += _twos(round(3.296555 * 60000), 25)             # Longitude
+        bits += _twos(round(39.598583 * 60000), 24)            # Latitude
+        bits += _twos(7777, 43)                                # Spare
+
+        self.assertEqual(len(bits), 360)
+
+        decoded = encode_bits(bits)
+
+        assert isinstance(decoded, MessageType6Dac1Fid18)
+        self.assertEqual(decoded.mmsi, 22334455)
+        self.assertEqual(decoded.dest_mmsi, 22222222)
+        self.assertEqual(decoded.dac, 1)
+        self.assertEqual(decoded.fid, 18)
+
+        self.assertEqual(decoded.linkage, 69)
+        self.assertEqual(decoded.month, 9)
+        self.assertEqual(decoded.day, 26)
+        self.assertEqual(decoded.hour, 13)
+        self.assertEqual(decoded.minute, 00)
+        self.assertEqual(decoded.port_name, "MALLORCA")
+        self.assertEqual(decoded.destination, "PALMA")
+        self.assertEqual(decoded.lon, 3.29655)
+        self.assertEqual(decoded.lat, 39.598583)
+
+    def test_encode(self):
+        encoded = encode_dict({
+            "msg_type": 6,
+            "repeat": 0,
+            "mmsi": 23456324,
+            "dac": 1,
+            "fid": 18,
+            "dest_mmsi": 696969,
+            "month": 9,
+            "day": 26,
+            "hour": 13,
+            "minute": 00,
+            "port_name": "MALLORCA",
+            "destination": "PALMA",
+            "lon": 3.29655,
+            "lat": 39.598583,
+        })
+        self.assertEqual(len(encoded), 1)
+        self.assertEqual(
+            encoded[0],
+            "!AIVDO,1,1,,A,60FGbA00:``T05809ll0l4hhu8<400000000000104hl41PU2B87F0000000,0*7F"
+        )
+
+    def test_dispatch_is_registered_not_default(self):
+        decoded = MessageType6Dac1Fid18.create(mmsi='219000001')
+        self.assertIsInstance(decoded, MessageType6Dac1Fid18)
+
+
 class MessageType6Dac1Fid16TestCase(unittest.TestCase):
 
     def test_bit_layout_matches_spec_short(self):
-        """
-        """
         bits = ''
         bits += _twos(6, 6)                                    # Message ID
         bits += _twos(0, 2)                                    # Repeat Indicator
