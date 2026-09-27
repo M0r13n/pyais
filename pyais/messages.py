@@ -2097,6 +2097,62 @@ class MessageType6Dac1Fid18(Payload):
     spare_2 = bit_field(43, bytes, default=b'', is_spare=True)
 
 
+@attr.s(slots=True)
+class MessageType6Dac1Fid20(Payload):
+    """
+    Type 6: Berthing data
+    https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_berthing_data_addressed
+    """
+    msg_type = bit_field(6, int, default=6)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    seqno = bit_field(2, int, default=0, signed=False)
+    dest_mmsi = bit_field(30, int, from_converter=from_mmsi, default=0)
+    retransmit = bit_field(1, bool, default=False, signed=False)
+    spare_1 = bit_field(1, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=20, signed=False)
+
+    linkage = bit_field(10, int, default=0, signed=False)
+    berth_length = bit_field(9, int, default=0, signed=False)
+    berth_depth = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    position = bit_field(3, int, default=0, signed=False)
+    month = bit_field(4, int, default=0, signed=False)
+    day = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=24, signed=False)
+    minute = bit_field(6, int, default=60, signed=False)
+    availability = bit_field(1, bool, default=False, signed=False)
+    agent = bit_field(2, int, default=0, signed=False)
+    fuel = bit_field(2, int, default=0, signed=False)
+    chandler = bit_field(2, int, default=0, signed=False)
+    stevedore = bit_field(2, int, default=0, signed=False)
+    electrical = bit_field(2, int, default=0, signed=False)
+    water = bit_field(2, int, default=0, signed=False)
+    customs = bit_field(2, int, default=0, signed=False)
+    cartage = bit_field(2, int, default=0, signed=False)
+    crane = bit_field(2, int, default=0, signed=False)
+    lift = bit_field(2, int, default=0, signed=False)
+    medical = bit_field(2, int, default=0, signed=False)
+    navrepair = bit_field(2, int, default=0, signed=False)
+    provisions = bit_field(2, int, default=0, signed=False)
+    shiprepair = bit_field(2, int, default=0, signed=False)
+    surveyor = bit_field(2, int, default=0, signed=False)
+    steam = bit_field(2, int, default=0, signed=False)
+    tugs = bit_field(2, int, default=0, signed=False)
+    solidwaste = bit_field(2, int, default=0, signed=False)
+    liquidwaste = bit_field(2, int, default=0, signed=False)
+    hazardouswaste = bit_field(2, int, default=0, signed=False)
+    ballast = bit_field(2, int, default=0, signed=False)
+    additional = bit_field(2, int, default=0, signed=False)
+    regional1 = bit_field(2, int, default=0, signed=False)
+    regional2 = bit_field(2, int, default=0, signed=False)
+    future1 = bit_field(2, int, default=0, signed=False)
+    future2 = bit_field(2, int, default=0, signed=False)
+    berth_name = bit_field(120, str, default='')
+    berth_lon = bit_field(25, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    berth_lat = bit_field(24, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+
+
 # ---------------------------------------------------------------------------
 # DAC/FID dispatch tables
 # ---------------------------------------------------------------------------
@@ -2104,6 +2160,7 @@ class MessageType6Dac1Fid18(Payload):
 _MSG6_VARIANTS: typing.Dict[typing.Tuple[int, int], typing.Type[Payload]] = {
     (1, 16): MessageType6Dac1Fid16B,  # Type 6 messages are addressed. Thus, this variant is the default.
     (1, 18): MessageType6Dac1Fid18,
+    (1, 20): MessageType6Dac1Fid20,
 }
 
 
@@ -3822,6 +3879,7 @@ ANY_MESSAGE = typing.Union[
     MessageType6Default,
     MessageType6Dac1Fid16A,
     MessageType6Dac1Fid16B,
+    MessageType6Dac1Fid20,
     MessageType7,
     MessageType8Default,
     MessageType8Dac1Fid0,

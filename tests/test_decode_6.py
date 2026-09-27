@@ -3,17 +3,124 @@ import unittest
 
 from pyais import decode
 from pyais.encode import ais_to_nmea_0183, encode_dict
-from pyais.messages import ANY_MESSAGE, MessageType6Dac1Fid16A, MessageType6Dac1Fid16B, MessageType6Dac1Fid18, MessageType6Default
+from pyais.messages import ANY_MESSAGE, MessageType6Dac1Fid16A, MessageType6Dac1Fid16B, MessageType6Dac1Fid18, MessageType6Dac1Fid20, MessageType6Default
 from pyais.util import SixBitNibleEncoder, to_six_bit
 from tests.utils import _twos
 
 
-def encode_bits(bits: str) -> ANY_MESSAGE:
+def encode_decode(bits: str) -> ANY_MESSAGE:
     data = int(bits, 2).to_bytes(len(bits) // 8, 'big')
     payload, fill_bits = SixBitNibleEncoder().encode(data, len(bits))
     sentences = ais_to_nmea_0183(payload, 'AI', 'VDM', 'A', fill_bits)
     decoded = decode(*[part.encode() for part in sentences])
     return decoded
+
+
+class MessageType6Dac1Fid20TestCase(unittest.TestCase):
+    def test_bit_layout_matches_spec(self):
+        bits = ''
+        bits += _twos(6, 6)                                    # Message ID
+        bits += _twos(0, 2)                                    # Repeat Indicator
+        bits += _twos(22334455, 30)                            # MMSI
+        bits += _twos(0, 2)                                    # Sequence Number
+        bits += _twos(67895432, 30)                            # Dest MMSI
+        bits += _twos(0, 1)                                    # Retransmit
+        bits += _twos(0, 1)                                    # Spare
+        bits += _twos(1, 10)                                   # DAC
+        bits += _twos(20, 6)                                   # FID
+
+        bits += _twos(42, 10)                                  # Message Linkage ID
+        bits += _twos(300, 9)                                  # Berth length
+        bits += _twos(125, 8)                                  # Berth water depth (0.1m)
+        bits += _twos(1, 3)                                    # Mooring position
+        bits += _twos(7, 4)                                    # UTC Month
+        bits += _twos(26, 5)                                   # UTC Day
+        bits += _twos(14, 5)                                   # UTC Hour
+        bits += _twos(27, 6)                                   # UTC Minute
+        bits += _twos(1, 1)                                    # Services availability
+        services = [
+            1,  # agent
+            2,  # fuel
+            0,  # chandler
+            0,  # stevedore
+            0,  # electrical
+            1,  # water
+            0,  # customs
+            0,  # cartage
+            0,  # crane
+            0,  # lift
+            0,  # medical
+            0,  # navrepair
+            0,  # provisions
+            0,  # shiprepair
+            0,  # surveyor
+            0,  # steam
+            1,  # tugs
+            0,  # solidwaste
+            0,  # liquidwaste
+            3,  # hazardouswaste
+            0,  # ballast
+            0,  # additional
+            0,  # regional1
+            0,  # regional2
+            0,  # future1
+            0,  # future2
+        ]
+        self.assertEqual(len(services), 26)
+        for service in services:
+            bits += _twos(service, 2)
+        name = "KIEL OSTUFERHAFEN".ljust(20, '@')
+        bits += ''.join(to_six_bit(c) for c in name)           # Name of berth
+        bits += _twos(round(10.1394 * 60000), 25)              # Longitude
+        bits += _twos(round(54.3233 * 60000), 24)              # Latitude
+        self.assertEqual(len(bits), 360)
+
+        decoded = encode_decode(bits)
+
+        assert isinstance(decoded, MessageType6Dac1Fid20)
+        self.assertEqual(decoded.linkage, 42)
+        self.assertEqual(decoded.berth_length, 300)
+        self.assertEqual(decoded.berth_depth, 12.5)
+        self.assertEqual(decoded.position, 1)
+        self.assertEqual(decoded.month, 7)
+        self.assertEqual(decoded.day, 26)
+        self.assertEqual(decoded.hour, 14)
+        self.assertEqual(decoded.minute, 27)
+        self.assertTrue(decoded.availability)
+        self.assertEqual(decoded.agent, 1)
+        self.assertEqual(decoded.fuel, 2)
+        self.assertEqual(decoded.water, 1)
+        self.assertEqual(decoded.tugs, 1)
+        self.assertEqual(decoded.hazardouswaste, 3)
+        self.assertEqual(decoded.berth_name, "KIEL OSTUFERHAFEN")
+        self.assertEqual(decoded.berth_lon, 10.1394)
+        self.assertEqual(decoded.berth_lat, 54.3233)
+
+    def test_encode(self):
+        encoded = encode_dict({
+            "msg_type": 6,
+            "repeat": 0,
+            "mmsi": 23456324,
+            "dac": 1,
+            "fid": 20,
+            "dest_mmsi": 696969,
+            "month": 9,
+            "day": 26,
+            "hour": 13,
+            "minute": 00,
+            "berth_name": "MALLORCA",
+            "berth_lon": 3.29655,
+            "berth_lat": 39.598583,
+        })
+        self.assertEqual(len(encoded), 1)
+        self.assertEqual(
+            encoded[0],
+            "!AIVDO,1,1,,A,60FGbA00:``T05@00002M=0000000000J2HHNT620000000000000hBQ943c,0*19"
+        )
+
+    def test_dispatch_is_registered_not_default(self):
+        decoded = MessageType6Dac1Fid20.create(mmsi='219000001')
+        self.assertIsInstance(decoded, MessageType6Dac1Fid20)
 
 
 class MessageType6Dac1Fid18TestCase(unittest.TestCase):
@@ -44,7 +151,7 @@ class MessageType6Dac1Fid18TestCase(unittest.TestCase):
 
         self.assertEqual(len(bits), 360)
 
-        decoded = encode_bits(bits)
+        decoded = encode_decode(bits)
 
         assert isinstance(decoded, MessageType6Dac1Fid18)
         self.assertEqual(decoded.mmsi, 22334455)
@@ -104,7 +211,7 @@ class MessageType6Dac1Fid16TestCase(unittest.TestCase):
         bits += _twos(0, 3)                                    # Spare
         self.assertEqual(len(bits), 72)
 
-        decoded = encode_bits(bits)
+        decoded = encode_decode(bits)
 
         assert isinstance(decoded, MessageType6Dac1Fid16A)
         self.assertEqual(decoded.mmsi, 11223344)
@@ -124,7 +231,7 @@ class MessageType6Dac1Fid16TestCase(unittest.TestCase):
         bits += _twos(0, 3)                                    # Spare
         self.assertEqual(len(bits), 72)
 
-        decoded = encode_bits(bits)
+        decoded = encode_decode(bits)
         assert isinstance(decoded, MessageType6Dac1Fid16A)
         self.assertEqual(decoded.mmsi, 11223344)
         self.assertEqual(decoded.dac, 1)
@@ -143,7 +250,7 @@ class MessageType6Dac1Fid16TestCase(unittest.TestCase):
         bits += _twos(0, 3)                                    # Spare
         self.assertEqual(len(bits), 72)
 
-        decoded = encode_bits(bits)
+        decoded = encode_decode(bits)
         assert isinstance(decoded, MessageType6Dac1Fid16A)
         self.assertEqual(decoded.mmsi, 11223344)
         self.assertEqual(decoded.dac, 1)
@@ -162,7 +269,7 @@ class MessageType6Dac1Fid16TestCase(unittest.TestCase):
         bits += _twos(0, 3)                                    # Spare
         self.assertEqual(len(bits), 72)
 
-        decoded = encode_bits(bits)
+        decoded = encode_decode(bits)
         assert isinstance(decoded, MessageType6Dac1Fid16A)
         self.assertEqual(decoded.mmsi, 11223344)
         self.assertEqual(decoded.dac, 1)
@@ -184,7 +291,7 @@ class MessageType6Dac1Fid16TestCase(unittest.TestCase):
         bits += _twos(0, 35)                                   # Spare
         self.assertEqual(len(bits), 136)
 
-        decoded = encode_bits(bits)
+        decoded = encode_decode(bits)
 
         assert isinstance(decoded, MessageType6Dac1Fid16B)
         self.assertEqual(decoded.mmsi, 22334455)
@@ -195,7 +302,7 @@ class MessageType6Dac1Fid16TestCase(unittest.TestCase):
 
         # 0 Persons
         bits = bits[:88] + _twos(0, 13) + bits[101:]
-        decoded = encode_bits(bits)
+        decoded = encode_decode(bits)
         assert isinstance(decoded, MessageType6Dac1Fid16B)
         self.assertEqual(decoded.mmsi, 22334455)
         self.assertEqual(decoded.dest_mmsi, 11111111)
@@ -205,7 +312,7 @@ class MessageType6Dac1Fid16TestCase(unittest.TestCase):
 
         # 8190 Persons
         bits = bits[:88] + _twos(8190, 13) + bits[101:]
-        decoded = encode_bits(bits)
+        decoded = encode_decode(bits)
         assert isinstance(decoded, MessageType6Dac1Fid16B)
         self.assertEqual(decoded.mmsi, 22334455)
         self.assertEqual(decoded.dest_mmsi, 11111111)
@@ -215,7 +322,7 @@ class MessageType6Dac1Fid16TestCase(unittest.TestCase):
 
         # 8191 Persons
         bits = bits[:88] + _twos(8191, 13) + bits[101:]
-        decoded = encode_bits(bits)
+        decoded = encode_decode(bits)
         assert isinstance(decoded, MessageType6Dac1Fid16B)
         self.assertEqual(decoded.mmsi, 22334455)
         self.assertEqual(decoded.dest_mmsi, 11111111)
