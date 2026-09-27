@@ -101,6 +101,7 @@ def bit_field(
     signed: bool = False,
     variable_length: bool = False,
     is_spare: bool = False,
+    bit_unit: typing.Optional[int] = None,
     **kwargs: typing.Any
 ) -> typing.Any:
     """
@@ -125,6 +126,7 @@ def bit_field(
             'default': default,
             'variable_length': variable_length,
             'is_spare': is_spare,
+            'bit_unit': bit_unit,
         },
         **kwargs
     )
@@ -868,6 +870,10 @@ class Payload(abc.ABC):
                     bits_in_buffer += width
                 else:
                     required_bits = min(width, len(val) * 8)
+                    # Ensure bytes to not overflow a bit-length that isn't a multiple of 8
+                    bit_unit = field.metadata.get('bit_unit')
+                    if bit_unit:
+                        required_bits -= required_bits % bit_unit
                     int_value = int.from_bytes(val, 'big') >> (len(val) * 8 - required_bits)  # undo left-alignment
                     bit_buffer = (bit_buffer << required_bits) | int_value
                     bits_in_buffer += required_bits
@@ -2176,7 +2182,7 @@ class MessageType6Dac1Fid23(Payload):
     hour = bit_field(5, int, default=24, signed=False)
     minute = bit_field(6, int, default=60, signed=False)
     duration = bit_field(18, int, default=262143, signed=False)
-    area_data = bit_field(870, bytes, default=b'', variable_length=True)
+    area_data = bit_field(870, bytes, default=b'', variable_length=True, bit_unit=87)
 
     @property
     def sub_areas(self) -> typing.List[typing.Dict[str, typing.Any]]:
@@ -2586,7 +2592,7 @@ class MessageType8Dac1Fid22(Payload):
     hour = bit_field(5, int, default=24, signed=False)
     minute = bit_field(6, int, default=60, signed=False)
     duration = bit_field(18, int, default=262143, signed=False)
-    area_data = bit_field(870, bytes, default=b'', variable_length=True)
+    area_data = bit_field(870, bytes, default=b'', variable_length=True, bit_unit=87)
 
     @property
     def sub_areas(self) -> typing.List[typing.Dict[str, typing.Any]]:

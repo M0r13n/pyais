@@ -2,6 +2,7 @@
 import unittest
 
 from pyais import decode
+from pyais.decode import decode_nmea_and_ais
 from pyais.encode import ais_to_nmea_0183, encode_dict, encode_msg
 from pyais.messages import ANY_MESSAGE, MessageType6Dac1Fid16A, MessageType6Dac1Fid16B, MessageType6Dac1Fid18, MessageType6Dac1Fid20, MessageType6Dac1Fid23, MessageType6Default
 from pyais.util import SixBitNibleEncoder, to_six_bit
@@ -252,6 +253,28 @@ class MessageType6Dac1Fid23TestCase(unittest.TestCase):
         decoded = MessageType6Dac1Fid23.create(mmsi='219000001')
         assert isinstance(decoded, MessageType6Dac1Fid23)
         self.assertEqual(decoded.sub_areas, [])
+
+    def test_packing_does_not_create_overlength_payloads(self):
+        area_bits = _sub_text("SURVEY OPS")
+        area_bits += _sub_text("SURVEY OPS")
+        area_bits += _sub_text("SURVEY OPS")
+        area_data = _pack_sub_areas(area_bits)
+
+        encoded = encode_msg(MessageType6Dac1Fid23.create(
+            mmsi='219000001',
+            linkage=7,
+            notice=13,  # Caution Area: Survey operations
+            month=3,
+            day=9,
+            hour=6,
+            minute=45,
+            duration=600,
+            area_data=area_data,
+        ))
+
+        decoded = decode_nmea_and_ais(*encoded)
+
+        self.assertEqual(len(decoded[0].bv), 404)
 
 
 class MessageType6Dac1Fid20TestCase(unittest.TestCase):
