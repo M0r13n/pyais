@@ -2153,6 +2153,37 @@ class MessageType6Dac1Fid20(Payload):
     berth_lat = bit_field(24, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
 
 
+@attr.s(slots=True)
+class MessageType6Dac1Fid23(Payload):
+    """
+    Type 6: Area notice
+    https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_area_notice_addressed
+    """
+    msg_type = bit_field(6, int, default=6)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    seqno = bit_field(2, int, default=0, signed=False)
+    dest_mmsi = bit_field(30, int, from_converter=from_mmsi, default=0)
+    retransmit = bit_field(1, bool, default=False, signed=False)
+    spare_1 = bit_field(1, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=23, signed=False)
+
+    linkage = bit_field(10, int, default=0, signed=False)
+    notice = bit_field(7, int, default=127, signed=False)
+    month = bit_field(4, int, default=0, signed=False)
+    day = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=24, signed=False)
+    minute = bit_field(6, int, default=60, signed=False)
+    duration = bit_field(18, int, default=262143, signed=False)
+    area_data = bit_field(870, bytes, default=b'', variable_length=True)
+
+    @property
+    def sub_areas(self) -> typing.List[typing.Dict[str, typing.Any]]:
+        """Decode the 1-10 sub-area indications (shape and shape-specific fields)."""
+        return _decode_area_notice_subareas(self.area_data)
+
+
 # ---------------------------------------------------------------------------
 # DAC/FID dispatch tables
 # ---------------------------------------------------------------------------
@@ -2161,6 +2192,7 @@ _MSG6_VARIANTS: typing.Dict[typing.Tuple[int, int], typing.Type[Payload]] = {
     (1, 16): MessageType6Dac1Fid16B,  # Type 6 messages are addressed. Thus, this variant is the default.
     (1, 18): MessageType6Dac1Fid18,
     (1, 20): MessageType6Dac1Fid20,
+    (1, 23): MessageType6Dac1Fid23,
 }
 
 
