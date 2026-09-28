@@ -1758,6 +1758,41 @@ def _decode_route_waypoints(data: bytes, waycount: int) -> typing.List[typing.Di
     return out
 
 
+# A single Dangerous Cargo record (IMO289, DAC=1/FID=25): a 4-bit cargo code
+# and a 13-bit subtype whose layout depends on that code. 4 + 13 = 17 bits.
+_CARGO_RECORD_BITS = 17
+_CARGO_MAX_RECORDS = 28
+
+_CARGO_CODE_STR = {
+    0: 'not available', 1: 'imdg', 2: 'igc', 3: 'bc',
+    4: 'marpol annex 1', 5: 'marpol annex 2', 6: 'regional',
+}
+
+
+def _decode_dangerous_cargos(data: bytes) -> typing.List[typing.Dict[str, typing.Any]]:
+    """Decode 1-28 Dangerous Cargo records (17 bits each).
+
+    Each record is a 4-bit cargo `code` (the regulation the cargo is carried
+    under) followed by a 13-bit `subtype` whose layout depends on that code.
+    """
+    out: typing.List[typing.Dict[str, typing.Any]] = []
+    if not data:
+        return out
+
+    for i in range(min((len(data) * 8) // _CARGO_RECORD_BITS, _CARGO_MAX_RECORDS)):
+        base = i * _CARGO_RECORD_BITS
+        code = _asm_bits(data, base, 4)
+        subtype = _asm_bits(data, base + 4, 13)
+        cargo: typing.Dict[str, typing.Any] = {
+            'code': code,
+            'code_str': _CARGO_CODE_STR.get(code, 'reserved'),
+            'subtype': subtype,
+        }
+        out.append(cargo)
+
+    return out
+
+
 class CommunicationStateMixin:
     """
     Mixin class to access Communication State values by applicable messages.
@@ -2190,15 +2225,67 @@ class MessageType6Dac1Fid23(Payload):
         return _decode_area_notice_subareas(self.area_data)
 
 
+@attr.s(slots=True)
+class MessageType6Dac1Fid25(Payload):
+    """
+    Type 6: Dangerous Cargo Indication
+    https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_dangerous_cargo_indication
+    """
+    msg_type = bit_field(6, int, default=6)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    seqno = bit_field(2, int, default=0, signed=False)
+    dest_mmsi = bit_field(30, int, from_converter=from_mmsi, default=0)
+    retransmit = bit_field(1, bool, default=False, signed=False)
+    spare_1 = bit_field(1, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=25, signed=False)
+
+    unit = bit_field(2, int, default=0, signed=False)
+    amount = bit_field(10, int, default=0, signed=False)
+    cargo_data = bit_field(476, bytes, default=b'', variable_length=True, bit_unit=17)
+
+    @property
+    def amount_kg(self) -> typing.Optional[int]:
+        amount: int = self.amount
+        if amount == 0:
+            return None
+        if self.unit == 0:
+            return None
+        elif self.unit == 1:
+            return amount
+        elif self.unit == 2:
+            return amount * 1_000
+        else:
+            return amount * 1_000_000
+
+    @property
+    def unit_str(self) -> str:
+        if self.unit == 0:
+            return ''
+        elif self.unit == 1:
+            return 'kg'
+        elif self.unit == 2:
+            return 'tonnes'
+        else:
+            return '1000 tonnes'
+
+    @property
+    def cargos(self) -> typing.List[typing.Dict[str, typing.Union[str, int]]]:
+        """Decode the 1-28 subcargos."""
+        return _decode_dangerous_cargos(self.cargo_data)
+
 # ---------------------------------------------------------------------------
 # DAC/FID dispatch tables
 # ---------------------------------------------------------------------------
+
 
 _MSG6_VARIANTS: typing.Dict[typing.Tuple[int, int], typing.Type[Payload]] = {
     (1, 16): MessageType6Dac1Fid16B,  # Type 6 messages are addressed. Thus, this variant is the default.
     (1, 18): MessageType6Dac1Fid18,
     (1, 20): MessageType6Dac1Fid20,
     (1, 23): MessageType6Dac1Fid23,
+    (1, 25): MessageType6Dac1Fid25,
 }
 
 
