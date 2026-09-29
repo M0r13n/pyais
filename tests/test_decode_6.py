@@ -201,7 +201,6 @@ class MessageType6Dac1Fid25TestCase(unittest.TestCase):
 
     def test_decode_with_trailing_bits(self):
         bits = _dangerous_cargo_header(unit=0, amount=123) + _twos(2, 4) + _twos(321, 13)
-
         # byte padding is at most 7 bits, so up to 9 stray bits can never add a 17-bit record
         for i in range(10):
             decoded = encode_decode(bits + i * '1')
@@ -210,6 +209,27 @@ class MessageType6Dac1Fid25TestCase(unittest.TestCase):
     def test_dispatch_is_registered_not_default(self):
         decoded = MessageType6Dac1Fid25.create(mmsi='219000001')
         self.assertIsInstance(decoded, MessageType6Dac1Fid25)
+
+    def test_encode_with_empty_cargo_data(self):
+        encoded = encode_msg(MessageType6Dac1Fid25.create(
+            mmsi='219000001',
+        ))
+        nmea, decoded = decode_nmea_and_ais(*encoded)
+        self.assertEqual(len(decoded.cargos), 0)
+
+        encoded = encode_msg(MessageType6Dac1Fid25.create(
+            mmsi='219000001',
+            cargo_data=None,
+        ))
+        nmea, decoded = decode_nmea_and_ais(*encoded)
+        self.assertEqual(len(decoded.cargos), 0)
+
+        encoded = encode_msg(MessageType6Dac1Fid25.create(
+            mmsi='219000001',
+            cargo_data=b"",
+        ))
+        nmea, decoded = decode_nmea_and_ais(*encoded)
+        self.assertEqual(len(decoded.cargos), 0)
 
 
 class MessageType6Dac1Fid23TestCase(unittest.TestCase):
