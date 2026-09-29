@@ -1962,6 +1962,14 @@ class MessageType8Dac1Fid27Tests(unittest.TestCase):
         decoded = MessageType8Dac1Fid27.create(mmsi='219000001')
         self.assertNotIsInstance(decoded, MessageType8Default)
 
+    def test_encoded_length_is_exact_for_every_waypoint_count(self):
+        # byte padding is at most 7 bits, so up to 9 stray bits can never add a 55-bit record
+        for n in range(1, 17):
+            with self.subTest(waypoints=n):
+                data = _pack(n * _route_waypoint(-179.99998, -89.99998))
+                msg = MessageType8Dac1Fid27.create(mmsi='219000001', waycount=n, waypoints_data=data)
+                self.assertEqual(msg.to_bytes()[1], 117 + 55 * n)
+
 
 class MessageType8Dac1Fid29Tests(unittest.TestCase):
     def test_text_description_decode(self):

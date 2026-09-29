@@ -2881,7 +2881,7 @@ class MessageType8Dac1Fid27(Payload):
     minute = bit_field(6, int, default=60, signed=False)
     duration = bit_field(18, int, default=262143, signed=False)
     waycount = bit_field(5, int, default=0, signed=False)
-    waypoints_data = bit_field(880, bytes, default=b'', variable_length=True)
+    waypoints_data = bit_field(880, bytes, default=b'', variable_length=True, bit_unit=55)
 
     @property
     def waypoints(self) -> typing.List[typing.Dict[str, float]]:
@@ -4068,7 +4068,10 @@ ANY_MESSAGE = typing.Union[
     MessageType6Default,
     MessageType6Dac1Fid16A,
     MessageType6Dac1Fid16B,
+    MessageType6Dac1Fid18,
     MessageType6Dac1Fid20,
+    MessageType6Dac1Fid23,
+    MessageType6Dac1Fid25,
     MessageType7,
     MessageType8Default,
     MessageType8Dac1Fid0,
