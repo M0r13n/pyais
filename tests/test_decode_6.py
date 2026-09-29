@@ -62,15 +62,15 @@ class MessageType6Dac1Fid25TestCase(unittest.TestCase):
     def test_bit_layout_matches_spec(self):
         bits = _dangerous_cargo_header()
         bits += _twos(1, 4)                                   # Cargo code
-        bits += _twos(42, 13)                                 # Cargo subtype
+        bits += _twos(21 << 6, 13)                            # Cargo subtype
         bits += _twos(2, 4)                                   # Cargo code
-        bits += _twos(69, 13)                                 # Cargo subtype
+        bits += _twos(1203, 13)                               # Cargo subtype
         bits += _twos(3, 4)                                   # Cargo code
-        bits += _twos(1337, 13)                               # Cargo subtype
+        bits += _twos((2 << 10) | (21 << 3), 13)              # Cargo subtype
         bits += _twos(4, 4)                                   # Cargo code
-        bits += _twos(7, 13)                                  # Cargo subtype
+        bits += _twos(6 << 9, 13)                             # Cargo subtype
         bits += _twos(5, 4)                                   # Cargo code
-        bits += _twos(3, 13)                                  # Cargo subtype
+        bits += _twos(2 << 10, 13)                            # Cargo subtype
         bits += _twos(6, 4)                                   # Cargo code
         bits += _twos(3333, 13)                               # Cargo subtype
         bits += _twos(7, 4)                                   # Cargo code
@@ -92,14 +92,54 @@ class MessageType6Dac1Fid25TestCase(unittest.TestCase):
         self.assertEqual(len(cargos), 7)
 
         self.assertEqual(decoded.cargos, [
-            {'code': 1, 'code_str': 'imdg', 'subtype': 42},
-            {'code': 2, 'code_str': 'igc', 'subtype': 69},
-            {'code': 3, 'code_str': 'bc', 'subtype': 1337},
-            {'code': 4, 'code_str': 'marpol annex 1', 'subtype': 7},
-            {'code': 5, 'code_str': 'marpol annex 2', 'subtype': 3},
+            {'code': 1, 'code_str': 'imdg', 'subtype': 1344, 'imdg': 21},
+            {'code': 2, 'code_str': 'igc', 'subtype': 1203, 'un': 1203},
+            {'code': 3, 'code_str': 'bc', 'subtype': 2216, 'bc': 2, 'imdg': 21},
+            {'code': 4, 'code_str': 'marpol annex 1', 'subtype': 3072, 'marpol_oil': 6, 'marpol_oil_str': 'gasoline'},
+            {'code': 5, 'code_str': 'marpol annex 2', 'subtype': 2048, 'marpol_cat': 2, 'marpol_cat_str': 'category Y'},
             {'code': 6, 'code_str': 'regional', 'subtype': 3333},
             {'code': 7, 'code_str': 'reserved', 'subtype': 0}
         ])
+
+    def test_different_marpol_1_values(self):
+        bits = _dangerous_cargo_header()
+        for oil in range(10):
+            bits += _twos(4, 4)                                    # Cargo code
+            bits += _twos(oil << 9, 13)                            # Cargo subtype
+
+        decoded = encode_decode(bits)
+
+        cargos = decoded.cargos
+        self.assertEqual(len(cargos), 10)
+
+        self.assertEqual(decoded.cargos[0]['marpol_oil_str'], 'not available')
+        self.assertEqual(decoded.cargos[1]['marpol_oil_str'], 'asphalt solutions')
+        self.assertEqual(decoded.cargos[2]['marpol_oil_str'], 'oils')
+        self.assertEqual(decoded.cargos[3]['marpol_oil_str'], 'distillates')
+        self.assertEqual(decoded.cargos[4]['marpol_oil_str'], 'gas oil')
+        self.assertEqual(decoded.cargos[5]['marpol_oil_str'], 'gasoline blending stocks')
+        self.assertEqual(decoded.cargos[6]['marpol_oil_str'], 'gasoline')
+        self.assertEqual(decoded.cargos[7]['marpol_oil_str'], 'jet fuels')
+        self.assertEqual(decoded.cargos[8]['marpol_oil_str'], 'naphtha')
+        self.assertEqual(decoded.cargos[9]['marpol_oil_str'], 'reserved for future use')
+
+    def test_different_marpol_2_values(self):
+        bits = _dangerous_cargo_header()
+        for cat in range(6):
+            bits += _twos(5, 4)                                    # Cargo code
+            bits += _twos(cat << 10, 13)                           # Cargo subtype
+
+        decoded = encode_decode(bits)
+
+        cargos = decoded.cargos
+        self.assertEqual(len(cargos), 6)
+
+        self.assertEqual(decoded.cargos[0]['marpol_cat_str'], 'not available')
+        self.assertEqual(decoded.cargos[1]['marpol_cat_str'], 'category X')
+        self.assertEqual(decoded.cargos[2]['marpol_cat_str'], 'category Y')
+        self.assertEqual(decoded.cargos[3]['marpol_cat_str'], 'category Z')
+        self.assertEqual(decoded.cargos[4]['marpol_cat_str'], 'other substances')
+        self.assertEqual(decoded.cargos[5]['marpol_cat_str'], 'reserved for future use')
 
     def test_amount_and_units(self):
         decoded = encode_decode(_dangerous_cargo_header(unit=0, amount=123))
