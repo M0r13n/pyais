@@ -866,6 +866,8 @@ class Payload(abc.ABC):
             elif d_type == bytes:
                 # Convert bytes to bits
                 if not val:
+                    if field.metadata.get('variable_length', False):
+                        continue
                     bit_buffer = (bit_buffer << width)
                     bits_in_buffer += width
                 else:

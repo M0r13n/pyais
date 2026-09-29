@@ -1306,4 +1306,4 @@ def test_json_to_data_with_empty_byte_fields():
         'data': ''
     }
     nmea_ais = encode_dict(json_to_data(json_dict))[0]
-    assert nmea_ais == "!AIVDO,3,1,0,A,85Mwp`1Kf000000000000000000000000000000000000000000000000000,0*1D"
+    assert nmea_ais == "!AIVDO,1,1,,A,85Mwp`1Kf0,4*2B"
