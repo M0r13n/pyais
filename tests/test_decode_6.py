@@ -4,9 +4,9 @@ import unittest
 from pyais import decode
 from pyais.decode import decode_nmea_and_ais
 from pyais.encode import ais_to_nmea_0183, encode_dict, encode_msg
-from pyais.messages import ANY_MESSAGE, MessageType6Dac1Fid16A, MessageType6Dac1Fid16B, MessageType6Dac1Fid18, MessageType6Dac1Fid20, MessageType6Dac1Fid23, MessageType6Default
+from pyais.messages import ANY_MESSAGE, MessageType6Dac1Fid16A, MessageType6Dac1Fid16B, MessageType6Dac1Fid18, MessageType6Dac1Fid20, MessageType6Dac1Fid23, MessageType6Dac1Fid25, MessageType6Default
 from pyais.util import SixBitNibleEncoder, to_six_bit
-from tests.utils import _pack_sub_areas, _sub_circle, _sub_rectangle, _sub_sector, _sub_text, _sub_waypoints, _twos
+from tests.utils import _pack, _sub_circle, _sub_rectangle, _sub_sector, _sub_text, _sub_waypoints, _twos
 
 
 def encode_decode(bits: str) -> ANY_MESSAGE:
@@ -39,6 +39,137 @@ def _area_notice_header_type_6(**over) -> str:
     bits += _twos(over.get('duration', 120), 18)        # Duration in minutes
     assert len(bits) == 143
     return bits
+
+
+def _dangerous_cargo_header(unit=1, amount=333) -> str:
+    """Pack the fixed 100-bit Dangerous Cargo header (IMO289 DAC=1/FID=25)."""
+    bits = _twos(6, 6)                                    # Message ID
+    bits += _twos(0, 2)                                   # Repeat Indicator
+    bits += _twos(356785707, 30)                          # MMSI
+    bits += _twos(0, 2)                                   # Sequence Number
+    bits += _twos(325185353, 30)                          # Dest MMSI
+    bits += _twos(0, 1)                                   # Retransmit
+    bits += _twos(0, 1)                                   # Spare
+    bits += _twos(1, 10)                                  # DAC
+    bits += _twos(25, 6)                                  # FID
+    bits += _twos(unit, 2)                                # Unit of quantity
+    bits += _twos(amount, 10)                             # Total amount
+    assert len(bits) == 100
+    return bits
+
+
+class MessageType6Dac1Fid25TestCase(unittest.TestCase):
+    def test_bit_layout_matches_spec(self):
+        bits = _dangerous_cargo_header()
+        bits += _twos(1, 4)                                   # Cargo code
+        bits += _twos(42, 13)                                 # Cargo subtype
+        bits += _twos(2, 4)                                   # Cargo code
+        bits += _twos(69, 13)                                 # Cargo subtype
+        bits += _twos(3, 4)                                   # Cargo code
+        bits += _twos(1337, 13)                               # Cargo subtype
+        bits += _twos(4, 4)                                   # Cargo code
+        bits += _twos(7, 13)                                  # Cargo subtype
+        bits += _twos(5, 4)                                   # Cargo code
+        bits += _twos(3, 13)                                  # Cargo subtype
+        bits += _twos(6, 4)                                   # Cargo code
+        bits += _twos(3333, 13)                               # Cargo subtype
+        bits += _twos(7, 4)                                   # Cargo code
+        bits += _twos(0, 13)                                  # Cargo subtype
+
+        decoded = encode_decode(bits)
+
+        assert isinstance(decoded, MessageType6Dac1Fid25)
+        self.assertEqual(decoded.mmsi, 356785707)
+        self.assertEqual(decoded.dest_mmsi, 325185353)
+        self.assertEqual(decoded.dac, 1)
+        self.assertEqual(decoded.fid, 25)
+        self.assertEqual(decoded.unit, 1)
+        self.assertEqual(decoded.amount, 333)
+        self.assertEqual(decoded.amount_kg, 333)
+        self.assertEqual(decoded.unit_str, 'kg')
+
+        cargos = decoded.cargos
+        self.assertEqual(len(cargos), 7)
+
+        self.assertEqual(decoded.cargos, [
+            {'code': 1, 'code_str': 'imdg', 'subtype': 42},
+            {'code': 2, 'code_str': 'igc', 'subtype': 69},
+            {'code': 3, 'code_str': 'bc', 'subtype': 1337},
+            {'code': 4, 'code_str': 'marpol annex 1', 'subtype': 7},
+            {'code': 5, 'code_str': 'marpol annex 2', 'subtype': 3},
+            {'code': 6, 'code_str': 'regional', 'subtype': 3333},
+            {'code': 7, 'code_str': 'reserved', 'subtype': 0}
+        ])
+
+    def test_amount_and_units(self):
+        decoded = encode_decode(_dangerous_cargo_header(unit=0, amount=123))
+        self.assertIsNone(decoded.amount_kg)
+        self.assertEqual(decoded.unit_str, '')
+
+        decoded = encode_decode(_dangerous_cargo_header(unit=1, amount=123))
+        self.assertEqual(decoded.amount_kg, 123)
+        self.assertEqual(decoded.unit_str, 'kg')
+
+        decoded = encode_decode(_dangerous_cargo_header(unit=2, amount=123))
+        self.assertEqual(decoded.amount_kg, 123_000)
+        self.assertEqual(decoded.unit_str, 'tonnes')
+
+        decoded = encode_decode(_dangerous_cargo_header(unit=3, amount=123))
+        self.assertEqual(decoded.amount_kg, 123_000_000)
+        self.assertEqual(decoded.unit_str, '1000 tonnes')
+
+        decoded = encode_decode(_dangerous_cargo_header(unit=3, amount=0))
+        self.assertIsNone(decoded.amount_kg)
+        self.assertEqual(decoded.unit_str, '1000 tonnes')
+
+    def test_no_cargo(self):
+        decoded = encode_decode(_dangerous_cargo_header(unit=0, amount=123))
+        self.assertEqual(len(decoded.cargos), 0)
+
+    def test_max_cargo(self):
+        bits = _dangerous_cargo_header(unit=0, amount=123)
+
+        for i in range(28):
+            bits += _twos(i % 4, 4)
+            bits += _twos(i, 13)
+
+        decoded = encode_decode(bits)
+        cargos = decoded.cargos
+        self.assertEqual(len(cargos), 28)
+
+        self.assertEqual(cargos[0]['code'], 0)
+        self.assertEqual(cargos[0]['subtype'], 0)
+        self.assertEqual(cargos[27]['code'], 3)
+        self.assertEqual(cargos[27]['subtype'], 27)
+
+    def test_encode_decode_round_trip(self):
+        """Build a message with create()/encode_msg() and read it back."""
+        cargo_data = _pack(_twos(2, 4) + _twos(321, 13) + _twos(0, 4) + _twos(22, 13))
+
+        encoded = encode_msg(MessageType6Dac1Fid25.create(
+            mmsi='219000001',
+            cargo_data=cargo_data,
+        ))
+        nmea, decoded = decode_nmea_and_ais(*encoded)
+
+        assert isinstance(decoded, MessageType6Dac1Fid25)
+        self.assertEqual(decoded.mmsi, 219000001)
+        self.assertEqual(decoded.dac, 1)
+        self.assertEqual(decoded.fid, 25)
+        self.assertEqual(len(decoded.cargos), 2)
+        self.assertEqual(len(nmea.bv), 134)
+
+    def test_decode_with_trailing_bits(self):
+        bits = _dangerous_cargo_header(unit=0, amount=123) + _twos(2, 4) + _twos(321, 13)
+
+        # byte padding is at most 7 bits, so up to 9 stray bits can never add a 17-bit record
+        for i in range(10):
+            decoded = encode_decode(bits + i * '1')
+            self.assertEqual(len(decoded.cargos), 1)
+
+    def test_dispatch_is_registered_not_default(self):
+        decoded = MessageType6Dac1Fid25.create(mmsi='219000001')
+        self.assertIsInstance(decoded, MessageType6Dac1Fid25)
 
 
 class MessageType6Dac1Fid23TestCase(unittest.TestCase):
@@ -203,7 +334,7 @@ class MessageType6Dac1Fid23TestCase(unittest.TestCase):
         """Build a message with create()/encode_msg() and read it back."""
         area_bits = _sub_circle(11.5, 55.25, radius=300)
         area_bits += _sub_text("SURVEY OPS")
-        area_data = _pack_sub_areas(area_bits)
+        area_data = _pack(area_bits)
 
         encoded = encode_msg(MessageType6Dac1Fid23.create(
             mmsi='219000001',
@@ -233,7 +364,7 @@ class MessageType6Dac1Fid23TestCase(unittest.TestCase):
 
     def test_encode_dict_round_trip(self):
         """The (dac, fid) pair routes through encode_dict as well."""
-        area_data = _pack_sub_areas(_sub_text("HIGH WIND"))
+        area_data = _pack(_sub_text("HIGH WIND"))
         encoded = encode_dict({
             'msg_type': 6,
             'mmsi': '219000001',
@@ -258,7 +389,7 @@ class MessageType6Dac1Fid23TestCase(unittest.TestCase):
         area_bits = _sub_text("SURVEY OPS")
         area_bits += _sub_text("SURVEY OPS")
         area_bits += _sub_text("SURVEY OPS")
-        area_data = _pack_sub_areas(area_bits)
+        area_data = _pack(area_bits)
 
         encoded = encode_msg(MessageType6Dac1Fid23.create(
             mmsi='219000001',

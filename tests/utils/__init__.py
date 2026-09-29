@@ -57,11 +57,6 @@ def _sub_text(text) -> str:
     return bits
 
 
-def _pack_sub_areas(bits: str) -> bytes:
-    """Left-align a run of 87-bit sub-area records into whole bytes.
-
-    87 is not a multiple of 8, so the records are padded on the right rather
-    than truncated to a byte boundary.
-    """
+def _pack(bits: str) -> bytes:
     padded = bits + '0' * (-len(bits) % 8)
     return int(padded, 2).to_bytes(len(padded) // 8, 'big')

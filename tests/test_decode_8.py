@@ -23,7 +23,7 @@ from pyais.messages import (
 )
 from pyais.constants import SOLASStatus, IceClass
 
-from tests.utils import _pack_sub_areas, _sixbit, _sub_circle, _sub_rectangle, _sub_sector, _sub_text, _sub_waypoints, _twos
+from tests.utils import _pack, _sixbit, _sub_circle, _sub_rectangle, _sub_sector, _sub_text, _sub_waypoints, _twos
 
 
 def _pack_targets(targets) -> bytes:
@@ -1135,7 +1135,7 @@ class MessageType8Dac1Fid22Tests(unittest.TestCase):
         """Build a message with create()/encode_msg() and read it back."""
         area_bits = _sub_circle(11.5, 55.25, radius=300)
         area_bits += _sub_text("SURVEY OPS")
-        area_data = _pack_sub_areas(area_bits)
+        area_data = _pack(area_bits)
 
         encoded = encode_msg(MessageType8Dac1Fid22.create(
             mmsi='219000001',
@@ -1165,7 +1165,7 @@ class MessageType8Dac1Fid22Tests(unittest.TestCase):
 
     def test_encode_dict_round_trip(self):
         """The (dac, fid) pair routes through encode_dict as well."""
-        area_data = _pack_sub_areas(_sub_text("HIGH WIND"))
+        area_data = _pack(_sub_text("HIGH WIND"))
         encoded = encode_dict({
             'msg_type': 8,
             'mmsi': '219000001',
