@@ -1769,6 +1769,44 @@ _CARGO_CODE_STR = {
 }
 
 
+def _marpol_1_str(val: int) -> str:
+    if val == 0:
+        return 'not available'
+    elif val == 1:
+        return "asphalt solutions"
+    elif val == 2:
+        return "oils"
+    elif val == 3:
+        return "distillates"
+    elif val == 4:
+        return "gas oil"
+    elif val == 5:
+        return "gasoline blending stocks"
+    elif val == 6:
+        return "gasoline"
+    elif val == 7:
+        return "jet fuels"
+    elif val == 8:
+        return "naphtha"
+    else:
+        return "reserved for future use"
+
+
+def _marpol_2_str(val: int) -> str:
+    if val == 0:
+        return 'not available'
+    elif val == 1:
+        return "category X"
+    elif val == 2:
+        return "category Y"
+    elif val == 3:
+        return "category Z"
+    elif val == 4:
+        return "other substances"
+    else:
+        return "reserved for future use"
+
+
 def _decode_dangerous_cargos(data: bytes) -> typing.List[typing.Dict[str, typing.Any]]:
     """Decode 1-28 Dangerous Cargo records (17 bits each).
 
@@ -1788,6 +1826,30 @@ def _decode_dangerous_cargos(data: bytes) -> typing.List[typing.Dict[str, typing
             'code_str': _CARGO_CODE_STR.get(code, 'reserved'),
             'subtype': subtype,
         }
+
+        if code == 1:
+            # Packed IMDG Code
+            cargo['imdg'] = subtype >> 6
+        elif code == 2:
+            # IGC Code
+            cargo['un'] = subtype
+        elif code == 3:
+            # BC Code
+            cargo['bc'] = subtype >> 10
+            cargo['imdg'] = (subtype >> 3) & 0x7f
+        elif code == 4:
+            # MARPOL Annex I
+            cargo['marpol_oil'] = subtype >> 9
+            cargo['marpol_oil_str'] = _marpol_1_str(cargo['marpol_oil'])
+        elif code == 5:
+            #  MARPOL Annex II
+            cargo['marpol_cat'] = subtype >> 10
+            cargo['marpol_cat_str'] = _marpol_2_str(cargo['marpol_cat'])
+        else:
+            # 6 is reserved for regional use
+            # 7-15 are reserved for future use
+            pass
+
         out.append(cargo)
 
     return out
