@@ -45,6 +45,10 @@ class BitVectorEqualityTestCase(unittest.TestCase):
                     assert x.get_bytes(i, length - j) == y.get_bytes(i, length - j)
                     assert x.get_bool(i) == y.get_bool(i)
 
+    def test_eq(self):
+        self.assertEqual(int_bit_vector(b'0', 2), int_bit_vector(b'1', 2))
+        self.assertEqual(word_bit_vector(b'0', 2), word_bit_vector(b'1', 2))
+
 
 if __name__ == '__main__':
     unittest.main()

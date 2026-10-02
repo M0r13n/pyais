@@ -290,7 +290,7 @@ class word_bit_vector:
         try:
             if not isinstance(value, word_bit_vector):
                 return False
-            return self._length == value._length and self._words == value._words
+            return self._length == value._length and self._value == value._value
         except ValueError:
             return False
 
