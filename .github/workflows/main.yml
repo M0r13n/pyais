@@ -31,9 +31,19 @@ jobs:
 
       - name: Install requirements
         run: pip install -r requirements.txt
+        if: ${{ !startsWith(matrix.python, 'pypy') }}
+
+      - name: Install requirements
+        run: pip install .
+        if: ${{ startsWith(matrix.python, 'pypy') }}
 
       - name: Run tests with coverage and create report as xml file
         run: make test
+        if: ${{ !startsWith(matrix.python, 'pypy') }}
+
+      - name: Run tests with coverage and create report as xml file
+        run: python -m unittest discover
+        if: ${{ startsWith(matrix.python, 'pypy') }}
 
       - name: Run Flake8
         run: flake8
