@@ -38,11 +38,11 @@ class BitVectorEqualityTestCase(unittest.TestCase):
             length = len(x)
             self.assertEqual(len(x), len(y))
             for i in range(length):
-                for j in range(i, length + 5):  # also exceed the total width of the vector
-                    assert x.get(i, length - j) == y.get(i, length - j)
-                    assert x.get_signed(i, length - j) == y.get_signed(i, length - j)
-                    assert x.get_str(i, length - j) == y.get_str(i, length - j)
-                    assert x.get_bytes(i, length - j) == y.get_bytes(i, length - j)
+                for width in range(-2, length - i + 6):  # negative, zero, normal, too wide
+                    assert x.get(i, width) == y.get(i, width)
+                    assert x.get_signed(i, width) == y.get_signed(i, width)
+                    assert x.get_str(i, width) == y.get_str(i, width)
+                    assert x.get_bytes(i, width) == y.get_bytes(i, width)
                     assert x.get_bool(i) == y.get_bool(i)
 
     def test_fuzzy_bytes_with_padding(self):
@@ -55,11 +55,11 @@ class BitVectorEqualityTestCase(unittest.TestCase):
             length = len(x)
             self.assertEqual(len(x), len(y))
             for i in range(length):
-                for j in range(i, length + 5):  # also exceed the total width of the vector
-                    assert x.get(i, length - j) == y.get(i, length - j)
-                    assert x.get_signed(i, length - j) == y.get_signed(i, length - j)
-                    assert x.get_str(i, length - j) == y.get_str(i, length - j)
-                    assert x.get_bytes(i, length - j) == y.get_bytes(i, length - j)
+                for width in range(-2, length - i + 6):  # negative, zero, normal, too wide
+                    assert x.get(i, width) == y.get(i, width)
+                    assert x.get_signed(i, width) == y.get_signed(i, width)
+                    assert x.get_str(i, width) == y.get_str(i, width)
+                    assert x.get_bytes(i, width) == y.get_bytes(i, width)
                     assert x.get_bool(i) == y.get_bool(i)
 
     def test_eq(self):
