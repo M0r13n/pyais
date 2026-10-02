@@ -38,7 +38,24 @@ class BitVectorEqualityTestCase(unittest.TestCase):
             length = len(x)
             self.assertEqual(len(x), len(y))
             for i in range(length):
-                for j in range(i, length - 1):
+                for j in range(i, length + 5):  # also exceed the total width of the vector
+                    assert x.get(i, length - j) == y.get(i, length - j)
+                    assert x.get_signed(i, length - j) == y.get_signed(i, length - j)
+                    assert x.get_str(i, length - j) == y.get_str(i, length - j)
+                    assert x.get_bytes(i, length - j) == y.get_bytes(i, length - j)
+                    assert x.get_bool(i) == y.get_bool(i)
+
+    def test_fuzzy_bytes_with_padding(self):
+        """Ensure both bit vector implementations behave identically for random bytes of arbitrary length and padding"""
+        for k in range(25):
+            data = random.randbytes(k)
+            pad = random.randint(0, min(k, 7))
+            x = int_bit_vector(data, pad=pad)
+            y = word_bit_vector(data, pad=pad)
+            length = len(x)
+            self.assertEqual(len(x), len(y))
+            for i in range(length):
+                for j in range(i, length + 5):  # also exceed the total width of the vector
                     assert x.get(i, length - j) == y.get(i, length - j)
                     assert x.get_signed(i, length - j) == y.get_signed(i, length - j)
                     assert x.get_str(i, length - j) == y.get_str(i, length - j)
