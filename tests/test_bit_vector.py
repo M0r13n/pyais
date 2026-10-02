@@ -12,10 +12,10 @@ class BitVectorEqualityTestCase(unittest.TestCase):
 
         self.assertEqual(len(x), len(y))
         self.assertEqual(x._value, y._value)
-        self.assertEqual(x.get(0, 250), x.get(0, 250))
-        self.assertEqual(x.get_str(0, 250), x.get_str(0, 250))
-        self.assertEqual(x.get_bytes(0, 250), x.get_bytes(0, 250))
-        self.assertEqual(x.get_bool(27), x.get_bool(27))
+        self.assertEqual(x.get(0, 250), y.get(0, 250))
+        self.assertEqual(x.get_str(0, 250), y.get_str(0, 250))
+        self.assertEqual(x.get_bytes(0, 250), y.get_bytes(0, 250))
+        self.assertEqual(x.get_bool(27), y.get_bool(27))
 
     def test_simple_bytes(self):
         """Ensure that for random bytes both bit vector implementations behave identically"""
@@ -24,10 +24,10 @@ class BitVectorEqualityTestCase(unittest.TestCase):
 
         self.assertEqual(len(x), len(y))
         self.assertEqual(x._value, y._value)
-        self.assertEqual(x.get(0, 250), x.get(0, 250))
-        self.assertEqual(x.get_str(0, 250), x.get_str(0, 250))
-        self.assertEqual(x.get_bytes(0, 250), x.get_bytes(0, 250))
-        self.assertEqual(x.get_bool(27), x.get_bool(27))
+        self.assertEqual(x.get(0, 250), y.get(0, 250))
+        self.assertEqual(x.get_str(0, 250), y.get_str(0, 250))
+        self.assertEqual(x.get_bytes(0, 250), y.get_bytes(0, 250))
+        self.assertEqual(x.get_bool(27), y.get_bool(27))
 
     def test_fuzzy_bytes(self):
         """Ensure both bit vector implementations behave identically for random bytes of arbitrary length"""
