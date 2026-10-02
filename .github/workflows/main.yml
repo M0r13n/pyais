@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.10', '3.11', '3.12', '3.13', '3.14']
+        python: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15', 'pypy3.11']
         os: ['ubuntu-latest']
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
@@ -37,6 +37,8 @@ jobs:
 
       - name: Run Flake8
         run: flake8
+        if: ${{ !startsWith(matrix.python, 'pypy') }}
 
       - name: Run Mypy
         run: mypy --strict ./pyais
+        if: ${{ !startsWith(matrix.python, 'pypy') }}
