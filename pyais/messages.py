@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional, Sequence, Union
 
 import attr
 
-from pyais.bit_vector import bit_vector
+from pyais.bit_vector import bit_vector, SUPPORTS_FAST_PATH
 from pyais.constants import (
     AtoNDimensionType,
     AtoNRestrictedUseInidicator,
@@ -981,7 +981,8 @@ class Payload(abc.ABC):
         plan = cls.decoder_plan()
         bv_len = len(bv)
         # Is a fast path available?
-        if bv_len == 168:
+        # Fast paths shift a single bigint, which is only fast on CPython.
+        if SUPPORTS_FAST_PATH and bv_len == 168:
             mid = bv._value >> 162
             if cls.FAST_PATH_AVAILABLE[mid]:
                 try:
@@ -990,7 +991,11 @@ class Payload(abc.ABC):
                     # Fast path is not implemented for this message type.
                     # Do not try this again.
                     cls.FAST_PATH_AVAILABLE[mid] = False
-        kwargs: dict[str, NMEA_VALUE | None] = {}
+        # Collect positional args instead of kwargs: the plan follows attrs' field order,
+        # which is also the order of the generated __init__'s parameters. Calling with
+        # *args is ~2x faster than **kwargs on CPython and ~4x faster on PyPy.
+        args: list[NMEA_VALUE | None] = []
+        append = args.append
         val: NMEA_VALUE
         get_num = bv.get_num
         get_str = bv.get_str
@@ -998,7 +1003,7 @@ class Payload(abc.ABC):
 
         for name, offset, width, signed, kind, converter in plan:
             if offset >= bv_len:
-                kwargs[name] = None
+                append(None)
                 continue
             if kind == INT:
                 val = get_num(offset, width, signed)
@@ -1013,8 +1018,8 @@ class Payload(abc.ABC):
 
             if converter is not None:
                 val = converter(val)
-            kwargs[name] = val
-        return cls(**kwargs)  # type:ignore
+            append(val)
+        return cls(*args)  # type:ignore
 
     def asdict(self, enum_as_int: bool = False, ignore_spare: bool = True) -> typing.Dict[str, typing.Optional[NMEA_VALUE]]:
         """
@@ -1063,7 +1068,27 @@ def from_lat_lon(v: typing.Union[int, float]) -> float:
     return round(float(v) * 600000.0)
 
 
+# round(x, ndigits) goes through a decimal string round-trip. That's slow on CPython and
+# very slow on PyPy, where the JIT can't optimize it. The raw values decoded from a payload
+# are integers, for which the same result can be computed with integer arithmetic only:
+#   round(v / 600000, 6) == n / 1e6   where n = nearest integer to v * 1e6 / 600000 = 5v/3
+# 5v/3 is never exactly halfway between two integers, so there are no tie-breaking
+# differences, and n / 1e6 is correctly rounded by IEEE 754 division. The results are
+# bit-identical: verified exhaustively for all |v| < 2**27 (/600000) and |v| < 2**24
+# (/600 and /60000), which covers every field width used. Everything else uses round().
+def _float_as_int(v: typing.Union[int, float]) -> typing.Optional[int]:
+    """Return v as an int if it is an integral, non-zero float (else None).
+    The generic decoder passes float(raw_int) to the converters of float fields.
+    0.0 is excluded so that round() preserves the sign of -0.0."""
+    if type(v) is float and v.is_integer() and v != 0.0:
+        return int(v)
+    return None
+
+
 def to_lat_lon(v: typing.Union[int, float]) -> float:
+    iv = v if type(v) is int else _float_as_int(v)
+    if iv is not None and -0x8000000 <= iv < 0x8000000:  # |iv| < 2**27
+        return ((10 * iv + 3) // 6) / 1e6  # round(iv * 5 / 3) / 1e6
     return round(float(v) / 600000.0, 6)
 
 
@@ -1072,6 +1097,9 @@ def from_lat_lon_600(v: typing.Union[int, float]) -> float:
 
 
 def to_lat_lon_600(v: typing.Union[int, float]) -> float:
+    iv = v if type(v) is int else _float_as_int(v)
+    if iv is not None and -0x1000000 <= iv < 0x1000000:  # |iv| < 2**24
+        return ((10000 * iv + 3) // 6) / 1e6  # round(iv * 5000 / 3) / 1e6, see to_lat_lon
     return round(float(v) / 600.0, 6)
 
 
@@ -1081,6 +1109,9 @@ def from_lat_lon_60000(v: typing.Union[int, float]) -> float:
 
 
 def to_lat_lon_60000(v: typing.Union[int, float]) -> float:
+    iv = v if type(v) is int else _float_as_int(v)
+    if iv is not None and -0x1000000 <= iv < 0x1000000:  # |iv| < 2**24
+        return ((100 * iv + 3) // 6) / 1e6  # round(iv * 50 / 3) / 1e6, see to_lat_lon
     return round(float(v) / 60000.0, 6)
 
 
