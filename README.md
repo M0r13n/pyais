@@ -62,6 +62,55 @@ $ pip install pyais
 
 **NOTE**: pyais officially supports Python 3.9+.
 
+# Performance
+pyais is reasonably fast for typical workloads when using CPython. It averages slightly less than 300k msgs/s running inside an Ubuntu-VM on my Macbook Air (Apple M3) on a single core (refer to `bench/` for details).
+
+<details> <summary>Results</summary>
+
+```bash
+$ python ./bench/bench_pyais.py
+Round #0
+defaultdict(<function bench.<locals>.<lambda> at 0xe53de210d7a0>, {1: 1841220, 3: 263550, 18: 40830, 5: 66630, 4: 121290, 2: 59190, 21: 11400, 19: 3270, 20: 8280, 8: 32460, 17: 9420, 6: 13290, 16: 30, 24: 9210, 10: 210, 9: 810, 22: 690, 11: 840, 'errors': 60, 25: 60})
+Decoded 2482740 NMEA AIS messages in  9.23s (268,922 msgs/s)
+Round #1
+defaultdict(<function bench.<locals>.<lambda> at 0xe53de210d7a0>, {1: 1841220, 3: 263550, 18: 40830, 5: 66630, 4: 121290, 2: 59190, 21: 11400, 19: 3270, 20: 8280, 8: 32460, 17: 9420, 6: 13290, 16: 30, 24: 9210, 10: 210, 9: 810, 22: 690, 11: 840, 'errors': 60, 25: 60})
+Decoded 2482740 NMEA AIS messages in  8.93s (278,020 msgs/s)
+Round #2
+defaultdict(<function bench.<locals>.<lambda> at 0xe53de210d7a0>, {1: 1841220, 3: 263550, 18: 40830, 5: 66630, 4: 121290, 2: 59190, 21: 11400, 19: 3270, 20: 8280, 8: 32460, 17: 9420, 6: 13290, 16: 30, 24: 9210, 10: 210, 9: 810, 22: 690, 11: 840, 'errors': 60, 25: 60})
+Decoded 2482740 NMEA AIS messages in  9.28s (267,538 msgs/s)
+Round #3
+defaultdict(<function bench.<locals>.<lambda> at 0xe53de210d7a0>, {1: 1841220, 3: 263550, 18: 40830, 5: 66630, 4: 121290, 2: 59190, 21: 11400, 19: 3270, 20: 8280, 8: 32460, 17: 9420, 6: 13290, 16: 30, 24: 9210, 10: 210, 9: 810, 22: 690, 11: 840, 'errors': 60, 25: 60})
+Decoded 2482740 NMEA AIS messages in  8.72s (284,829 msgs/s)
+Round #4
+defaultdict(<function bench.<locals>.<lambda> at 0xe53de210d7a0>, {1: 1841220, 3: 263550, 18: 40830, 5: 66630, 4: 121290, 2: 59190, 21: 11400, 19: 3270, 20: 8280, 8: 32460, 17: 9420, 6: 13290, 16: 30, 24: 9210, 10: 210, 9: 810, 22: 690, 11: 840, 'errors': 60, 25: 60})
+Decoded 2482740 NMEA AIS messages in  8.69s (285,607 msgs/s)
+```
+</details>
+
+For long-running, high-volume services PyPy may offer a considerable performance improvement. If you're aggregating many receivers or replaying bulk recordings, running under PyPy gets you a 3-5x speedup compared to CPython (once the JIT has warmed up). The same Macbook Air (M3) reaches ~1.2M msgs/s once warm.
+
+<details> <summary>Results</summary>
+
+```bash
+$ python ./bench/bench_pyais.py
+Round #0
+defaultdict(<function bench.<locals>.<lambda> at 0x0000e144e59f23e0>, {1: 1841220, 3: 263550, 18: 40830, 5: 66630, 4: 121290, 2: 59190, 21: 11400, 19: 3270, 20: 8280, 8: 32460, 17: 9420, 6: 13290, 16: 30, 24: 9210, 10: 210, 9: 810, 22: 690, 11: 840, 'errors': 60, 25: 60})
+Decoded 2482740 NMEA AIS messages in  2.80s (887,764 msgs/s)
+Round #1
+defaultdict(<function bench.<locals>.<lambda> at 0x0000e144e598fc40>, {1: 1841220, 3: 263550, 18: 40830, 5: 66630, 4: 121290, 2: 59190, 21: 11400, 19: 3270, 20: 8280, 8: 32460, 17: 9420, 6: 13290, 16: 30, 24: 9210, 10: 210, 9: 810, 22: 690, 11: 840, 'errors': 60, 25: 60})
+Decoded 2482740 NMEA AIS messages in  2.66s (933,691 msgs/s)
+Round #2
+defaultdict(<function bench.<locals>.<lambda> at 0x00000000120a1380>, {1: 1841220, 3: 263550, 18: 40830, 5: 66630, 4: 121290, 2: 59190, 21: 11400, 19: 3270, 20: 8280, 8: 32460, 17: 9420, 6: 13290, 16: 30, 24: 9210, 10: 210, 9: 810, 22: 690, 11: 840, 'errors': 60, 25: 60})
+Decoded 2482740 NMEA AIS messages in  2.53s (982,905 msgs/s)
+Round #3
+defaultdict(<function bench.<locals>.<lambda> at 0x0000e144e5dd60c0>, {1: 1841220, 3: 263550, 18: 40830, 5: 66630, 4: 121290, 2: 59190, 21: 11400, 19: 3270, 20: 8280, 8: 32460, 17: 9420, 6: 13290, 16: 30, 24: 9210, 10: 210, 9: 810, 22: 690, 11: 840, 'errors': 60, 25: 60})
+Decoded 2482740 NMEA AIS messages in  2.07s (1,201,623 msgs/s)
+Round #4
+defaultdict(<function bench.<locals>.<lambda> at 0x0000000011d2d420>, {1: 1841220, 3: 263550, 18: 40830, 5: 66630, 4: 121290, 2: 59190, 21: 11400, 19: 3270, 20: 8280, 8: 32460, 17: 9420, 6: 13290, 16: 30, 24: 9210, 10: 210, 9: 810, 22: 690, 11: 840, 'errors': 60, 25: 60})
+Decoded 2482740 NMEA AIS messages in  2.08s (1,195,789 msgs/s)
+```
+</details>
+
 # Usage
 
 There are many examples in the [examples directory](https://github.com/M0r13n/pyais/tree/master/examples).
@@ -595,20 +644,3 @@ Afterwards, run the container (bash):
 You can then run the examples inside the container:
 
 `python ./examples/live_stream.py`
-
-# Funfacts
-
-## Python3.11 is faster
-
-With Python3.11 significant improvements to the CPython Runtime were made:
-
-- [What's new with Python 3.11](https://docs.python.org/3/whatsnew/3.11.html)
-- [Faster CPython](https://docs.python.org/3/whatsnew/3.11.html#whatsnew311-faster-cpython)
-
-Some results from the internal [performance test](https://github.com/M0r13n/pyais/blob/master/tests/test_file_stream.py#L155):
-
-**3.10:**
-`Decoding 82758 messages took: 3.233757972717285`
-
-**3.11:**
-`Decoding 82758 messages took: 2.5866270065307617`
