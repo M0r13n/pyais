@@ -990,7 +990,6 @@ class Payload(abc.ABC):
         plan = cls.decoder_plan()
         bv_len = len(bv)
         # Is a fast path available?
-        # Fast paths shift a single bigint, which is only fast on CPython.
         if bv_len == 168:
             if SUPPORTS_FAST_PATH:
                 # CPython is fast with bigints
@@ -1003,7 +1002,7 @@ class Payload(abc.ABC):
                         # Do not try this again.
                         cls.FAST_PATH_AVAILABLE[mid] = False
             else:
-                # PyPy is faster with fixed sized machine words that a bigint
+                # PyPy is faster with fixed sized machine words than with bigints
                 words = getattr(bv, '_words', None)
                 if words is not None:
                     mid = words[0] >> 54

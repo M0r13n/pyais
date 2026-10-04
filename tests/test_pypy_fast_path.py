@@ -19,6 +19,10 @@ class FastPathTestCase(unittest.TestCase):
                 x = cls._fast_path(int_bit_vector(msg.payload, msg.fill_bits)).asdict()
                 y = cls._fast_path_pypy(word_bit_vector(msg.payload, msg.fill_bits)).asdict()
                 self.assertEqual(x, y)
+                self.assertEqual(
+                    [(k, type(v)) for k, v in x.items()],
+                    [(k, type(v)) for k, v in y.items()]
+                )
                 cnt += 1
 
         self.assertGreater(cnt, 70000)
