@@ -2,6 +2,26 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 3.3.0 04 Oct 2026
+-------------------------------------------------------------------------------
+* added support for additional AIS Application Specific Messages (Message Type 6)
+  * persons on board (DAC = 1 FID = 16), IMO236 and IMO289 variant
+  * clearance time to enter port (DAC = 1 FID = 18)
+  * berthing data (DAC = 1 FID = 20)
+  * area notices (DAC = 1 FID = 23)
+  * dangerous cargo indication (DAC = 1 FID = 25)
+    * decodes cargo subtypes for IMDG, IGC, BC and MARPOL codes
+    * added `amount_kg` and `unit_str`
+* significantly improved decoding performance on PyPy
+  * PyPy uses 64 bit machine words instead of bigints
+  * added a fast path for position reports (Message Type 1/2/3)
+  * 3-5x faster than CPython on large inputs once the JIT has warmed up
+  * PyPy is now part of the CI
+* slightly improved decoding performance on CPython
+* fixed encoding of variable-length binary fields that are not byte aligned
+* fixed encoding of empty variable-length binary fields
+  * previously, these fields were padded with zeros to their maximum width
+-------------------------------------------------------------------------------
  Version 3.2.3 12 Sep 2026
 -------------------------------------------------------------------------------
 * fixed AIS encoding CLI
