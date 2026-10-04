@@ -66,6 +66,7 @@ $ pip install pyais
 pyais is reasonably fast for typical workloads when using CPython. It averages slightly less than 300k msgs/s running inside an Ubuntu-VM on my Macbook Air (Apple M3) on a single core (refer to `bench/` for details).
 
 <details> <summary>Results</summary>
+
 ```bash
 $ python ./bench/bench_pyais.py
 Round #0
@@ -86,9 +87,10 @@ Decoded 2482740 NMEA AIS messages in  8.69s (285,607 msgs/s)
 ```
 </details>
 
-For long-running, high-volume services PyPy may a considerable performance improvement. If you're aggregating many receivers or replaying bulk recordings, running under PyPy gets you a 3-5x speedup compared to CPython (once the JIT-cache is warm). The same Macbook Air (M3) averages well above a million msgs/s.
+For long-running, high-volume services PyPy may offer a considerable performance improvement. If you're aggregating many receivers or replaying bulk recordings, running under PyPy gets you a 3-5x speedup compared to CPython (once the JIT has warmed up). The same Macbook Air (M3) reaches ~1.2M msgs/s once warm.
 
 <details> <summary>Results</summary>
+
 ```bash
 $ python ./bench/bench_pyais.py
 Round #0
