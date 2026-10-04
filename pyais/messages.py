@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional, Sequence, Union
 
 import attr
 
-from pyais.bit_vector import bit_vector, SUPPORTS_FAST_PATH
+from pyais.bit_vector import bit_vector, SUPPORTS_FAST_PATH, int_bit_vector, word_bit_vector
 from pyais.constants import (
     AtoNDimensionType,
     AtoNRestrictedUseInidicator,
@@ -789,6 +789,8 @@ class Payload(abc.ABC):
     # Set to False if a message class raises a NotImplementedError during runtime.
     FAST_PATH_AVAILABLE: list[bool] = [True] * 64
 
+    WORD_FAST_PATH_AVAILABLE: list[bool] = [True] * 64
+
     @staticmethod
     def __force_type(field: typing.Any, val: typing.Any) -> typing.Any:
         """
@@ -959,11 +961,18 @@ class Payload(abc.ABC):
         return plan
 
     @classmethod
-    def _fast_path(cls, bv: bit_vector) -> 'ANY_MESSAGE':
+    def _fast_path(cls, bv: int_bit_vector) -> 'ANY_MESSAGE':
         """Use a flat extraction plan instead of iterating over each message class's
         fields. Convert the whole payload into an int once and extract every field
         with (value >> shift) & mask. These shifts run in C and are faster than
         repeated bit-field extraction."""
+        raise NotImplementedError
+
+    @classmethod
+    def _fast_path_pypy(cls, bv: word_bit_vector) -> 'ANY_MESSAGE':
+        """Counterpart of `_fast_path` for PyPy, where shifting a single bigint is slow.
+        Works on the 60-bit machine words of a `word_bit_vector` instead: bit `i` of the
+        payload is bit `59 - i % 60` of `words[i // 60]`"""
         raise NotImplementedError
 
     @classmethod
@@ -982,15 +991,30 @@ class Payload(abc.ABC):
         bv_len = len(bv)
         # Is a fast path available?
         # Fast paths shift a single bigint, which is only fast on CPython.
-        if SUPPORTS_FAST_PATH and bv_len == 168:
-            mid = bv._value >> 162
-            if cls.FAST_PATH_AVAILABLE[mid]:
-                try:
-                    return cls._fast_path(bv)
-                except NotImplementedError:
-                    # Fast path is not implemented for this message type.
-                    # Do not try this again.
-                    cls.FAST_PATH_AVAILABLE[mid] = False
+        if bv_len == 168:
+            if SUPPORTS_FAST_PATH:
+                # CPython is fast with bigints
+                mid = bv._value >> 162
+                if cls.FAST_PATH_AVAILABLE[mid]:
+                    try:
+                        return cls._fast_path(bv)
+                    except NotImplementedError:
+                        # Fast path is not implemented for this message type.
+                        # Do not try this again.
+                        cls.FAST_PATH_AVAILABLE[mid] = False
+            else:
+                # PyPy is faster with fixed sized machine words that a bigint
+                words = getattr(bv, '_words', None)
+                if words is not None:
+                    mid = words[0] >> 54
+                    if cls.WORD_FAST_PATH_AVAILABLE[mid]:
+                        try:
+                            return cls._fast_path_pypy(typing.cast(word_bit_vector, bv))
+                        except NotImplementedError:
+                            # Fast path is not implemented for this message type.
+                            # Do not try this again.
+                            cls.WORD_FAST_PATH_AVAILABLE[mid] = False
+
         # Collect positional args instead of kwargs: the plan follows attrs' field order,
         # which is also the order of the generated __init__'s parameters. Calling with
         # *args is ~2x faster than **kwargs on CPython and ~4x faster on PyPy.
@@ -1980,7 +2004,31 @@ class MessageType1(Payload, CommunicationStateMixin):
     radio = bit_field(19, int, default=0, signed=False)
 
     @classmethod
-    def _fast_path(cls, bv: bit_vector) -> 'MessageType1':
+    def _fast_path_pypy(cls, bv: word_bit_vector) -> 'MessageType1':
+        # 168 bits fit in three words (3 x 60 = 180)
+        w0, w1, w2 = bv._words[0], bv._words[1], bv._words[2]
+
+        return cls(
+            w0 >> 54,
+            (w0 >> 52) & 3,
+            (w0 >> 22) & 0x3FFFFFFF,  # type: ignore
+            (w0 >> 18) & 15,
+            to_turn((((w0 >> 10) & 255) ^ 0x80) - 0x80),
+            to_speed(w0 & 1023),
+            bool((w1 >> 59) & 1),
+            to_lat_lon((((w1 >> 31) & 0xFFFFFFF) ^ 0x8000000) - 0x8000000),
+            to_lat_lon((((w1 >> 4) & 0x7FFFFFF) ^ 0x4000000) - 0x4000000),
+            to_10th(((w1 & 15) << 8) | w2 >> 52),  # course spans last 4 bits of w1 and first 8 bits of w2
+            (w2 >> 43) & 511,
+            (w2 >> 37) & 63,
+            ManeuverIndicator.from_value((w2 >> 35) & 3),
+            (((w2 >> 32) & 7) << 5).to_bytes(1, "big"),
+            bool((w2 >> 31) & 1),
+            (w2 >> 12) & 0x7ffff,
+        )
+
+    @classmethod
+    def _fast_path(cls, bv: int_bit_vector) -> 'MessageType1':
         v = bv._value
         # Rot
         r = (v >> 118) & 255
