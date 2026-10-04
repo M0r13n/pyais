@@ -23,8 +23,6 @@ TCP/UDP sockets. This library has been used and tested extensively in representa
 
 You can find the full documentation on [readthedocs](https://pyais.readthedocs.io/en/latest/).
 
-⚠️ **Important:** This is version **v3**, which may contain breaking changes compared to **v2**. The latter is maintained on the [`legacy branch`](https://github.com/M0r13n/pyais/tree/legacy).
-
 # Acknowledgements
 
 The HolAdo framework (https://gitlab.com/holado_framework/python) provides BDD features for multiple libraries, including an AIS module that utilizes pyais and has been deployed at [Kineis](https://www.kineis.com/en/about-us/) for space-based AIS message decoding.
@@ -58,9 +56,22 @@ The project is available at [PyPI](https://pypi.org/project/pyais/) and can be i
 $ pip install pyais
 ```
 
-**NOTE**: There is an experimental version on a branch [`experimental-version-without-bit-array`](https://github.com/M0r13n/pyais/tree/experimental-version-without-bit-array). This version does not depend on the bitarray module. It is as fast as the regular version of pyais when using CPython. But it is ~4 times faster when using PyPy.
+**NOTE**: pyais officially supports Python 3.9+ and PyPy3.9+.
 
-**NOTE**: pyais officially supports Python 3.9+.
+## Verifying releases
+
+Every [GitHub release](https://github.com/M0r13n/pyais/releases) has a `SHA256SUMS` file attached.
+It contains the SHA256 checksums of the files uploaded to PyPI for that release. To check that the
+package you install is exactly the one that was released:
+
+```shell
+$ VERSION=3.3.0
+$ pip download pyais==$VERSION --no-deps -d pyais-dist && cd pyais-dist
+$ curl -LO https://github.com/M0r13n/pyais/releases/download/v$VERSION/SHA256SUMS
+$ sha256sum -c --ignore-missing SHA256SUMS    # on macOS: shasum -a 256 -c --ignore-missing SHA256SUMS
+```
+
+Every file should be reported as `OK`.
 
 # Performance
 pyais is reasonably fast for typical workloads when using CPython. It averages slightly less than 300k msgs/s running inside an Ubuntu-VM on my Macbook Air (Apple M3) on a single core (refer to `bench/` for details).
