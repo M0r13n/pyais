@@ -85,6 +85,49 @@ class TagBlockTestCase(unittest.TestCase):
         self.assertEqual(tb.group.sentence_tot, 2)
         self.assertEqual(tb.group.group_id, 4512)
 
+    def test_tag_block_with_malformed_checksum_field(self):
+        # Two asterisks, no asterisk, a non-hex checksum: the fields are still
+        # parsed, the block is simply not valid. Never a ValueError.
+        sentence = b'!BSVDM,1,1,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*06'
+        for tag in (b's:FooBar,c:1428451253*1C*00', b's:FooBar,c:1428451253', b's:FooBar,c:1428451253*ZZ'):
+            with self.subTest(tag=tag):
+                msg = NMEASentenceFactory.produce(b'\\' + tag + b'\\' + sentence)
+                tb = msg.tag_block
+                tb.init()
+
+                self.assertFalse(tb.is_valid)
+                self.assertEqual(tb.source_station, 'FooBar')
+                self.assertEqual(tb.receiver_timestamp, '1428451253')
+
+    def test_tag_block_with_empty_payload(self):
+        # "\*1C\": a tag block with nothing before the asterisk. checksum() reduced
+        # over an empty iterable and raised a TypeError, also from TagBlockQueue.
+        sentence = b'!AIVDM,1,1,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C'
+        for tag in (b'*1C', b'*'):
+            with self.subTest(tag=tag):
+                msg = NMEASentenceFactory.produce(b'\\' + tag + b'\\' + sentence)
+                tb = msg.tag_block
+                tb.init()
+
+                self.assertFalse(tb.is_valid)
+                self.assertIsNone(tb.source_station)
+
+        decoded = [msg.decode() for msg in IterMessages([b'\\*1C\\' + sentence, sentence], tbq=TagBlockQueue())]
+        self.assertEqual(2, len(decoded))
+
+    def test_tag_block_queue_survives_malformed_checksum(self):
+        # TagBlockQueue.put_sentence() calls init() inside the stream loop, so a
+        # malformed tag block on the wire used to abort the whole stream.
+        tbq = TagBlockQueue()
+        messages = [
+            b'\\g:1-2-1,s:FooBar*1C*00\\!AIVDM,1,1,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C',
+            b'!AIVDM,1,1,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C',
+        ]
+
+        decoded = [msg.decode() for msg in IterMessages(messages, tbq=tbq)]
+
+        self.assertEqual(2, len(decoded))
+
     def test_tag_block_with_multiple_unknown_fields(self):
         raw = b'\\s:rORBCOMM000,q:u,c:1426032001,T:2015-03-11 00.00.01,i:<T>A:12344 F:+30000</T>*07\\!BSVDM,1,1,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*06'
         msg = NMEASentenceFactory.produce(raw)

@@ -51,6 +51,7 @@ TAG_BLOCK_START = b'\\'
 TAG_BLOCK_START_ORD = TAG_BLOCK_START[0]
 MAX_FRAG_CNT = 100
 MAX_PAYLOAD_LEN = 200
+MAX_FILL_BITS = 5
 
 # A stream carries only a handful of distinct sentence tags (b'!AIVDM',
 # b'!BSVDM', ...) and channels, repeated for every single line. Splitting and
@@ -181,11 +182,15 @@ class NMEASentenceFactory:
         if not isinstance(raw, bytes):
             raise TypeError("message must be bytes")
 
-        if len(raw) == 0:
-            raise InvalidNMEAMessageException("empty bytes")
-
-        # The common case, a plain sentence with no tag block, is handled inline
+        # The common case, a plain sentence with no tag block, is handled inline.
+        # Strip first: a line that is only whitespace (b" ", b"\r\n") is as empty
+        # as b"" and must not reach the indexing below.
         raw_sentence = raw.strip()
+        if len(raw_sentence) == 0:
+            raise InvalidNMEAMessageException("empty bytes")
+        if not raw_sentence.isascii():
+            raise InvalidNMEAMessageException("non-ASCII byte in NMEA sentence")
+
         tb = None
         if raw_sentence[0] == TAG_BLOCK_START_ORD:
             raw_sentence, tb = cls._pre_process(raw_sentence)
@@ -367,10 +372,16 @@ class TagBlock:
 
     def init(self) -> None:
         """Initialize the TagBlock by parsing the raw data."""
-        payload, check = self.raw.split(ASTERISK)
+        # A tag block is "<fields>*<hex checksum>". Anything else (no asterisk,
+        # more than one, a non-hex or non-ASCII checksum) is treated like a wrong
+        # checksum: the fields are still parsed, but ``is_valid`` is False.
+        payload, sep, check = self.raw.partition(ASTERISK)
 
         self._actual_checksum = checksum(payload)
-        self._expected_checksum = int(check.decode(), 16)
+        try:
+            self._expected_checksum = int(check.decode('ascii'), 16) if sep else -1
+        except (ValueError, UnicodeDecodeError):
+            self._expected_checksum = -1
         self._is_valid = self._actual_checksum == self._expected_checksum
 
         self._parse_payload(payload)
@@ -492,6 +503,12 @@ class NMEASentence(object):
     def __init__(self, raw: bytes, fields: typing.Optional[typing.List[bytes]] = None) -> None:
         if not isinstance(raw, bytes):
             raise ValueError(f"'NMEAMessage' only accepts bytes, but got '{type(raw)}'")
+
+        # NMEA 0183 is 7-bit ASCII. Every later ``.decode('ascii')`` (tag, channel,
+        # ``asdict()``, ``decode_and_merge()``) relies on this, so reject other
+        # bytes here with the documented exception instead of a UnicodeDecodeError.
+        if not raw.isascii():
+            raise InvalidNMEAMessageException("non-ASCII byte in NMEA sentence")
 
         # Store raw data
         self.raw: bytes = raw
@@ -668,6 +685,20 @@ class AISSentence(NMEASentence):
 
         if self.frag_cnt > MAX_FRAG_CNT or self.frag_num > MAX_FRAG_CNT:
             raise InvalidNMEAMessageException("Too many fragments")
+
+        # Fragment numbers are 1-based. A zero or negative fragment number used
+        # to index the assembly buffer from the end (silently misplacing the
+        # part) or raise an IndexError in the stream loop below -255. The upper
+        # bound is deliberately left alone: NMEA 4.10 grouped sentences in the
+        # wild carry frag_num > frag_cnt and the tag block queue relies on that.
+        if self.frag_num < 1:
+            raise InvalidNMEAMessageException("fragment number must be >= 1")
+
+        # Fill bits pad the last six-bit character, so 0..5 by definition. A
+        # negative value used to surface as "ValueError: negative shift count",
+        # a value beyond the payload as "__len__() should return >= 0".
+        if not 0 <= self.fill_bits <= MAX_FILL_BITS:
+            raise InvalidNMEAMessageException("fill bits out of range")
 
         # Finally decode bytes into bits
         self.bv = bit_vector(payload, self.fill_bits)

@@ -2210,6 +2210,62 @@ class TestAIS(unittest.TestCase):
         with self.assertRaises(InvalidNMEAMessageException):
             decode(b"")
 
+    def test_whitespace_only_input_is_invalid(self):
+        # A blank line is as empty as b"" and must not raise an IndexError
+        for raw in (b" ", b"\n", b"\r\n", b"\t \r\n"):
+            with self.subTest(raw=raw):
+                with self.assertRaises(InvalidNMEAMessageException):
+                    decode(raw)
+
+    def test_fill_bits_out_of_range_is_invalid(self):
+        # Fill bits pad the last six-bit character, so 0..5. A negative value
+        # used to raise "ValueError: negative shift count" from the bit vector,
+        # a value longer than the payload "ValueError: __len__() should return >= 0".
+        for raw in (
+            b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,-1*5C",
+            b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,-09*5C",
+            b"!AIVDM,1,1,,A,?5OP,152*5B",
+            b"!AIVDM,1,1,,A,?5OP,6*5B",
+        ):
+            with self.subTest(raw=raw):
+                with self.assertRaises(InvalidNMEAMessageException):
+                    decode(raw)
+
+        # 0..5 keep working
+        for fill in range(6):
+            with self.subTest(fill=fill):
+                decode(b"!AIVDM,1,1,,A,?5OP=l00052HD00," + str(fill).encode() + b"*5B")
+
+    def test_fragment_number_out_of_range_is_invalid(self):
+        # Fragment numbers are 1-based. A zero or negative one indexed the
+        # assembly buffer from the end and raised an IndexError in the stream
+        # loop once it was below -255.
+        valid = b"!AIVDM,2,1,4,A,55O0W7`00001L@gCWGA2uItLth@DqtL5@F22220j1h742t0Ht0000000,0*08"
+        for head in (b"!AIVDM,2,-300,4,", b"!AIVDM,2,-1,4,", b"!AIVDM,2,0,4,"):
+            raw = head + valid.split(b",", 4)[4]
+            with self.subTest(raw=raw):
+                with self.assertRaises(InvalidNMEAMessageException):
+                    decode(raw)
+
+    def test_empty_sentence_body_checksum(self):
+        # "!*5M": nothing between the delimiter and the asterisk. compute_checksum()
+        # reduced over an empty iterable and raised a TypeError from is_valid.
+        from pyais.util import checksum, compute_checksum
+
+        self.assertFalse(NMEAMessage(b"!*5M,1,1,,A,13aE,0*26").is_valid)
+        self.assertEqual(compute_checksum(b"!*00"), 0)
+        self.assertEqual(checksum(b""), 0)
+
+    def test_non_ascii_byte_is_invalid(self):
+        # NMEA 0183 is 7-bit ASCII. A stray byte anywhere in the sentence must
+        # raise the documented exception, never a UnicodeDecodeError.
+        valid = b"!AIVDM,1,1,,A,13aEOK?P00PD2wVMdLDRhgvL289?,0*26"
+        for pos in range(len(valid)):
+            raw = valid[:pos] + b"\xff" + valid[pos + 1:]
+            with self.subTest(pos=pos):
+                with self.assertRaises(InvalidNMEAMessageException):
+                    decode(raw)
+
     def test_messages_with_proprietary_suffix(self):
         msg = "!AIVDM,1,1,,B,181:Kjh01ewHFRPDK1s3IRcn06sd,0*08,raishub,1342569600"
         decoded = decode(msg)
