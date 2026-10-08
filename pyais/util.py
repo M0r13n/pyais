@@ -255,7 +255,9 @@ def checksum(sentence: bytes) -> int:
     >>> checksum(b's:2573535,c:1671533231')
     8
     """
-    checksum = reduce(xor, sentence)
+    # Initial value 0: an empty payload (b"\*1C\" tag block) has checksum 0
+    # instead of raising "TypeError: reduce() of empty iterable".
+    checksum = reduce(xor, sentence, 0)
     return checksum
 
 
@@ -274,7 +276,7 @@ def compute_checksum(msg: Union[str, bytes]) -> int:
         msg = msg.encode()
 
     msg = msg[1:].split(b'*', 1)[0]
-    return reduce(xor, msg)
+    return reduce(xor, msg, 0)
 
 
 # https://gpsd.gitlab.io/gpsd/AIVDM.html#_aivdmaivdo_payload_armoring

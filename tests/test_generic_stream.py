@@ -87,6 +87,17 @@ class TestIterMessages(unittest.TestCase):
         iterable = IterMessages.from_strings(["A", "B", "C"])
         self.assertIsInstance(iter(iterable), types.GeneratorType)
 
+    def test_iter_messages_skips_blank_and_non_ascii_lines(self):
+        # Callers that feed raw lines (socket.makefile(), file objects) pass
+        # keep-alive blank lines and the odd corrupt byte. Both are skipped,
+        # exactly like any other invalid sentence, instead of ending the stream.
+        valid = b"!AIVDM,1,1,,B,B43JRq00LhTWc5VejDI>wwWUoP06,0*29"
+        messages = [b"\n", b" ", b"\r\n", valid, b"!\xffIVDM,1,1,,B,B43JRq00LhTWc5VejDI>wwWUoP06,0*29\n", valid]
+
+        decoded = [msg.decode() for msg in IterMessages(messages)]
+
+        self.assertEqual(2, len(decoded))
+
     def test_iter_messages_handles_single_message(self):
         for msg in IterMessages(b"AIVDM,1,1,,B,B43JRq00LhTWc5VejDI>wwWUoP06,0*29"):
             self.assertIsInstance(msg, NMEAMessage)
