@@ -220,6 +220,9 @@ class IterMessages(AssembleMessages):
 
         encoded: List[bytes] = []
         for message in messages:
+            message = message.strip()
+            if not message:
+                continue
             try:
                 encoded.append(message.encode(encoding))
             except UnicodeEncodeError as e:

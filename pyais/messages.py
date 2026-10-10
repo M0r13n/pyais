@@ -49,7 +49,7 @@ B_VDO = b"VDO"
 B_GH = b"HP"
 TAG_BLOCK_START = b'\\'
 TAG_BLOCK_START_ORD = TAG_BLOCK_START[0]
-MAX_FRAG_CNT = 100
+MAX_FRAG_CNT = 9  # IEC 61162-1: 1-9 sentences per message
 MAX_PAYLOAD_LEN = 200
 
 # A stream carries only a handful of distinct sentence tags (b'!AIVDM',
@@ -166,7 +166,7 @@ class NMEASentenceFactory:
         """
         raw = raw.strip()
 
-        if raw[0] == TAG_BLOCK_START_ORD:
+        if raw and raw[0] == TAG_BLOCK_START_ORD:
             ix_start = 0
             ix_end = raw[1:].find(TAG_BLOCK_START) + 1
             tag_block = raw[ix_start + 1:ix_end]
@@ -181,17 +181,20 @@ class NMEASentenceFactory:
         if not isinstance(raw, bytes):
             raise TypeError("message must be bytes")
 
+        raw = raw.strip()
         if len(raw) == 0:
             raise InvalidNMEAMessageException("empty bytes")
 
         # The common case, a plain sentence with no tag block, is handled inline
-        raw_sentence = raw.strip()
         tb = None
-        if raw_sentence[0] == TAG_BLOCK_START_ORD:
-            raw_sentence, tb = cls._pre_process(raw_sentence)
+        if raw[0] == TAG_BLOCK_START_ORD:
+            raw, tb = cls._pre_process(raw)
+
+        if not raw.isascii():
+            raise InvalidNMEAMessageException("non-ASCII byte in NMEA sentence")
 
         # [b'!AIVDM', b'1', b'1', b'', b'B', b'133S0:0P00PCsJ:MECBR0gv:0D8N', b'0*7F']
-        fields = raw_sentence.split(COMMA)
+        fields = raw.split(COMMA)
 
         # b'!AIVDM'
         first_field = fields[0]
@@ -203,11 +206,11 @@ class NMEASentenceFactory:
             type_code = type_code.upper()
 
         if type_code == B_VDM or type_code == B_VDO:
-            sentence: NMEASentence = AISSentence(raw_sentence, fields)
+            sentence: NMEASentence = AISSentence(raw, fields)
         elif first_field[:1] == B_DOLLAR_SIGN and type_code == B_GH:
-            sentence = GatehouseSentence(raw_sentence, fields)
+            sentence = GatehouseSentence(raw, fields)
         else:
-            raise UnknownMessageException(raw_sentence)
+            raise UnknownMessageException(raw)
 
         if tb:
             sentence.tag_block = TagBlock(tb)
@@ -367,12 +370,17 @@ class TagBlock:
 
     def init(self) -> None:
         """Initialize the TagBlock by parsing the raw data."""
-        payload, check = self.raw.split(ASTERISK)
+        try:
+            payload, check = self.raw.split(ASTERISK)
+            expected = int(check, 16)
+        except ValueError:
+            # missing, repeated or non-hex checksum: malformed, is_valid stays False
+            self.initialized = True
+            return
 
         self._actual_checksum = checksum(payload)
-        self._expected_checksum = int(check.decode(), 16)
-        self._is_valid = self._actual_checksum == self._expected_checksum
-
+        self._expected_checksum = expected
+        self._is_valid = self._actual_checksum == expected
         self._parse_payload(payload)
         self.initialized = True
 
@@ -639,7 +647,6 @@ class AISSentence(NMEASentence):
 
             # These are all short decimal numbers and single letters that repeat
             # on every line, so the cached lookups below hit almost every time.
-            # Total number of fragments
             frag_cnt = _SMALL_INTS.get(message_fragments)
             self.frag_cnt: int = int(message_fragments) if frag_cnt is None else frag_cnt
 
@@ -666,8 +673,12 @@ class AISSentence(NMEASentence):
         if len(payload) > MAX_PAYLOAD_LEN:
             raise InvalidNMEAMessageException("AIS payload too large")
 
-        if self.frag_cnt > MAX_FRAG_CNT or self.frag_num > MAX_FRAG_CNT:
-            raise InvalidNMEAMessageException("Too many fragments")
+        if not 1 <= self.frag_cnt <= MAX_FRAG_CNT:
+            raise InvalidNMEAMessageException(f"invalid fragment count {self.frag_cnt} (valid: 1-{MAX_FRAG_CNT})")
+        if not 1 <= self.frag_num <= self.frag_cnt:
+            raise InvalidNMEAMessageException(f"invalid fragment number {self.frag_num} (valid: 1-{self.frag_cnt})")
+        if not 0 <= self.fill_bits <= 5:
+            raise InvalidNMEAMessageException(f"invalid fill bit count {self.fill_bits} (valid: 0-5)")
 
         # Finally decode bytes into bits
         self.bv = bit_vector(payload, self.fill_bits)
