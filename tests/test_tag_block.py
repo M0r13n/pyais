@@ -36,11 +36,11 @@ class TagBlockQueueTestCase(unittest.TestCase):
 
     def test_put_multiple_w_groups(self):
         RAWS = [
-            b'\\g:1-3-4512,s:FooBar,c:1428451253*50\\!AIVDM,1,1,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C',
-            b'\\g:3-3-4512,s:FooBar,c:1428451253*50\\!AIVDM,1,3,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C',
+            b'\\g:1-3-4512,s:FooBar,c:1428451253*50\\!AIVDM,3,1,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C',
+            b'\\g:3-3-4512,s:FooBar,c:1428451253*50\\!AIVDM,3,3,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C',
             b'\\g:1-3-1234*30\\!AIVDM,1,1,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C',
-            b'\\g:2-3-4512*30\\!AIVDM,1,2,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C',
-            b'\\g:1-1-1337,s:FooBar,c:1428451253*50\\!AIVDM,1,2,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C',
+            b'\\g:2-3-4512*30\\!AIVDM,3,2,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C',
+            b'\\g:1-1-1337,s:FooBar,c:1428451253*50\\!AIVDM,1,1,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C',
             b'\\g:1-42-4242,s:FooBar,c:1428451253*50\\!AIVDM,1,1,,A,13nN34?000QFpgRWnQLLSPpF00SO,0*1C',
         ]
         tbq = TagBlockQueue()

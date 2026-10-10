@@ -159,8 +159,7 @@ class AssembleMessages(ABC):
         for line in messages:
             try:
                 sentence = NMEASentenceFactory.produce(line)
-                if sentence.TYPE == AISSentence.TYPE:
-                    self.__add_to_tbq(cast(AISSentence, sentence))
+                self.__add_to_tbq(sentence)
                 if sentence.TYPE == GatehouseSentence.TYPE:
                     sentence = cast(GatehouseSentence, sentence)
                     self.__set_last_wrapper_msg(sentence)

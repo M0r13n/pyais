@@ -5,7 +5,7 @@ from pyais.exceptions import (
     MissingMultipartMessageException,
     InvalidNMEAChecksum
 )
-from pyais.messages import NMEASentence, NMEASentenceFactory, AISSentence, ANY_MESSAGE, GatehouseSentence
+from pyais.messages import NMEASentence, NMEASentenceFactory, AISSentence, ANY_MESSAGE
 
 
 def _assemble_messages(
@@ -90,7 +90,7 @@ def decode_nmea_and_ais(
     return nmea, nmea.decode()
 
 
-def decode_nmea_line(line: bytes) -> NMEASentence | GatehouseSentence:
+def decode_nmea_line(line: bytes) -> NMEASentence:
     """
     Decode a single NMEA line/sentence.
     :param line: the NMEA line/sentence to decode

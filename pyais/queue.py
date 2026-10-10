@@ -33,8 +33,7 @@ class NMEAQueue(queue.Queue[AISSentence]):
         """Put a line of raw bytes, as part of an NMEA sentence, into the queue."""
         try:
             sentence = NMEASentenceFactory.produce(line)
-            if sentence.TYPE == AISSentence.TYPE:
-                self.__add_to_tbq(typing.cast(AISSentence, sentence))
+            self.__add_to_tbq(sentence)
             if sentence.TYPE == GatehouseSentence.TYPE:
                 # Remember gatehouse wrappers for the next AIS message
                 sentence = typing.cast(GatehouseSentence, sentence)

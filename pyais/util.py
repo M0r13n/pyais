@@ -255,7 +255,7 @@ def checksum(sentence: bytes) -> int:
     >>> checksum(b's:2573535,c:1671533231')
     8
     """
-    checksum = reduce(xor, sentence)
+    checksum = reduce(xor, sentence, 0)
     return checksum
 
 

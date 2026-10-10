@@ -49,7 +49,7 @@ B_VDO = b"VDO"
 B_GH = b"HP"
 TAG_BLOCK_START = b'\\'
 TAG_BLOCK_START_ORD = TAG_BLOCK_START[0]
-MAX_FRAG_CNT = 100
+MAX_FRAG_CNT = 9  # IEC 61162-1: 1-9 sentences per message
 MAX_PAYLOAD_LEN = 200
 
 # A stream carries only a handful of distinct sentence tags (b'!AIVDM',
@@ -176,7 +176,7 @@ class NMEASentenceFactory:
         return raw, None
 
     @classmethod
-    def produce(cls, raw: bytes) -> Union["NMEASentence", "GatehouseSentence"]:
+    def produce(cls, raw: bytes) -> "NMEASentence":
         """Parse a single bytes string into an NMEA sentence."""
         if not isinstance(raw, bytes):
             raise TypeError("message must be bytes")
@@ -185,17 +185,16 @@ class NMEASentenceFactory:
         if len(raw) == 0:
             raise InvalidNMEAMessageException("empty bytes")
 
+        # The common case, a plain sentence with no tag block, is handled inline
+        tb = None
+        if raw[0] == TAG_BLOCK_START_ORD:
+            raw, tb = cls._pre_process(raw)
+
         if not raw.isascii():
             raise InvalidNMEAMessageException("non-ASCII byte in NMEA sentence")
 
-        # The common case, a plain sentence with no tag block, is handled inline
-        raw_sentence = raw.strip()
-        tb = None
-        if raw_sentence[0] == TAG_BLOCK_START_ORD:
-            raw_sentence, tb = cls._pre_process(raw_sentence)
-
         # [b'!AIVDM', b'1', b'1', b'', b'B', b'133S0:0P00PCsJ:MECBR0gv:0D8N', b'0*7F']
-        fields = raw_sentence.split(COMMA)
+        fields = raw.split(COMMA)
 
         # b'!AIVDM'
         first_field = fields[0]
@@ -207,14 +206,15 @@ class NMEASentenceFactory:
             type_code = type_code.upper()
 
         if type_code == B_VDM or type_code == B_VDO:
-            sentence: NMEASentence = AISSentence(raw_sentence, fields)
-            if tb:
-                sentence.tag_block = TagBlock(tb)
-            return sentence
+            sentence: NMEASentence = AISSentence(raw, fields)
         elif first_field[:1] == B_DOLLAR_SIGN and type_code == B_GH:
-            return GatehouseSentence(raw_sentence, fields)
+            sentence = GatehouseSentence(raw, fields)
+        else:
+            raise UnknownMessageException(raw)
 
-        raise UnknownMessageException(raw_sentence)
+        if tb:
+            sentence.tag_block = TagBlock(tb)
+        return sentence
 
 
 def error_if_uninitialized(func: typing.Callable[['TagBlock'], typing.Any]) -> typing.Callable[['TagBlock'], typing.Any]:
@@ -372,14 +372,16 @@ class TagBlock:
         """Initialize the TagBlock by parsing the raw data."""
         try:
             payload, check = self.raw.split(ASTERISK)
-            self._actual_checksum = checksum(payload)
-            self._expected_checksum = int(check.decode(), 16)
-            self._is_valid = self._actual_checksum == self._expected_checksum
-            self._parse_payload(payload)
+            expected = int(check, 16)
         except ValueError:
-            # might happen on tag blocks with a malformed checksum field -> treat as malformed
-            pass
+            # missing, repeated or non-hex checksum: malformed, is_valid stays False
+            self.initialized = True
+            return
 
+        self._actual_checksum = checksum(payload)
+        self._expected_checksum = expected
+        self._is_valid = self._actual_checksum == expected
+        self._parse_payload(payload)
         self.initialized = True
 
     def _parse_payload(self, payload: bytes) -> None:
@@ -524,10 +526,6 @@ class NMEASentence(object):
             _CHK_CACHE[checksum_field] = parsed
         # Fill bits (0 to 5) and message checksum (hex value)
         self.fill_bits: int = parsed[0]
-        if self.fill_bits < 0:
-            raise InvalidNMEAMessageException("negative fill bit count")
-        elif self.fill_bits > 5:
-            raise InvalidNMEAMessageException(f"fill bit count to great ({self.fill_bits} > 5)")
         self.checksum = parsed[1]
 
         # Set the checksum valid field
@@ -580,14 +578,10 @@ class NMEASentence(object):
         self._is_valid = val
 
 
-class GatehouseSentence:
+class GatehouseSentence(NMEASentence):
     TYPE = 'HP'
 
     __slots__ = (
-        'raw',
-        'data_fields',
-        'checksum',
-        '_is_valid',
         'country',
         'region',
         'pss',
@@ -596,27 +590,7 @@ class GatehouseSentence:
     )
 
     def __init__(self, raw: bytes, fields: typing.Optional[typing.List[bytes]] = None) -> None:
-        self.raw: bytes = raw.strip()
-
-        # A NMEA message consists of comma separated parts. The factory has
-        # usually split them already - only split again when called directly.
-        if fields is None:
-            fields = raw.split(COMMA)
-
-        checksum_field = fields[-1]  # b'09*45'
-        parsed = _CHK_CACHE.get(checksum_field)
-        if parsed is None:
-            parsed = chk_to_int(checksum_field)
-            if len(_CHK_CACHE) >= _MAX_CHK_CACHE:
-                _CHK_CACHE.clear()
-            _CHK_CACHE[checksum_field] = parsed
-
-        self.checksum = parsed[1]
-
-        # Set the checksum valid field
-        self._is_valid: bool | None = None
-
-        self.data_fields = fields[1:-1]
+        super().__init__(raw, fields)
 
         data_fields = self.data_fields
         try:
@@ -642,28 +616,6 @@ class GatehouseSentence:
             raise InvalidNMEAMessageException(raw) from err
 
         self.timestamp = t
-
-    def __str__(self) -> str:
-        return repr(self)
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}<{self.raw.decode('ascii')}>"
-
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, GatehouseSentence) and self.raw == other.raw
-
-    def __hash__(self) -> int:
-        return hash(self.raw)
-
-    @property
-    def is_valid(self) -> bool:
-        if self._is_valid is None:
-            self._is_valid = self.checksum == compute_checksum(self.raw)
-        return self._is_valid
-
-    @is_valid.setter
-    def is_valid(self, val: bool) -> None:
-        self._is_valid = val
 
 
 class AISSentence(NMEASentence):
@@ -697,14 +649,10 @@ class AISSentence(NMEASentence):
             # on every line, so the cached lookups below hit almost every time.
             frag_cnt = _SMALL_INTS.get(message_fragments)
             self.frag_cnt: int = int(message_fragments) if frag_cnt is None else frag_cnt
-            if not 0 < self.frag_cnt < 10:
-                raise InvalidNMEAMessageException(f"invalid fragment count '{frag_cnt}' (valid 0-9)")
 
             # Current fragment index
             frag_num = _SMALL_INTS.get(fragment_number)
             self.frag_num: int = int(fragment_number) if frag_num is None else frag_num
-            if not 0 < self.frag_num < 10:
-                raise InvalidNMEAMessageException(f"invalid fragment number '{frag_cnt}' (valid 0-9)")
 
             # Optional message index for multiline messages
             if message_id:
@@ -725,8 +673,12 @@ class AISSentence(NMEASentence):
         if len(payload) > MAX_PAYLOAD_LEN:
             raise InvalidNMEAMessageException("AIS payload too large")
 
-        if self.frag_cnt > MAX_FRAG_CNT or self.frag_num > MAX_FRAG_CNT:
-            raise InvalidNMEAMessageException("Too many fragments")
+        if not 1 <= self.frag_cnt <= MAX_FRAG_CNT:
+            raise InvalidNMEAMessageException(f"invalid fragment count {self.frag_cnt} (valid: 1-{MAX_FRAG_CNT})")
+        if not 1 <= self.frag_num <= self.frag_cnt:
+            raise InvalidNMEAMessageException(f"invalid fragment number {self.frag_num} (valid: 1-{self.frag_cnt})")
+        if not 0 <= self.fill_bits <= 5:
+            raise InvalidNMEAMessageException(f"invalid fill bit count {self.fill_bits} (valid: 0-5)")
 
         # Finally decode bytes into bits
         self.bv = bit_vector(payload, self.fill_bits)
