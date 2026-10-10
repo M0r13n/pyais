@@ -274,7 +274,7 @@ def compute_checksum(msg: Union[str, bytes]) -> int:
         msg = msg.encode()
 
     msg = msg[1:].split(b'*', 1)[0]
-    return reduce(xor, msg)
+    return reduce(xor, msg, 0)
 
 
 # https://gpsd.gitlab.io/gpsd/AIVDM.html#_aivdmaivdo_payload_armoring

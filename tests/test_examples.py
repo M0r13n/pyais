@@ -27,6 +27,7 @@ class TestExamples(unittest.TestCase):
             if all(kw not in str(file) for kw in KEYWORDS_TO_IGNORE):
                 env = os.environ
                 env['PYTHONPATH'] = f':{pathlib.Path(__file__).parent.parent.absolute()}'
+                print(file)
                 assert subprocess.check_call(f'{exe} {file}'.split(), env=env, shell=False) == 0, file
 
         # Delete the file that was created by one of the tests

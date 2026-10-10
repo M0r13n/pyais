@@ -223,6 +223,16 @@ class TagBlockTestCase(unittest.TestCase):
         assert tb.relative_time is None
         assert tb.text is None
 
+    def test_tag_blocks_with_invalid_checksum(self):
+        tb = TagBlock(b'\\g:1-2-1,s:FooBar*1C*00\\')
+        tb.init()
+
+    def test_tag_blocks_with_non_ascii_chars(self):
+        tb = TagBlock(b'\xffs:APIDSSRC1,g:2-2-05628,n:08795,c:0002780323*0C')
+        tb.init()
+
+        print(tb.asdict())
+
     def test_that_unknown_tag_blocks_can_exported_as_dicts(self):
         tb = TagBlock(b's:APIDSSRC1,g:2-2-05628,n:08795,c:0002780323,x:123445,y:23456*0C')
         tb.init()

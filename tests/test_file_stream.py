@@ -5,7 +5,7 @@ from unittest.case import skip
 
 from pyais.exceptions import UnknownMessageException, MissingPayloadException
 from pyais.messages import GatehouseSentence, NMEAMessage
-from pyais.stream import FileReaderStream, IterMessages
+from pyais.stream import FileReaderStream, IterMessages, TagBlockQueue
 
 
 class TestFileReaderStream(unittest.TestCase):
@@ -139,6 +139,19 @@ class TestFileReaderStream(unittest.TestCase):
             assert isinstance(msg, NMEAMessage)
             assert msg.is_valid
             assert msg.decode() is not None
+
+    def test_reader_with_tbq(self):
+        tbq = TagBlockQueue()
+        with FileReaderStream(self.FILENAME, tbq=tbq) as stream:
+            messages = [msg for msg in stream]
+
+        self.assertEqual(len(messages), 7)
+        for msg in messages:
+            assert isinstance(msg, NMEAMessage)
+            assert msg.is_valid
+            assert msg.decode() is not None
+            if msg.tag_block:
+                msg.tag_block.init()
 
     def test_reader_with_open(self):
         with FileReaderStream(self.FILENAME) as stream:

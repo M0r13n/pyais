@@ -166,7 +166,7 @@ class NMEASentenceFactory:
         """
         raw = raw.strip()
 
-        if raw[0] == TAG_BLOCK_START_ORD:
+        if raw and raw[0] == TAG_BLOCK_START_ORD:
             ix_start = 0
             ix_end = raw[1:].find(TAG_BLOCK_START) + 1
             tag_block = raw[ix_start + 1:ix_end]
@@ -176,13 +176,17 @@ class NMEASentenceFactory:
         return raw, None
 
     @classmethod
-    def produce(cls, raw: bytes) -> "NMEASentence":
+    def produce(cls, raw: bytes) -> Union["NMEASentence", "GatehouseSentence"]:
         """Parse a single bytes string into an NMEA sentence."""
         if not isinstance(raw, bytes):
             raise TypeError("message must be bytes")
 
+        raw = raw.strip()
         if len(raw) == 0:
             raise InvalidNMEAMessageException("empty bytes")
+
+        if not raw.isascii():
+            raise InvalidNMEAMessageException("non-ASCII byte in NMEA sentence")
 
         # The common case, a plain sentence with no tag block, is handled inline
         raw_sentence = raw.strip()
@@ -204,14 +208,13 @@ class NMEASentenceFactory:
 
         if type_code == B_VDM or type_code == B_VDO:
             sentence: NMEASentence = AISSentence(raw_sentence, fields)
+            if tb:
+                sentence.tag_block = TagBlock(tb)
+            return sentence
         elif first_field[:1] == B_DOLLAR_SIGN and type_code == B_GH:
-            sentence = GatehouseSentence(raw_sentence, fields)
-        else:
-            raise UnknownMessageException(raw_sentence)
+            return GatehouseSentence(raw_sentence, fields)
 
-        if tb:
-            sentence.tag_block = TagBlock(tb)
-        return sentence
+        raise UnknownMessageException(raw_sentence)
 
 
 def error_if_uninitialized(func: typing.Callable[['TagBlock'], typing.Any]) -> typing.Callable[['TagBlock'], typing.Any]:
@@ -367,13 +370,16 @@ class TagBlock:
 
     def init(self) -> None:
         """Initialize the TagBlock by parsing the raw data."""
-        payload, check = self.raw.split(ASTERISK)
+        try:
+            payload, check = self.raw.split(ASTERISK)
+            self._actual_checksum = checksum(payload)
+            self._expected_checksum = int(check.decode(), 16)
+            self._is_valid = self._actual_checksum == self._expected_checksum
+            self._parse_payload(payload)
+        except ValueError:
+            # might happen on tag blocks with a malformed checksum field -> treat as malformed
+            pass
 
-        self._actual_checksum = checksum(payload)
-        self._expected_checksum = int(check.decode(), 16)
-        self._is_valid = self._actual_checksum == self._expected_checksum
-
-        self._parse_payload(payload)
         self.initialized = True
 
     def _parse_payload(self, payload: bytes) -> None:
@@ -518,6 +524,10 @@ class NMEASentence(object):
             _CHK_CACHE[checksum_field] = parsed
         # Fill bits (0 to 5) and message checksum (hex value)
         self.fill_bits: int = parsed[0]
+        if self.fill_bits < 0:
+            raise InvalidNMEAMessageException("negative fill bit count")
+        elif self.fill_bits > 5:
+            raise InvalidNMEAMessageException(f"fill bit count to great ({self.fill_bits} > 5)")
         self.checksum = parsed[1]
 
         # Set the checksum valid field
@@ -570,10 +580,14 @@ class NMEASentence(object):
         self._is_valid = val
 
 
-class GatehouseSentence(NMEASentence):
+class GatehouseSentence:
     TYPE = 'HP'
 
     __slots__ = (
+        'raw',
+        'data_fields',
+        'checksum',
+        '_is_valid',
         'country',
         'region',
         'pss',
@@ -582,7 +596,27 @@ class GatehouseSentence(NMEASentence):
     )
 
     def __init__(self, raw: bytes, fields: typing.Optional[typing.List[bytes]] = None) -> None:
-        super().__init__(raw, fields)
+        self.raw: bytes = raw.strip()
+
+        # A NMEA message consists of comma separated parts. The factory has
+        # usually split them already - only split again when called directly.
+        if fields is None:
+            fields = raw.split(COMMA)
+
+        checksum_field = fields[-1]  # b'09*45'
+        parsed = _CHK_CACHE.get(checksum_field)
+        if parsed is None:
+            parsed = chk_to_int(checksum_field)
+            if len(_CHK_CACHE) >= _MAX_CHK_CACHE:
+                _CHK_CACHE.clear()
+            _CHK_CACHE[checksum_field] = parsed
+
+        self.checksum = parsed[1]
+
+        # Set the checksum valid field
+        self._is_valid: bool | None = None
+
+        self.data_fields = fields[1:-1]
 
         data_fields = self.data_fields
         try:
@@ -608,6 +642,28 @@ class GatehouseSentence(NMEASentence):
             raise InvalidNMEAMessageException(raw) from err
 
         self.timestamp = t
+
+    def __str__(self) -> str:
+        return repr(self)
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}<{self.raw.decode('ascii')}>"
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, GatehouseSentence) and self.raw == other.raw
+
+    def __hash__(self) -> int:
+        return hash(self.raw)
+
+    @property
+    def is_valid(self) -> bool:
+        if self._is_valid is None:
+            self._is_valid = self.checksum == compute_checksum(self.raw)
+        return self._is_valid
+
+    @is_valid.setter
+    def is_valid(self, val: bool) -> None:
+        self._is_valid = val
 
 
 class AISSentence(NMEASentence):
@@ -639,13 +695,16 @@ class AISSentence(NMEASentence):
 
             # These are all short decimal numbers and single letters that repeat
             # on every line, so the cached lookups below hit almost every time.
-            # Total number of fragments
             frag_cnt = _SMALL_INTS.get(message_fragments)
             self.frag_cnt: int = int(message_fragments) if frag_cnt is None else frag_cnt
+            if not 0 < self.frag_cnt < 10:
+                raise InvalidNMEAMessageException(f"invalid fragment count '{frag_cnt}' (valid 0-9)")
 
             # Current fragment index
             frag_num = _SMALL_INTS.get(fragment_number)
             self.frag_num: int = int(fragment_number) if frag_num is None else frag_num
+            if not 0 < self.frag_num < 10:
+                raise InvalidNMEAMessageException(f"invalid fragment number '{frag_cnt}' (valid 0-9)")
 
             # Optional message index for multiline messages
             if message_id:

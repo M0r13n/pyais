@@ -159,7 +159,8 @@ class AssembleMessages(ABC):
         for line in messages:
             try:
                 sentence = NMEASentenceFactory.produce(line)
-                self.__add_to_tbq(sentence)
+                if sentence.TYPE == AISSentence.TYPE:
+                    self.__add_to_tbq(cast(AISSentence, sentence))
                 if sentence.TYPE == GatehouseSentence.TYPE:
                     sentence = cast(GatehouseSentence, sentence)
                     self.__set_last_wrapper_msg(sentence)
@@ -220,6 +221,9 @@ class IterMessages(AssembleMessages):
 
         encoded: List[bytes] = []
         for message in messages:
+            message = message.strip()
+            if not message:
+                continue
             try:
                 encoded.append(message.encode(encoding))
             except UnicodeEncodeError as e:

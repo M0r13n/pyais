@@ -28,7 +28,6 @@ from pyais.exceptions import (
     InvalidNMEAChecksum,
     InvalidNMEAMessageException,
     MissingMultipartMessageException,
-    TooManyMessagesException,
     UnknownMessageException,
 )
 from pyais.messages import (
@@ -2301,8 +2300,8 @@ class TestAIS(unittest.TestCase):
     def test_decode_fragment_count_0(self):
         msg = b"!AAVDM,0,1,,B,16UK7Fi0?w4tQF0l4Q@>401v1PS;,0*0F"
 
-        # decode() should raise a TooManyMessagesException
-        with self.assertRaises(TooManyMessagesException):
+        # decode() should raise an error
+        with self.assertRaises(InvalidNMEAMessageException):
             decode(msg)
 
         # IterMessages should just skip it
@@ -2349,6 +2348,61 @@ class TestAIS(unittest.TestCase):
         gs_b = GatehouseSentence(msg)
 
         assert gs_a == gs_b
+
+    def test_decode_empty_string(self):
+        with self.assertRaises(InvalidNMEAMessageException):
+            decode("")
+        with self.assertRaises(InvalidNMEAMessageException):
+            decode(" ")
+        with self.assertRaises(InvalidNMEAMessageException):
+            decode("   ")
+
+    def test_decode_empty_bytes(self):
+        with self.assertRaises(InvalidNMEAMessageException):
+            decode(b"")
+        with self.assertRaises(InvalidNMEAMessageException):
+            decode(b" ")
+        with self.assertRaises(InvalidNMEAMessageException):
+            decode(b"   ")
+
+    def test_iter_decode_with_empty_lines(self):
+        list(IterMessages([b"\n", b"!AIVDM,1,1,,A,13aEOK?P00PD2wVMdLDRhgvL289?,0*26"]))
+
+    def test_decode_with_non_ascii_bytes(self):
+        msg = b"!AIVDM,1,1,,B,E>jHDL1W73nWaanah7S39T7a2h;wror=@5nL`A2AISd002CQ1PDS@0,4*39"
+        for pos in range(len(msg)):
+            raw = msg[:pos] + b"\xff" + msg[pos + 1:]
+            with self.subTest(pos=pos):
+                with self.assertRaises(InvalidNMEAMessageException):
+                    decode(raw)
+
+    def test_decode_with_negative_fill_bit_count(self):
+        with self.assertRaises(InvalidNMEAMessageException):
+            decode("!AIVDM,1,1,,A,B69A5U@3wk?8mP=18D3Q3wSRPD00,-1*5C")
+
+    def test_decode_with_large_fill_bit_count(self):
+        for i in range(6):
+            decode(f"!AIVDM,1,1,,A,B69A5U@3wk?8mP=18D3Q3wSRPD00,{i}*5C", error_if_checksum_invalid=False)
+
+        with self.assertRaises(InvalidNMEAMessageException):
+            decode("!AIVDM,1,1,,A,B69A5U@3wk?8mP=18D3Q3wSRPD00,6*5C")
+
+        with self.assertRaises(InvalidNMEAMessageException):
+            decode("!AIVDM,1,1,,A,B69A5U@3wk?8mP=18D3Q3wSRPD00,66*5C")
+
+    def test_decode_very_large_frag_num(self):
+        msg = b"!AIVDM,99,0,,B,E>jHDL1W73nWaanah7S39T7a2h;wror=@5nL`A2AISd002CQ1PDS@0,4*39"
+        with self.assertRaises(InvalidNMEAMessageException):
+            decode(msg)
+
+    def test_decode_negative_frag_num(self):
+        msg = b"!AIVDM,-1,0,,B,E>jHDL1W73nWaanah7S39T7a2h;wror=@5nL`A2AISd002CQ1PDS@0,4*39"
+        with self.assertRaises(InvalidNMEAMessageException):
+            decode(msg)
+
+    def test_decode_checksum_only_text(self):
+        with self.assertRaises(UnknownMessageException):
+            decode("4*39")
 
 
 if __name__ == '__main__':
