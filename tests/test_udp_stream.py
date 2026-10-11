@@ -8,6 +8,8 @@ from tests.utils.skip import is_linux
 from tests.utils.timeout import time_limit
 
 MESSAGES = [
+    b'\xff!AIVDM,2,2,9,A,F@V@00000000000,2*3D',
+    b'!AIVDM,2,2,9,A,\xff\xff\xffF@V@00000000000,2*3D\xff',
     b'!AIVDM,2,1,1,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*07',
     b"!AIVDM,2,1,7,A,543ri001fIOiEa4<0010u84@4000000000000016;hD854o506SRBkk0FAEP,0*07",
     b'!AIVDM,2,1,9,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*0F',
@@ -55,3 +57,7 @@ class TestOutOfOrder(unittest.TestCase):
                         break
 
             self.server_thread.join()
+
+
+if __name__ == "__main__":
+    unittest.main()
