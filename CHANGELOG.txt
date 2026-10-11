@@ -2,6 +2,25 @@
  pyais CHANGELOG
 ====================
 -------------------------------------------------------------------------------
+ Version 3.3.1 11 Oct 2026
+-------------------------------------------------------------------------------
+* fixed: https://github.com/M0r13n/pyais/issues/227
+  * Claude Mythos 5.1 found several malformed inputs that raised plain Python
+    errors instead of `InvalidNMEAMessageException` (prompted by RIFAT KINALI @rifatkinali)
+  * a single malformed line could terminate `UDPReceiver`, `TCPConnection`
+    or `IterMessages`
+  * malformed input now raises `InvalidNMEAMessageException` and is skipped
+    by streams
+* stricter validation of NMEA sentences
+  * non-ASCII bytes in a sentence are rejected
+  * fill bits must be between 0 and 5
+  * fragment count must be between 1 and 9
+  * fragment number must be between 1 and the fragment count
+* `decode()` raises `InvalidNMEAMessageException` for out-of-range fragment
+  counts and numbers
+* tag blocks with a malformed checksum (missing, repeated `*` or non-hex) are
+  treated as invalid
+-------------------------------------------------------------------------------
  Version 3.3.0 04 Oct 2026
 -------------------------------------------------------------------------------
 * added support for additional AIS Application Specific Messages (Message Type 6)
