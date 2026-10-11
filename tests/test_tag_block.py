@@ -354,11 +354,9 @@ class TagBlockTestCase(unittest.TestCase):
         tb.init()
         self.assertEqual(str(repr(tb)).encode(), "TagBlock<M\\xfchle>".encode())
 
-
         tb = TagBlock(b"\xffbad")
         tb.init()
         self.assertEqual(str(repr(tb)).encode(), "TagBlock<\\xffbad>".encode())
-
 
 
 if __name__ == '__main__':
