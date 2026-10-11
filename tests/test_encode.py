@@ -1307,3 +1307,33 @@ def test_json_to_data_with_empty_byte_fields():
     }
     nmea_ais = encode_dict(json_to_data(json_dict))[0]
     assert nmea_ais == "!AIVDO,1,1,,A,85Mwp`1Kf0,4*2B"
+
+
+def test_encode_dict_of_truncated_dispatching_message_types():
+    # A decoded dict of a truncated message carries None for the fields that
+    # were not present in the payload. Message types whose create() dispatches
+    # on such a field (6/8: dac, fid; 24: partno) must treat None like a
+    # missing key instead of raising TypeError. See issue #228.
+    truncated = {
+        6: "!AIVDM,1,1,,A,6B?1,0*5C",
+        8: "!AIVDM,1,1,,A,8B?1,0*52",
+        24: "!AIVDM,1,1,,A,HB?1,0*22",
+    }
+    for msg_type, sentence in truncated.items():
+        data = decode(sentence).asdict()
+        assert data['msg_type'] == msg_type
+        encoded = encode_dict(data, talker_id="AI", sentence_type="VDM")
+        assert len(encoded) == 1
+        again = decode(*encoded)
+        assert again.msg_type == msg_type
+        assert again.mmsi == data['mmsi']
+
+
+def test_encode_dict_type_6_8_24_with_explicit_none_dispatch_fields():
+    for msg_type in (6, 8):
+        data = {'msg_type': msg_type, 'mmsi': 123456789, 'dac': None, 'fid': None}
+        encoded = encode_dict(data)
+        assert decode(*encoded).msg_type == msg_type
+
+    data = {'msg_type': 24, 'mmsi': 123456789, 'partno': None}
+    assert decode(*encode_dict(data)).partno == 0
