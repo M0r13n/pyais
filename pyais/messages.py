@@ -374,7 +374,11 @@ class TagBlock:
             payload, check = self.raw.split(ASTERISK)
             expected = int(check, 16)
         except ValueError:
-            # missing, repeated or non-hex checksum: malformed, is_valid stays False
+            # Missing, repeated or non-hex checksum: malformed
+            # This means the block is structurally broken.
+            # In a tag block, * only ever separates the fields from the checksum,
+            # so a second one means corruption. We can’t tell where the corruption is.
+            # Therefore, do not parse anything. is_valid stays False.
             self.initialized = True
             return
 

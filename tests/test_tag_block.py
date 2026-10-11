@@ -231,8 +231,6 @@ class TagBlockTestCase(unittest.TestCase):
         tb = TagBlock(b'\xffs:APIDSSRC1,g:2-2-05628,n:08795,c:0002780323*0C')
         tb.init()
 
-        print(tb.asdict())
-
     def test_that_unknown_tag_blocks_can_exported_as_dicts(self):
         tb = TagBlock(b's:APIDSSRC1,g:2-2-05628,n:08795,c:0002780323,x:123445,y:23456*0C')
         tb.init()
@@ -316,6 +314,29 @@ class TagBlockTestCase(unittest.TestCase):
         tb.init()
         raw = tb.to_raw()
         self.assertEqual(raw, b"g:2-2-5628,s:APIDSSRC1,c:0002780323,n:08795*3C")
+
+    def test_tag_blocks_with_malformed_checksum(self):
+        variants = [
+            b'n:157036,s:r003669945,c:1241544035*4*A',          # repeated asterisk
+            b'*n:157036,s:r003669945,c:12415440354*A',          # leading repeated asterisk
+            b'\\n:157036,s:r003669945,c:1241544035*4*A\\',      # with delimiters
+            b'n:157036,s:r003669945,c:1241544035',              # no checksum at all
+            b'n:157036,s:r003669945,c:1241544035*ZZ',           # non-hex checksum
+            b'n:157036,s:r003669945,c:1241544035*\xc3\xb6',     # non-ASCII checksum
+            b'n:157036,s:r003669945,c:124154403\xc3\xb6*4*A',   # non-ASCII field
+        ]
+
+        for var in variants:
+            with self.subTest(variant=var):
+
+                tb = TagBlock(var)
+                tb.init()
+                fields = tb.asdict()
+                del fields['raw']
+
+                self.assertFalse(tb.is_valid)
+                self.assertEqual(tb.expected_checksum, -1)
+                self.assertEqual(fields, dict.fromkeys(fields))
 
 
 if __name__ == '__main__':
