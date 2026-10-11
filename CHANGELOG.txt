@@ -20,6 +20,11 @@
   counts and numbers
 * tag blocks with a malformed checksum (missing, repeated `*` or non-hex) are
   treated as invalid
+* stricter multi-fragment message assembly
+  * messages are only assembled from fragments received in order,
+    starting with fragment 1 (matches libais and gpsd behavior)
+  * orphaned fragments (no fragment 1 seen) and out-of-order fragments
+    are dropped instead of being buffered or merged
 -------------------------------------------------------------------------------
  Version 3.3.0 04 Oct 2026
 -------------------------------------------------------------------------------
