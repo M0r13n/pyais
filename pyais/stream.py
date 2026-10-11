@@ -183,16 +183,23 @@ class AssembleMessages(ABC):
                 # A unique stream is identified by the following tuple
                 slot = (seq_id, msg.channel, msg.talker_id, msg.type, msg.frag_cnt)
 
-                if slot not in buffer:
-                    # Create a new array in the buffer that has enough space for all fragments
-                    buffer[slot] = [None, ] * max(msg.fragment_count, 0xff)
-
-                buffer[slot][msg.frag_num - 1] = msg
-                msg_parts = buffer[slot][0:msg.fragment_count]
+                if msg.frag_num == 1:
+                    # start (overwrites any pending)
+                    buffer[slot] = [msg] + [None] * (msg.frag_cnt - 1)
+                elif slot in buffer:
+                    if msg.frag_num == sum(p is not None for p in  buffer[slot]) + 1:
+                        # strictly contiguous
+                        buffer[slot][msg.frag_num - 1] = msg
+                    else:
+                        # drop out-of-order fragment
+                        continue
+                else:
+                    # orphan fragment (no start seen)
+                    continue
 
                 # Check if all fragments are found
-                not_none_parts = [m for m in msg_parts if m is not None]
-                if not_none_parts and len(not_none_parts) == msg.fragment_count:
+                not_none_parts = [m for m in buffer[slot] if m is not None]
+                if len(not_none_parts) == msg.frag_cnt:
                     msg = NMEAMessage.assemble_from_iterable(not_none_parts)
                     yield self.__insert_wrapper_msg(msg)
                     del buffer[slot]
