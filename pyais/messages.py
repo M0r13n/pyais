@@ -1941,6 +1941,8 @@ class CommunicationStateMixin:
     https://www.itu.int/dms_pubrec/itu-r/rec/m/R-REC-M.1371-1-200108-S!!PDF-E.pdf
     """
 
+    __slots__ = ()
+
     msg_type: int  # Type hint to make mypy happy
     radio: int  # Type hint to make mypy happy
 
