@@ -370,6 +370,10 @@ class TagBlock:
 
     def init(self) -> None:
         """Initialize the TagBlock by parsing the raw data."""
+        if not self.raw.isascii():
+            self.initialized = True
+            return
+
         try:
             payload, check = self.raw.split(ASTERISK)
             expected = int(check, 16)
@@ -504,6 +508,9 @@ class NMEASentence(object):
     def __init__(self, raw: bytes, fields: typing.Optional[typing.List[bytes]] = None) -> None:
         if not isinstance(raw, bytes):
             raise ValueError(f"'NMEAMessage' only accepts bytes, but got '{type(raw)}'")
+
+        if not raw.isascii():
+            raise InvalidNMEAMessageException("non-ASCII byte in NMEA sentence")
 
         # Store raw data
         self.raw: bytes = raw
@@ -834,7 +841,7 @@ class Payload(abc.ABC):
         """
         A list of all fields that were added to this class using attrs.
         """
-        return attr.fields(cls)  # type:ignore
+        return attr.fields(cls)  # type: ignore
 
     @classmethod
     @functools.lru_cache(maxsize=64)

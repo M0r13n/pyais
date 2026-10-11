@@ -5,7 +5,7 @@ from unittest.case import skip
 
 from pyais.exceptions import UnknownMessageException, MissingPayloadException
 from pyais.messages import GatehouseSentence, NMEAMessage
-from pyais.stream import FileReaderStream, IterMessages, TagBlockQueue
+from pyais.stream import FileReaderStream, IterMessages, TagBlockQueue, ByteStream
 
 
 class TestFileReaderStream(unittest.TestCase):
@@ -235,6 +235,10 @@ class TestFileReaderStream(unittest.TestCase):
             assert decoded.data == b"".join(decoded.data[0:6] for _ in range(20))[:-1]
 
         assert i == 40
+
+    def test_frag_num_below_250(self):
+        result = list(ByteStream([b"!AIVDM,2,-300,4,A,55O0W7`00001L@gCWGA2uItLth@DqtL5@F22220j1h742t0Ht0000000,0*08\n"]))
+        self.assertEqual(len(result), 0)
 
 
 if __name__ == "__main__":

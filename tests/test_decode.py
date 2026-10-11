@@ -2366,7 +2366,8 @@ class TestAIS(unittest.TestCase):
             decode(b"   ")
 
     def test_iter_decode_with_empty_lines(self):
-        list(IterMessages([b"\n", b"!AIVDM,1,1,,A,13aEOK?P00PD2wVMdLDRhgvL289?,0*26"]))
+        result = list(IterMessages([b"\n", b"!AIVDM,1,1,,A,13aEOK?P00PD2wVMdLDRhgvL289?,0*26"]))
+        self.assertEqual(len(result), 1)
 
     def test_decode_with_non_ascii_bytes(self):
         msg = b"!AIVDM,1,1,,B,E>jHDL1W73nWaanah7S39T7a2h;wror=@5nL`A2AISd002CQ1PDS@0,4*39"
@@ -2390,8 +2391,27 @@ class TestAIS(unittest.TestCase):
         with self.assertRaises(InvalidNMEAMessageException):
             decode("!AIVDM,1,1,,A,B69A5U@3wk?8mP=18D3Q3wSRPD00,66*5C")
 
+        with self.assertRaises(InvalidNMEAMessageException):
+            decode(b"!AIVDM,1,1,,A,?5OP,152*5B")
+
     def test_decode_very_large_frag_num(self):
         msg = b"!AIVDM,99,0,,B,E>jHDL1W73nWaanah7S39T7a2h;wror=@5nL`A2AISd002CQ1PDS@0,4*39"
+        with self.assertRaises(InvalidNMEAMessageException):
+            decode(msg)
+
+    def test_decode_frag_num_0(self):
+        # 1,0
+        msg = b"!AIVDM,1,0,,B,E>jHDL1W73nWaanah7S39T7a2h;wror=@5nL`A2AISd002CQ1PDS@0,4*39"
+        with self.assertRaises(InvalidNMEAMessageException):
+            decode(msg)
+
+    def test_decode_frag_num_gr_frag_cnt(self):
+        # 2,10, 1,2
+        msg = b"!AIVDM,2,10,,B,E>jHDL1W73nWaanah7S39T7a2h;wror=@5nL`A2AISd002CQ1PDS@0,4*39"
+        with self.assertRaises(InvalidNMEAMessageException):
+            decode(msg)
+
+        msg = b"!AIVDM,1,2,,B,E>jHDL1W73nWaanah7S39T7a2h;wror=@5nL`A2AISd002CQ1PDS@0,4*39"
         with self.assertRaises(InvalidNMEAMessageException):
             decode(msg)
 
@@ -2403,6 +2423,10 @@ class TestAIS(unittest.TestCase):
     def test_decode_checksum_only_text(self):
         with self.assertRaises(UnknownMessageException):
             decode("4*39")
+
+    def test_nmea_with_non_ascii(self):
+        with self.assertRaises(InvalidNMEAMessageException):
+            self.assertFalse(NMEAMessage(b"!AIVDM\xc3\xb6,-1,0,,B,E>jHDL1W73nWaanah7S39T7a2h;wror=@5nL`A2AISd002CQ1PDS@0,4*39").is_valid)
 
 
 if __name__ == '__main__':
