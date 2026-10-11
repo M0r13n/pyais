@@ -438,7 +438,7 @@ class TagBlock:
     def __repr__(self) -> str:
         if not self.initialized:
             return "TagBlock<uninitialized>"
-        return f"TagBlock<{self.raw.decode()}>"
+        return f"TagBlock<{self.raw.decode('ascii', 'backslashreplace')}>"
 
     @error_if_uninitialized
     def asdict(self) -> typing.Dict[str, typing.Any]:

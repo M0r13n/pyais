@@ -345,6 +345,21 @@ class TagBlockTestCase(unittest.TestCase):
                 self.assertEqual(tb.expected_checksum, -1)
                 self.assertEqual(fields, dict.fromkeys(fields))
 
+    def test_repr_with_non_ascii(self):
+        tb = TagBlock(b"M\xc3\xbchle")
+        tb.init()
+        self.assertEqual(str(repr(tb)).encode(), "TagBlock<M\\xc3\\xbchle>".encode())
+
+        tb = TagBlock(b"M\xfchle")
+        tb.init()
+        self.assertEqual(str(repr(tb)).encode(), "TagBlock<M\\xfchle>".encode())
+
+
+        tb = TagBlock(b"\xffbad")
+        tb.init()
+        self.assertEqual(str(repr(tb)).encode(), "TagBlock<\\xffbad>".encode())
+
+
 
 if __name__ == '__main__':
     unittest.main()
