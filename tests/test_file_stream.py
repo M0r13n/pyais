@@ -221,7 +221,7 @@ class TestFileReaderStream(unittest.TestCase):
             msg.decode()
             tot += 1
 
-        assert tot == 2
+        assert tot == 8
 
     def test_frag_num_below_250(self):
         result = list(ByteStream([b"!AIVDM,2,-300,4,A,55O0W7`00001L@gCWGA2uItLth@DqtL5@F22220j1h742t0Ht0000000,0*08\n"]))
