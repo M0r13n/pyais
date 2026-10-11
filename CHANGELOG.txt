@@ -11,6 +11,10 @@
     or `IterMessages`
   * malformed input now raises `InvalidNMEAMessageException` and is skipped
     by streams
+* fixed: https://github.com/M0r13n/pyais/issues/228
+  * `encode_dict(decode(raw).asdict())` raised `TypeError` for truncated
+    messages of type 6, 8 and 24
+  * found by Claude Mythos 5.1 (prompted by RIFAT KINALI @rifatkinali)
 * stricter validation of NMEA sentences
   * non-ASCII bytes in a sentence are rejected
   * fill bits must be between 0 and 5
