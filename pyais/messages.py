@@ -790,6 +790,20 @@ class AISSentence(NMEASentence):
             raise UnknownMessageException(f"The message {self} is not supported!") from e
 
 
+def _dispatch_int(kwargs: typing.Mapping[str, typing.Any], key: str, default: int = 0) -> int:
+    """Read an integer field that selects a message variant.
+
+    A dict produced by `asdict()` of a truncated message carries `None` for the
+    fields that were not present in the payload. For dispatching purposes such
+    a value is treated like a missing key, so that `encode_dict(decode(x).asdict())`
+    does not raise `TypeError` (see issue #228).
+    """
+    val = kwargs.get(key)
+    if val is None:
+        return default
+    return int(val)
+
+
 @attr.s(slots=True)
 class Payload(abc.ABC):
     """
@@ -2191,8 +2205,8 @@ class MessageType5(Payload):
 class MessageType6(Payload):
     @classmethod
     def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
-        dac: int = int(kwargs.get("dac", 0))
-        fid: int = int(kwargs.get("fid", 0))
+        dac: int = _dispatch_int(kwargs, "dac")
+        fid: int = _dispatch_int(kwargs, "fid")
         variant = _msg6_variant(dac, fid)
         if variant is not None:
             return variant.create(**kwargs)
@@ -2484,8 +2498,8 @@ class MessageType7(Payload):
 class MessageType8(Payload):
     @classmethod
     def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
-        dac: int = int(kwargs.get("dac", 0))
-        fid: int = int(kwargs.get("fid", 0))
+        dac: int = _dispatch_int(kwargs, "dac")
+        fid: int = _dispatch_int(kwargs, "fid")
         variant = _msg8_variant(dac, fid)
         if variant is not None:
             return variant.create(**kwargs)
@@ -2744,7 +2758,7 @@ class MessageType8Dac1Fid21(Payload):
 
     @classmethod
     def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
-        if int(kwargs.get('wmo', 0)):
+        if _dispatch_int(kwargs, 'wmo'):
             return MessageType8Default.create(**kwargs)
         return MessageType8Dac1Fid21NonWmo.create(**kwargs)
 
@@ -3847,8 +3861,8 @@ class MessageType24(Payload):
 
     @classmethod
     def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
-        mmsi: int = int(kwargs.get('mmsi', 0))
-        partno: int = int(kwargs.get('partno', 0))
+        mmsi: int = _dispatch_int(kwargs, 'mmsi')
+        partno: int = _dispatch_int(kwargs, 'partno')
         if partno == 0:
             return MessageType24PartA.create(**kwargs)
         elif partno == 1:
