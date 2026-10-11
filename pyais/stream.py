@@ -187,7 +187,7 @@ class AssembleMessages(ABC):
                     # start (overwrites any pending)
                     buffer[slot] = [msg] + [None] * (msg.frag_cnt - 1)
                 elif slot in buffer:
-                    if msg.frag_num == sum(p is not None for p in  buffer[slot]) + 1:
+                    if msg.frag_num == sum(p is not None for p in buffer[slot]) + 1:
                         # strictly contiguous
                         buffer[slot][msg.frag_num - 1] = msg
                     else:
