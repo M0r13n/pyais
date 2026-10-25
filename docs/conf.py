@@ -10,9 +10,7 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
 
 
 # -- Project information -----------------------------------------------------
@@ -33,7 +31,6 @@ extensions = [
 ]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -45,9 +42,15 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = 'pyais'
+html_theme_path = ['_themes']
+html_title = 'pyais'
+html_last_updated_fmt = '%b %Y'
 
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+# Read the Docs sets this; it yields <link rel="canonical"> on every page.
+html_baseurl = os.environ.get('READTHEDOCS_CANONICAL_URL', '')
+
+# Publish only what readers need.
+html_copy_source = False
+html_show_sourcelink = False
+html_use_index = False

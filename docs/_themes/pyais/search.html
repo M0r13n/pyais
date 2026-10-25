@@ -1,0 +1,14 @@
+{#- Sphinx always emits a search page. Its client-side search needs
+    JavaScript, which this theme does not ship, so point readers to the
+    server-side search Read the Docs provides instead. -#}
+{%- extends "layout.html" %}
+{%- set title = "Search" %}
+{%- block body %}
+<section>
+  <h1>Search</h1>
+  <p>Search is provided by Read the Docs: press <kbd>/</kbd> or open the
+  Read the Docs menu in the corner of the page.</p>
+  <p>Offline, use your browser’s find on the
+  <a href="{{ pathto(root_doc) }}">contents</a>.</p>
+</section>
+{%- endblock %}

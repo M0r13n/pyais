@@ -2,6 +2,10 @@
 Message interface
 ##################
 
+.. contents::
+   :local:
+   :depth: 1
+
 `pyais` supports all message types. But it can currently not decode message specific payloads. This should be done by the user.
 
 This applies to messages of type 6, 8, 25, and 26. These messages have in common, that they contain unspecified binary payload.

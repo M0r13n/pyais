@@ -2,6 +2,10 @@
 Examples
 ##################
 
+.. contents::
+   :local:
+   :depth: 1
+
 There are many different examples that show the usage of pyais. Each example explains a different feature of pyais. All examples can be found in the examples folder: https://github.com/M0r13n/pyais/tree/master/examples
 
 Communication State

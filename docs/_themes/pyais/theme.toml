@@ -1,0 +1,7 @@
+# Minimal in-repo theme. Inherits only the template set of Sphinx's
+# built-in "basic" theme; none of its CSS or JavaScript is loaded.
+[theme]
+inherit = "basic"
+stylesheets = ["pyais.css"]
+sidebars = []
+pygments_style = { default = "none" }
