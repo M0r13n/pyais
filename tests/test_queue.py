@@ -2,7 +2,7 @@ import pathlib
 import unittest
 
 from pyais.queue import NMEAQueue
-from pyais.stream import FileReaderStream
+from pyais.stream import FileReaderStream, IterMessages, NMEAAssembler
 
 
 class QueueTestCase(unittest.TestCase):
@@ -75,6 +75,72 @@ class QueueTestCase(unittest.TestCase):
         q.put_line(b'!AIVDM,1,1,,A,169a:nP01g`hm4pB7:E0;@0L088i,0*5E')
         q.put_line(b'!AIVDM,1,1,,A,169a:nP01g`hm4pB7:E0;@0L088i,0*5E')
         assert q.qsize() == 3
+
+    # Two different multipart messages that share the same sequence ID.
+    SHIP_1 = [
+        b'!AIVDO,2,1,0,A,55?MbV02;H;s<HtKP00EHE:0@T4@Dn1QQQQQQP16L961O5Gf0NSQEp6ClRp6,0*70',
+        b'!AIVDO,2,2,0,A,66666660000,2*20',
+    ]
+    SHIP_2 = [
+        b'!AIVDO,2,1,0,A,55?MbV02;H;s<HtKP018m>15DDDr0l59V1UUUUU6L961O5Gf0NS3kQ3k`6FF,0*7C',
+        b'!AIVDO,2,2,0,A,FFFFFFF@000,2*20',
+    ]
+
+    def test_lost_first_fragment_does_not_corrupt_next_message(self):
+        # Fragment 1 of SHIP_1 never arrives
+        lines = [self.SHIP_1[1], self.SHIP_2[0], self.SHIP_2[1]]
+
+        q = NMEAQueue()
+        for line in lines:
+            q.put_line(line)
+
+        assert q.qsize() == 1
+        decoded = q.get_or_none().decode().asdict()
+        self.assertEqual(decoded['shipname'], 'RMS QUEEN MARY YYYYY')
+        self.assertEqual(decoded['destination'], 'LONDON YYYYYYYYYY')
+
+        # The orphaned fragment was dropped, nothing is left pending
+        self.assertEqual(q.assembler.buffer, {})
+
+    def test_fragments_fed_in_separate_calls(self):
+        q = NMEAQueue()
+
+        q.put_line(self.SHIP_2[0])
+        assert q.qsize() == 0
+
+        q.put_line(self.SHIP_2[1])
+        assert q.qsize() == 1
+        self.assertEqual(q.get_or_none().decode().shipname, 'RMS QUEEN MARY YYYYY')
+
+
+class AssemblerTestCase(unittest.TestCase):
+
+    def test_feed_returns_message_only_when_complete(self):
+        assembler = NMEAAssembler()
+        assert assembler.feed(QueueTestCase.SHIP_2[0]) is None
+        msg = assembler.feed(QueueTestCase.SHIP_2[1])
+        assert msg is not None
+        self.assertEqual(msg.decode().shipname, 'RMS QUEEN MARY YYYYY')
+
+    def test_feed_ignores_invalid_lines(self):
+        assembler = NMEAAssembler()
+        assert assembler.feed(b'Hello there!') is None
+        assert assembler.feed(b'!AIVDM,1') is None
+
+    def test_reset_discards_pending_fragments(self):
+        assembler = NMEAAssembler()
+        assembler.feed(QueueTestCase.SHIP_2[0])
+        assembler.reset()
+        assert assembler.feed(QueueTestCase.SHIP_2[1]) is None
+
+    def test_stream_keeps_fragments_between_next_calls(self):
+        stream = IterMessages(QueueTestCase.SHIP_2)
+        lines = iter(QueueTestCase.SHIP_2)
+        stream.messages = [next(lines)]
+        with self.assertRaises(StopIteration):
+            next(stream)
+        stream.messages = [next(lines)]
+        self.assertEqual(next(stream).decode().shipname, 'RMS QUEEN MARY YYYYY')
 
 
 if __name__ == '__main__':

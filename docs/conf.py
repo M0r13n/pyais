@@ -10,6 +10,8 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+from pathlib import Path
+import re
 import os
 
 
@@ -20,7 +22,10 @@ copyright = '2026, Leon Morten Richter'
 author = 'Leon Morten Richter'
 
 # The full version, including alpha/beta/rc tags
-release = '2.20.0'
+release = re.search(
+    r"__version__ = '([^']+)'",
+    (Path(__file__).parent.parent / 'pyais' / '__init__.py').read_text(),
+).group(1)
 
 # -- General configuration ---------------------------------------------------
 
