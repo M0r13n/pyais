@@ -1,215 +1,563 @@
-##################
 Examples
-##################
+========
 
-There are many different examples that show the usage of pyais. Each example explains a different feature of pyais. All examples can be found in the examples folder: https://github.com/M0r13n/pyais/tree/master/examples
+Every example is a runnable Python script. The source files are in the
+`examples directory <https://github.com/M0r13n/pyais/tree/master/examples>`_.
 
-Communication State
---------------------
+.. contents::
+   :local:
+   :depth: 2
 
-The following example shows how you can get the communication state
-of a message. This works for message types 1, 2, 3, 4, 9, 11 and 18.
+Decoding
+--------
 
-These messages contain diagnostic information for the radio system.::
+Decode a single message
+^^^^^^^^^^^^^^^^^^^^^^^^
 
-    from pyais import decode
-    from pyais.messages import MessageType18
-    import json
-    import functools
+.. code-block:: python
 
-    msg = '!AIVDM,1,1,,A,B69Gk3h071tpI02lT2ek?wg61P06,0*1F'
-    decoded = decode(msg)
+   from pyais import decode
 
-    # the following methods are only available for messages of types: 1, 2, 3, 4, 9, 11, 18
-    assert isinstance(decoded, MessageType18)
+   msg = decode(b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05")
+   print(msg.mmsi, msg.lat, msg.lon)
 
-    print("The raw radio value is:", decoded.radio)
-    print("Communication state is SOTMDA:", decoded.is_sotdma)
-    print("Communication state is ITDMA:", decoded.is_itdma)
+Decode a multi-part message
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    pretty_json = functools.partial(json.dumps, indent=4)
-    print("Communication state:", pretty_json(decoded.get_communication_state()))
+.. code-block:: python
 
-Encode Dict
---------------------
+   from pyais import decode
 
-The following example shows how to create an AIS message using a dictionary of values::
+   parts = [
+       b"!AIVDM,2,1,4,A,55O0W7`00001L@gCWGA2uItLth@DqtL5@F22220j1h742t0Ht0000000,0*08",
+       b"!AIVDM,2,2,4,A,000000000000000,2*20",
+   ]
+   msg = decode(*parts)
+   print(msg)
 
-    from pyais.encode import encode_dict
-    from pyais.messages import MessageType1
+Decode to a dictionary or JSON
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    # This statement tells us which fields can be set for messages of type 1
-    print(MessageType1.fields())
+.. code-block:: python
 
-    # A dictionary of fields that we want to encode
-    # Note that you can pass many more fields for type 1 messages, but we let pyais
-    # use default values for those keys
-    data = {
-        'course': 219.3,
-        'lat': 37.802,
-        'lon': -122.341,
-        'mmsi': '366053209',
-        'type': 1
-    }
+   from pyais import decode
 
-    # This creates an encoded AIS message
-    # Note, that `encode_dict` returns always a list of fragments.
-    # This is done, because you may never know if a message fits into the 82 character
-    # size limit of payloads
-    encoded = encode_dict(data)
-    print(encoded)
+   msg = decode(b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05")
+   print(msg.asdict())    # dictionary of all fields
+   print(msg.to_json())   # JSON string
 
-    # You can also change the NMEA fields like the radio channel:
-    print(encode_dict(data, radio_channel="B"))
+Decode from a list of messages
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-File stream
-------------
+.. code-block:: python
 
-The following example shows how to read and parse AIS messages from a file::
+   from pyais import IterMessages
 
-    import pathlib
+   messages = [
+       b"!AIVDM,1,1,,A,13HOI:0P0000VOHLCnHQKwvL05Ip,0*23",
+       b"!AIVDM,1,1,,A,133sVfPP00PD>hRMDH@jNOvN20S8,0*7F",
+       b"!AIVDM,1,1,,B,100h00PP0@PHFV`Mg5gTH?vNPUIp,0*3B",
+   ]
+   for msg in IterMessages(messages):
+       print(msg.decode())
 
-    from pyais.stream import FileReaderStream
+Access raw binary payload (types 6, 8, 17, 25, 26, 27)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    filename = pathlib.Path(__file__).parent.joinpath('sample.ais')
+.. code-block:: python
 
-    with FileReaderStream(str(filename)) as stream:
-        for msg in stream:
-            decoded = msg.decode()
-            print(decoded)
+   from pyais import decode
+
+   # Type 6 with unknown DAC/FID — payload is raw bytes
+   msg = decode(b"!AIVDM,1,1,,B,6B?n;be:cbapalgc;i6?Ow4,2*4A")
+   print(msg.dac, msg.fid)
+   print(msg.data)  # b'\xeb/\x11\x8f\x7f\xf1'
+
+Decode from raw binary (no NMEA layer)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   from pyais import bit_vector
+   from pyais.messages import MSG_CLASS
+
+   payload = b'\x20\x6f\xab\x71\xdf\x80\x32\xe3\x6e\x78\x3d\xda\xa7\x49\x65\xf4\xca\x9f\x6b\xe7\x07'
+   bv = bit_vector(payload, pad=0)
+   ais_id = bv.get(0, 6)
+   msg = MSG_CLASS[ais_id].from_vector(bv)
+   print(msg)
+
+Decode a single NMEA sentence
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   from pyais.messages import NMEAMessage
+
+   msg = NMEAMessage(b"!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
+   print(msg.decode())
+
+   # Or from a string
+   msg = NMEAMessage.from_string("!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
+
+Encoding
+--------
+
+Encode from a dictionary
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   from pyais.encode import encode_dict
+   from pyais.messages import MessageType1
+
+   # See available fields
+   print(MessageType1.fields())
+
+   data = {
+       "type": 1,
+       "mmsi": "366053209",
+       "lat": 37.802,
+       "lon": -122.341,
+       "course": 219.3,
+   }
+   sentences = encode_dict(data, radio_channel="B")
+   print(sentences[0])
+
+Encode from a message object
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   from pyais.messages import MessageType1, MessageType5
+   from pyais.encode import encode_msg
+
+   # Create a position report
+   pos = MessageType1.create(mmsi="366053209", lat=37.802, lon=-122.341, course=219.3)
+   print(encode_msg(pos))
+
+   # Create a static data report
+   static = MessageType5.create(mmsi="123", shipname="TITANIC", callsign="TITANIC", destination="New York")
+   print(encode_msg(static))
+
+Encode with a tag block
+^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   from pyais.encode import encode_dict
+   from pyais.messages import TagBlock
+
+   data = {"type": 1, "mmsi": "366053209", "lat": 37.802, "lon": -122.341}
+   nmea = encode_dict(data, radio_channel="B")[0]
+
+   tb = TagBlock.create_str(receiver_timestamp=12415440354, source_station="foobar", line_count=157036)
+   print(f"\\{tb}\\{nmea}")
+
+Round-trip: decode to JSON and back
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   import json
+   from pyais import decode, encode_dict
+   from pyais.util import json_to_data
+
+   orig = b"!AIVDO,1,1,,A,85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs,0*45"
+   decoded = decode(orig)
+   json_str = decoded.to_json(ignore_spare=False)
+
+   # Re-encode from JSON
+   nmea = encode_dict(json_to_data(json.loads(json_str)))
+   assert nmea[0].encode() == orig
+
+CLI encoder
+^^^^^^^^^^^
+
+pyais includes a command-line encoder. Pipe JSON to stdin:
+
+.. code-block:: console
+
+   $ echo '{"type": 1, "mmsi": "366053209", "lat": 37.802, "lon": -122.341}' | ais-encode
+
+Streaming
+---------
+
+Read from a file
+^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   import pathlib
+   from pyais.stream import FileReaderStream
+
+   filename = pathlib.Path(__file__).parent / "sample.ais"
+
+   with FileReaderStream(str(filename)) as stream:
+       for msg in stream:
+           decoded = msg.decode()
+           print(decoded.mmsi, decoded.lat, decoded.lon)
+
+Connect to a live TCP feed
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Norwegian Coastal Administration offers free real-time AIS data:
+
+- IP: ``153.44.253.27``, Port: ``5631``
+- License: https://data.norge.no/nlod/no/1.0
+
+.. code-block:: python
+
+   from pyais.stream import TCPConnection
+
+   for msg in TCPConnection("153.44.253.27", port=5631):
+       decoded = msg.decode()
+       print(decoded)
+
+       if msg.tag_block:
+           msg.tag_block.init()
+           print(msg.tag_block.asdict())
+
+Connect to a TCP server (local)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   from pyais.stream import TCPConnection
+
+   for msg in TCPConnection("127.0.0.1", port=12346):
+       print(msg.decode())
+
+Listen for UDP packets
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   from pyais.stream import UDPReceiver
+
+   for msg in UDPReceiver("127.0.0.1", 12346):
+       print(msg.decode())
+
+Run a TCP server
+^^^^^^^^^^^^^^^^
+
+Accept multiple concurrent client connections:
+
+.. code-block:: python
+
+   from pyais.stream import TCPServer
+
+   with TCPServer("0.0.0.0", 5678) as server:
+       for i, msg in enumerate(server, 1):
+           print(i, msg)
+
+Handle out-of-order messages
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+UDP and other unreliable transports may deliver fragments out of order.
+``IterMessages`` handles reassembly:
+
+.. code-block:: python
+
+   from pyais.stream import IterMessages
+
+   messages = [
+       b"!AIVDM,2,1,1,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*07",
+       b"!AIVDM,2,2,1,A,F@V@00000000000,2*35",
+       b"!AIVDM,2,2,9,A,F@V@00000000000,2*3D",
+       b"!AIVDM,2,1,9,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*0F",
+   ]
+   for msg in IterMessages(messages):
+       print(msg.decode())
+
+Work with tag blocks
+^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   import pathlib
+   from pyais.decode import decode_nmea_and_ais
+   from pyais.messages import TagBlock
+   from pyais.stream import FileReaderStream
+
+   # Single message with tag block
+   raw = b"\\g:1-2-73874,n:157036,s:r003669945,c:12415440354*A\\!AIVDM,1,1,,B,15N4cJ005Jrek0H@9nDW5608EP,013"
+   nmea, ais = decode_nmea_and_ais(raw)
+   if nmea.tag_block:
+       nmea.tag_block.init()
+       print(nmea.tag_block.asdict())
+
+   # Stream with tag blocks
+   with FileReaderStream("sample.ais") as stream:
+       for msg in stream:
+           if msg.tag_block:
+               msg.tag_block.init()
+               print(msg.tag_block.asdict())
+           print(msg.decode())
+
+   # Create tag blocks
+   tb_bytes = TagBlock.create(receiver_timestamp=12415440354, source_station="foobar", line_count=157036)
+   tb_str = TagBlock.create_str(receiver_timestamp=12415440354, source_station="foobar", line_count=157036)
+
+Group tag blocks
+^^^^^^^^^^^^^^^^
+
+Use ``TagBlockQueue`` to buffer sentences until a tag block group is complete:
+
+.. code-block:: python
+
+   import pathlib
+   from pyais.stream import FileReaderStream, TagBlockQueue
+
+   tbq = TagBlockQueue()
+   with FileReaderStream("sample.ais", tbq=tbq) as stream:
+       for msg in stream:
+           while not tbq.empty():
+               print(tbq.get_nowait())
+
+Use NMEAQueue for thread-safe assembly
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   from pyais.queue import NMEAQueue
+
+   q = NMEAQueue()
+
+   # Feed lines from any source
+   q.put_line(b"!AIVDM,2,1,1,A,55?MbV02;H;s<HtKR20EHE:0@T4@Dn2222222216L961O5Gf0NSQEp6ClRp8,0*1C")
+   q.put_line(b"!AIVDM,2,2,1,A,88888888880,2*25")
+
+   msg = q.get_or_none()
+   if msg:
+       print(msg.decode())
 
 Gatehouse wrappers
--------------------
+^^^^^^^^^^^^^^^^^^
 
-Some AIS messages have so-called Gatehouse wrappers::
+Some feeds prepend Gatehouse wrapper sentences (``$PGHP,...``):
 
-    import pathlib
+.. code-block:: python
 
-    from pyais.stream import FileReaderStream
+   import pathlib
+   from pyais.stream import FileReaderStream
 
-    filename = pathlib.Path(__file__).parent.joinpath('gatehouse.nmea')
+   with FileReaderStream("gatehouse.nmea") as stream:
+       for msg in stream:
+           if msg.wrapper_msg is not None:
+               print("Country:", msg.wrapper_msg.country)
+               print("Timestamp:", msg.wrapper_msg.timestamp)
+               print("Region:", msg.wrapper_msg.region)
+           print(msg.decode())
 
-    with FileReaderStream(str(filename)) as stream:
-        for msg in stream:
-            print('*' * 80)
-            if msg.wrapper_msg is not None:  # <= optional gatehouse wrapper
-                print('Country', msg.wrapper_msg.country)
-                print('Online', msg.wrapper_msg.online_data)
-                print('PSS', msg.wrapper_msg.pss)
-                print('Region', msg.wrapper_msg.region)
-                print('Timestamp', msg.wrapper_msg.timestamp)
-            decoded = msg.decode()
-            print(decoded)
+Preprocessing
+^^^^^^^^^^^^^
 
-Livestream
------------
-The Norwegian Coastal Administration offers real-time AIS data.
-This live feed can be accessed via TCP/IP without prior registration.
-The AIS data is freely available under the norwegian license for public data:
+Implement ``PreprocessorProtocol`` to handle custom input formats:
 
-- https://data.norge.no/nlod/no/1.0
-- https://kystverket.no/navigasjonstjenester/ais/tilgang-pa-ais-data/
+.. code-block:: python
 
-Data can be read from a TCP/IP socket and is encoded according to IEC 62320-1:
+   import re
+   from pyais.stream import FileReaderStream, PreprocessorProtocol
 
-- IP:   153.44.253.27
-- Port: 5631
+   class MyPreprocessor(PreprocessorProtocol):
+       def process(self, line: bytes) -> bytes:
+           # Strip a custom prefix like "[2024-07-19 08:45:27.141] "
+           match = re.search(b".* (.*)", line)
+           return match.group(1)
 
-Code::
+   with FileReaderStream("custom.log", preprocessor=MyPreprocessor()) as stream:
+       for msg in stream:
+           print(msg.decode())
 
-    from pyais.stream import TCPConnection
+Tracking
+--------
 
-    host = '153.44.253.27'
-    port = 5631
+Track vessels from a file
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    for msg in TCPConnection(host, port=port):
-        decoded_message = msg.decode()
-        ais_content = decoded_message
+.. code-block:: python
 
-        print('*' * 80)
-        if msg.tag_block:
-            # decode & print the tag block if it is available
-            msg.tag_block.init()
-            print(msg.tag_block.asdict())
+   import pathlib
+   from pyais import AISTracker
+   from pyais.stream import FileReaderStream
 
-        print(ais_content)
+   with FileReaderStream("sample.ais") as stream:
+       with AISTracker() as tracker:
+           for msg in stream:
+               tracker.update(msg)
 
-CSV
----
+   # Get the latest 10 tracks
+   for track in tracker.n_latest_tracks(10):
+       print(track.mmsi, track.shipname, track.lat, track.lon)
 
-The following example shows how you could write the decoded data to CSV.
-You first need to decode the data into a dictionary and then write the
-dictionary to a CSV file using a `DictWriter`::
+   # Get a specific track
+   track = tracker.get_track(249191000)
 
-    import csv
+Track vessels from a live feed
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    from pyais import decode
+.. code-block:: python
 
-    ais_msg = "!AIVDO,1,1,,,B>qc:003wk?8mP=18D3Q3wgTiT;T,0*13"
-    data_dict = decode(ais_msg).asdict()
+   import pyais
 
-    with open('decoded_message.csv', 'w') as f:
-        w = csv.DictWriter(f, data_dict.keys())
-        w.writeheader()
-        w.writerow(data_dict)
+   with pyais.AISTracker() as tracker:
+       for msg in pyais.TCPConnection("153.44.253.27", port=5631):
+           tracker.update(msg)
+           for track in tracker.n_latest_tracks(10):
+               print(track.mmsi, track.lat, track.lon)
 
-TCP socket
------------
+Track with event callbacks
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The following example shows how to decode AIS messages from a TCP socket::
+.. code-block:: python
 
-    from pyais.stream import TCPConnection
+   import pyais
+   from pyais.tracker import AISTrackEvent
 
-    url = '127.0.0.1'
-    port = 12346
+   def on_create(track):
+       print("new vessel:", track.mmsi)
 
-    for msg in TCPConnection(url, port=port):
-        decoded_message = msg.decode()
-        ais_content = decoded_message
-        print(ais_content)
-        # Do something with the AIS message
+   def on_update(track):
+       print("update:", track.mmsi)
 
-Event tracking
-----------------
+   def on_delete(track):
+       print("expired:", track.mmsi)
 
-This example shows how to register event listeners as callbacks,
-so that you are is instantly notified whenever a track is created, updated, or deleted::
+   with pyais.AISTracker() as tracker:
+       tracker.register_callback(AISTrackEvent.CREATED, on_create)
+       tracker.register_callback(AISTrackEvent.UPDATED, on_update)
+       tracker.register_callback(AISTrackEvent.DELETED, on_delete)
 
-    import pyais
-    from pyais.tracker import AISTrackEvent
+       for msg in pyais.TCPConnection("153.44.253.27", port=5631):
+           tracker.update(msg)
 
-    host = '153.44.253.27'
-    port = 5631
+Track with filters
+^^^^^^^^^^^^^^^^^^
 
+.. code-block:: python
 
-    def handle_create(track):
-        # called every time an AISTrack is created
-        print('create', track.mmsi)
+   import pathlib
+   from pyais import AISTracker
+   from pyais.filter import AttributeFilter, FilterChain, MessageTypeFilter, NoneFilter
+   from pyais.stream import FileReaderStream
 
+   chain = FilterChain([
+       AttributeFilter(lambda x: not hasattr(x, "turn") or x.turn == -128.0),
+       NoneFilter("lon", "lat"),
+       MessageTypeFilter(1, 2, 3),
+   ])
 
-    def handle_update(track):
-        # called every time an AISTrack is updated
-        print('update', track.mmsi)
+   with FileReaderStream("sample.ais") as stream:
+       with AISTracker() as tracker:
+           for msg in chain.filter(stream):
+               tracker.update(msg)
+               for track in tracker.n_latest_tracks(10):
+                   print(track.mmsi, track.lat, track.lon)
 
+Print tracks as a table
+^^^^^^^^^^^^^^^^^^^^^^^
 
-    def handle_delete(track):
-        # called every time an AISTrack is deleted (pruned)
-        print('delete', track.mmsi)
+.. code-block:: python
 
+   import sys
+   import pyais
 
-    with pyais.AISTracker() as tracker:
-        tracker.register_callback(AISTrackEvent.CREATED, handle_create)
-        tracker.register_callback(AISTrackEvent.UPDATED, handle_update)
-        tracker.register_callback(AISTrackEvent.DELETED, handle_delete)
+   def print_table(tracks):
+       headers = ["mmsi", "callsign", "shipname", "lat", "lon"]
+       rows = [[getattr(t, a) or "N.A." for a in headers] for t in tracks]
+       fmt = "{:>15}" * (len(headers) + 1)
+       sys.stdout.write(fmt.format("", *headers) + "\n")
+       for i, row in enumerate(rows, 1):
+           sys.stdout.write(fmt.format(i, *row) + "\n")
 
-        for msg in pyais.TCPConnection(host, port=port):
-            tracker.update(msg)
-            latest_tracks = tracker.n_latest_tracks(10)
+   with pyais.AISTracker() as tracker:
+       for msg in pyais.TCPConnection("153.44.253.27", port=5631):
+           tracker.update(msg)
+           print_table(tracker.n_latest_tracks(10))
 
-Country and Flag
------------------
+Filtering
+---------
 
-The first 3 digits of any MMSI number are indicative of the vessel's flag:
+Filter a live stream
+^^^^^^^^^^^^^^^^^^^^
 
-    country_code, country_name = get_country(249110000)
-    assert country_code, country_name == ('MT', 'Malta')
+.. code-block:: python
+
+   from pyais.filter import (
+       AttributeFilter, DistanceFilter, FilterChain,
+       GridFilter, MessageTypeFilter, NoneFilter,
+   )
+   from pyais.stream import TCPConnection
+
+   chain = FilterChain([
+       AttributeFilter(lambda x: not hasattr(x, "turn") or x.turn == -128.0),
+       NoneFilter("lon", "lat", "mmsi2"),
+       MessageTypeFilter(1, 2, 3),
+       DistanceFilter((51.900, 5.320), distance_km=1000),
+       GridFilter(lat_min=50, lon_min=0, lat_max=52, lon_max=5),
+   ])
+
+   with TCPConnection("153.44.253.27", port=5631) as stream:
+       for msg in chain.filter(stream):
+           print(msg.mmsi, msg.lat, msg.lon)
+
+Utilities
+---------
+
+Get communication state
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Messages of types 1, 2, 3, 4, 9, 11, and 18 contain TDMA communication state:
+
+.. code-block:: python
+
+   import json
+   from pyais import decode
+
+   msg = decode(b"!AIVDM,1,1,,A,B69Gk3h071tpI02lT2ek?wg61P06,0*1F")
+
+   print("Radio:", msg.radio)
+   print("SOTDMA:", msg.is_sotdma)
+   print("ITDMA:", msg.is_itdma)
+   print("State:", json.dumps(msg.get_communication_state(), indent=2))
+
+Get vessel country from MMSI
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   from pyais.util import get_country
+
+   code, name = get_country(249110000)
+   print(code, name)  # MT Malta
+
+Write decoded data to CSV
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   import csv
+   from pyais import decode
+
+   msg = decode("!AIVDO,1,1,,,B>qc:003wk?8mP=18D3Q3wgTiT;T,0*13")
+   data = msg.asdict()
+
+   with open("output.csv", "w") as f:
+       writer = csv.DictWriter(f, data.keys())
+       writer.writeheader()
+       writer.writerow(data)
+
+AIS Monitor TUI
+---------------
+
+``examples/ais_monitor.py`` is a full terminal application for real-time
+ship traffic monitoring. It displays a live message stream, a sortable
+vessel table, and vessel detail views. Built entirely with pyais and
+Python's standard library.
+
+.. code-block:: console
+
+   $ python examples/ais_monitor.py
+
+Requires a terminal that supports ANSI escape codes.

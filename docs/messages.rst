@@ -1,1653 +1,430 @@
-##################
-Message interface
-##################
+AIS Messages
+============
 
-`pyais` supports all message types. But it can currently not decode message specific payloads. This should be done by the user.
+pyais supports all 28 AIS message types defined in ITU-R M.1371.
+When you decode a message, pyais returns an instance of the matching
+``MessageType*`` class. The class name tells you the message type.
 
-This applies to messages of type 6, 8, 25, and 26. These messages have in common, that they contain unspecified binary payload.
+.. contents::
+   :local:
+   :depth: 2
 
-- Message type 6: data field with up to 920 bits of binary payload
-- Message type 8: data field with up to 952 bits of binary payload
-- Message type 26: data field with up to 128 bits of binary payload
-- Message type 27: data fiield with up to 1004 bits of binary payload
+Message type overview
+---------------------
 
-The decoding of the binary payload is message dependent and varies between different systems.
-If you want to decode the binary payload of message type 6, you firstly would have to look at the
-dac (Designated Area Code) and the fid (Functional ID). Dependening of their values, you would know, how to interpret the payload.
+.. list-table::
+   :header-rows: 1
+   :widths: 5 35 20 40
 
-There are a lot of different application-specific messages, which are more or less standardized.
-Therefore ``pyais`` does not even try to decode the payload. Instead, you can access the raw payload ::
+   * - Type
+     - Name
+     - Class
+     - Key fields
+   * - 1
+     - Position Report (Class A, SOTDMA)
+     - ``MessageType1``
+     - mmsi, lat, lon, speed, course, heading, status
+   * - 2
+     - Position Report (Class A, SOTDMA)
+     - ``MessageType2``
+     - same as type 1
+   * - 3
+     - Position Report (Class A, ITDMA)
+     - ``MessageType3``
+     - same as type 1
+   * - 4
+     - Base Station Report
+     - ``MessageType4``
+     - mmsi, year, month, day, hour, minute, lat, lon
+   * - 5
+     - Static and Voyage Related Data
+     - ``MessageType5``
+     - mmsi, imo, callsign, shipname, destination, draught, ship_type
+   * - 6
+     - Binary Addressed Message
+     - ``MessageType6``
+     - mmsi, dest_mmsi, dac, fid, data — see subtypes below
+   * - 7
+     - Binary Acknowledge
+     - ``MessageType7``
+     - mmsi, mmsi1–mmsi4
+   * - 8
+     - Binary Broadcast Message
+     - ``MessageType8``
+     - mmsi, dac, fid, data — see subtypes below
+   * - 9
+     - SAR Aircraft Position Report
+     - ``MessageType9``
+     - mmsi, lat, lon, speed, course, alt
+   * - 10
+     - UTC/Date Inquiry
+     - ``MessageType10``
+     - mmsi, dest_mmsi
+   * - 11
+     - UTC/Date Response
+     - ``MessageType11``
+     - mmsi, year, month, day, hour, minute, lat, lon
+   * - 12
+     - Addressed Safety-Related Message
+     - ``MessageType12``
+     - mmsi, dest_mmsi, text
+   * - 13
+     - Identical to type 7
+     - ``MessageType13``
+     - same as type 7
+   * - 14
+     - Safety-Related Broadcast Message
+     - ``MessageType14``
+     - mmsi, text
+   * - 15
+     - Interrogation
+     - ``MessageType15``
+     - mmsi, mmsi1, mmsi2
+   * - 16
+     - Assignment Mode Command
+     - ``MessageType16``
+     - mmsi, mmsi1, mmsi2, offset1, increment1
+   * - 17
+     - DGNSS Broadcast Binary Message
+     - ``MessageType17``
+     - mmsi, lat, lon, data
+   * - 18
+     - Position Report (Class B, CS)
+     - ``MessageType18``
+     - mmsi, lat, lon, speed, course, heading
+   * - 19
+     - Extended Class B Position Report
+     - ``MessageType19``
+     - mmsi, lat, lon, speed, course, shipname, ship_type
+   * - 20
+     - Data Link Management
+     - ``MessageType20``
+     - mmsi, offset1–4, number1–4, timeout1–4
+   * - 21
+     - Aid-to-Navigation Report
+     - ``MessageType21``
+     - mmsi, name, lat, lon, aid_type, to_bow, to_stern
+   * - 22
+     - Channel Management
+     - ``MessageType22``
+     - mmsi, channel_a, channel_b, ne_lon, ne_lat, sw_lon, sw_lat
+   * - 23
+     - Group Assignment Command
+     - ``MessageType23``
+     - mmsi, ne_lon, ne_lat, sw_lon, sw_lat, station_type
+   * - 24
+     - Static Data Report
+     - ``MessageType24``
+     - mmsi, shipname (part A) or ship_type (part B)
+   * - 25
+     - Single Slot Binary Message
+     - ``MessageType25``
+     - mmsi, dest_mmsi (addressed) or data (broadcast)
+   * - 26
+     - Multiple Slot Binary Message
+     - ``MessageType26``
+     - mmsi, dest_mmsi (addressed) or data (broadcast)
+   * - 27
+     - Long Range AIS Broadcast
+     - ``MessageType27``
+     - mmsi, lat, lon, speed, course, status
+   * - 28
+     - Aid-to-Navigation Report (single-slot)
+     - ``MessageType28``
+     - mmsi, lat, lon, aid_type, station_type
 
+Message type 6 — Binary Addressed Message
+------------------------------------------
 
-    # Parse of message of type 8
-    msg = NMEAMessage(b"!AIVDM,1,1,,A,85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs,0*47").decode()
+Type 6 messages carry binary payloads addressed to a specific vessel.
+The payload format depends on two fields:
 
-    payload = msg.data
+- **DAC** (Designated Area Code, 10 bits): identifies the standards body
+- **FID** (Functional ID, 6 bits): identifies the message function
 
-The data is stored as raw bytes to make it easy to post process such binary payload.
-The lib also includes some handy helper functions to transform bytes to bits and vice versa::
+pyais decodes known DAC/FID combinations into typed subtypes. Unknown
+combinations return ``MessageType6Default`` with the raw payload in ``.data``.
 
-    from pyais.utils import bits2bytes, bytes2bits
+.. list-table::
+   :header-rows: 1
+   :widths: 8 8 30 54
 
-    bits2bytes('00100110')      #=> b'&'
-    bytes2bits(b'&').to01()     #=> '00100110'
+   * - DAC
+     - FID
+     - Class
+     - Description
+   * - 1
+     - 16
+     - ``MessageType6Dac1Fid16A``
+     - Number of persons on board (no destination address)
+   * - 1
+     - 16
+     - ``MessageType6Dac1Fid16B``
+     - Number of persons on board (with destination address)
+   * - 1
+     - 18
+     - ``MessageType6Dac1Fid18``
+     - Clearance time to enter port
+   * - 1
+     - 20
+     - ``MessageType6Dac1Fid20``
+     - Berthing data (addressed)
+   * - 1
+     - 23
+     - ``MessageType6Dac1Fid23``
+     - Area notice (addressed)
+   * - 1
+     - 25
+     - ``MessageType6Dac1Fid25``
+     - Dangerous cargo indication
+   * - any
+     - any
+     - ``MessageType6Default``
+     - Unspecified binary payload (raw bytes in ``.data``)
 
-NMEA messages
-----------------
+Accessing the raw payload of an unknown subtype:
 
-The `NMEASentence` is the first level of abstraction during parsing/decoding.
+.. code-block:: python
 
-Every instance of `NMEASentence` has a fixed set of attributes::
+   from pyais import decode
 
-    msg = NMEASentence(b"!AIVDM,1,1,,A,15Mj23P000G?q7fK>g:o7@1:0L3S,0*1B")
+   msg = decode(b"!AIVDM,1,1,,B,6B?n;be:cbapalgc;i6?Ow4,2*4A")
+   print(msg.dac)       # 669
+   print(msg.fid)       # 11
+   print(msg.data)      # b'\xeb/\x11\x8f\x7f\xf1' (raw bytes)
 
-    msg.raw                    # => Raw decoded message as :byte:
-    msg.delimiter              # => Start delimiter. Normally $ or ?
-    msg.data_fields            # => NMEA payload. Interpretation varies depending on the NMEA sentence type
-    msg.talker_id              # => two letter talker ID
-    msg.type                   # => three-letter type code.
-    msg.checksum               # => NMEA sentence checksum. 8-bit XOR of all characters
-    msg.is_valid               # => Check if checksum valid
-    msg.wrapper_msg            # => Optional encapsulating message
+Message type 8 — Binary Broadcast Message
+------------------------------------------
 
-This class is not meant to be instantiated directly. Instead, an inheriting class
-should subclass from it. Such a child class then defines the sentence specific logic.
+Type 8 messages carry binary payloads broadcast to all vessels in range.
+Like type 6, the payload format depends on DAC and FID.
 
-**pyais** currently supports two NMEA sentence types:
+.. list-table::
+   :header-rows: 1
+   :widths: 8 8 30 54
 
-- `GatehouseSentence`: wrapper messages that hold additional meta data.
-- `AISSentence`: AIS messages
+   * - DAC
+     - FID
+     - Class
+     - Description
+   * - 1
+     - 0
+     - ``MessageType8Dac1Fid0``
+     - Broadcast text (6-bit ASCII)
+   * - 1
+     - 11
+     - ``MessageType8Dac1Fid11``
+     - Meteorological/Hydrological data (IMO 236, superseded by FID 31)
+   * - 1
+     - 16
+     - ``MessageType8Dac1Fid16``
+     - IALA VTS targets (targets from non-AIS sources)
+   * - 1
+     - 17
+     - ``MessageType8Dac1Fid17``
+     - VTS synthetic targets (IMO 236)
+   * - 1
+     - 19
+     - ``MessageType8Dac1Fid19``
+     - Marine traffic signal (IMO 289)
+   * - 1
+     - 20
+     - ``MessageType8Dac1Fid20``
+     - Berthing data (broadcast, IMO 289)
+   * - 1
+     - 21
+     - ``MessageType8Dac1Fid21``
+     - Weather observation from ship (WMO variant, IMO 289)
+   * - 1
+     - 21
+     - ``MessageType8Dac1Fid21NonWmo``
+     - Weather observation from ship (non-WMO variant, IMO 289)
+   * - 1
+     - 22
+     - ``MessageType8Dac1Fid22``
+     - Area notice (broadcast, IMO 289)
+   * - 1
+     - 24
+     - ``MessageType8Dac1Fid24``
+     - Extended ship static and voyage data (IMO 289)
+   * - 1
+     - 26
+     - ``MessageType8Dac1Fid26``
+     - Environmental data (IMO 289)
+   * - 1
+     - 27
+     - ``MessageType8Dac1Fid27``
+     - Route information (broadcast, IMO 289)
+   * - 1
+     - 29
+     - ``MessageType8Dac1Fid29``
+     - Text description (broadcast, IMO 289)
+   * - 1
+     - 31
+     - ``MessageType8Dac1Fid31``
+     - Meteorological/Hydrological data (IMO 289)
+   * - 200
+     - 10
+     - ``MessageType8Dac200Fid10``
+     - Binary broadcast (DAC 200)
+   * - 200
+     - 23
+     - ``MessageType8Dac200Fid23``
+     - Binary broadcast (DAC 200)
+   * - 200
+     - 24
+     - ``MessageType8Dac200Fid24``
+     - Binary broadcast (DAC 200)
+   * - 200
+     - 40
+     - ``MessageType8Dac200Fid40``
+     - Binary broadcast (DAC 200)
+   * - 367
+     - 33
+     - ``MessageType8Dac367Fid33``
+     - US environmental message (DAC 367)
+   * - any
+     - any
+     - ``MessageType8Default``
+     - Unspecified binary payload (raw bytes in ``.data``)
 
+Accessing the raw payload of an unknown subtype:
 
-Gatehouse wrappers
--------------------
+.. code-block:: python
 
-Some AIS messages have so-called Gatehouse wrappers. These encapsulating messages contain extra information, such as time and checksums. Some readers also process these. See some more documentation [here](https://www.iala-aism.org/wiki/iwrap/index.php/GH_AIS_Message_Format).
+   from pyais import decode
 
-As an example, see the following, which is followed by a regular `!AIVDM` message
+   msg = decode(b"!AIVDM,1,1,,A,85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs,0*47")
+   print(msg.dac)       # 366
+   print(msg.fid)       # 56
+   print(msg.data)      # raw bytes
 
-```
-$PGHP,1,2020,12,31,23,59,58,239,0,0,0,1,2C*5B
-```
+Common message operations
+--------------------------
 
-Such messages are parsed by **pyais** only when using any of the classes from **pyais.stream**.
-e.g. `FileReaderStream` or `TCPStream`.
+Every decoded message has these methods:
 
-Such additional information can then be accessed by the `.wrapper_msg` of every `NMEASentence`. This attribute is `None` by default.
+``msg.asdict()``
+   Return all fields as a dictionary. Spare fields are omitted by default.
 
+   .. code-block:: python
 
-Communication State
+      from pyais import decode
+
+      msg = decode(b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05")
+      print(msg.asdict())
+      # {'msg_type': 1, 'mmsi': 366053209, 'lat': 37.8031, 'lon': -122.3413, ...}
+
+``msg.to_json()``
+   Return all fields as a JSON string. Byte fields are base64-encoded.
+
+``msg.fields()``
+   Class method. Return a tuple of all field names for this message type.
+
+   .. code-block:: python
+
+      from pyais.messages import MessageType1
+
+      print(MessageType1.fields())
+      # ('msg_type', 'repeat', 'mmsi', 'status', 'turn', 'speed', ...)
+
+Creating messages for encoding
+-------------------------------
+
+Use ``MessageType*.create()`` to create a message with defaults for missing fields:
+
+.. code-block:: python
+
+   from pyais.messages import MessageType1, MessageType5
+   from pyais.encode import encode_msg
+
+   # Only mmsi is required; all other fields have defaults
+   pos = MessageType1.create(mmsi="366053209", lat=37.802, lon=-122.341, course=219.3)
+   sentences = encode_msg(pos)
+
+   # Type 5: static data
+   static = MessageType5.create(mmsi="366053209", shipname="TITANIC", callsign="TITANIC")
+   sentences = encode_msg(static)
+
+For type 6 and 8 messages, ``create()`` dispatches to the correct subtype
+based on the ``dac`` and ``fid`` keyword arguments:
+
+.. code-block:: python
+
+   from pyais.messages import MessageType8
+
+   # Creates a MessageType8Dac1Fid31 (Meteorological/Hydrological, IMO 289)
+   msg = MessageType8.create(mmsi="366053209", dac=1, fid=31, ...)
+
+Communication state
 --------------------
 
-The `ITU`_ documentation provides details regarding the Time-division multiple access (TDMA) synchronization.
+Messages of types 1, 2, 3, 4, 9, 11, and 18 contain a 19–20 bit
+communication state field (``.radio``). This field holds TDMA
+synchronization information.
 
-.. _ITU: https://www.itu.int/dms_pubrec/itu-r/rec/m/R-REC-M.1371-1-200108-S!!PDF-E.pdf
+.. code-block:: python
 
-Such details include information used by the slot allocation algorithm (either SOTDMA or ITDMA) including their synchronization state.
+   from pyais import decode
 
-This information can be found in the last 19 data-bits of some messages.
+   msg = decode(b"!AIVDM,1,1,,A,B69Gk3h071tpI02lT2ek?wg61P06,0*1F")
 
-The following messages have the SOTDMA communication state:
+   msg.radio                        # raw integer value
+   msg.is_sotdma                    # True if SOTDMA (property)
+   msg.is_itdma                     # True if ITDMA (property)
+   msg.get_communication_state()    # dict with sync state, slot timeout, etc.
 
-- Type 1
-- Type 2
-- Type 4
-- Type 9
-- Type 11
-- Type 18
+NMEA sentence layer
+--------------------
 
-The following messages have the ITDMA communication state:
+Every ``NMEAMessage`` (the object yielded by streams) has these attributes:
 
-- Type 3
-- Type 18
+- ``raw`` — the original bytes
+- ``talker_id`` — two-letter talker ID (e.g. ``"AI"``)
+- ``type`` — three-letter sentence type (e.g. ``"VDM"``, ``"VDO"``)
+- ``channel`` — radio channel (``"A"`` or ``"B"``)
+- ``is_valid`` — whether the NMEA checksum is correct
+- ``tag_block`` — optional ``TagBlock`` (call ``.init()`` before use)
+- ``wrapper_msg`` — optional Gatehouse wrapper message
+- ``is_single`` / ``is_multi`` — whether the sentence is single or multi-part
 
-These messages have in common that they have the `.radio` attribute. This attribute holds the **raw value** of the last 19 data-bits.
+Gatehouse wrappers
+------------------
 
-Further details can be retrieved by using one of the following methods:
+Some AIS feeds prepend a Gatehouse wrapper sentence (``$PGHP,...``) before
+each AIS message. These wrappers carry metadata such as timestamps and
+region information. pyais parses them automatically when using any stream
+class. Access the wrapper via ``msg.wrapper_msg``.
 
-- `.is_sotdma()`: Returns True when using the SOTDMA algorithm
-- `.is_itdma()`: Returns True when using the ITDMA algorithm
-- `get_communication_state()`: information used by the slot allocation algorithm as a dictionary
+.. code-block:: python
 
-Example::
+   from pyais.stream import FileReaderStream
 
-    msg = '!AIVDM,1,1,,A,B69Gk3h071tpI02lT2ek?wg61P06,0*1F'
-    decoded = decode(msg)
+   with FileReaderStream("gatehouse.nmea") as stream:
+       for msg in stream:
+           if msg.wrapper_msg is not None:
+               print(msg.wrapper_msg.timestamp)
+               print(msg.wrapper_msg.country)
+           print(msg.decode())
 
-    print("The raw radio value is:", decoded.radio)
-    print("Communication state is SOTMDA:", decoded.is_sotdma)
-    print("Communication state is ITDMA:", decoded.is_itdma)
+Tag blocks
+----------
 
-    pretty_json = functools.partial(json.dumps, indent=4)
-    print("Communication state:", pretty_json(decoded.get_communication_state()))
+NMEA 4.10 tag blocks are key-value metadata wrapped in backslashes before
+a sentence: ``\\s:2573135,c:1671620143*0B\\!AIVDM,...``
 
-All other messages do not contain any details about the communication state. Therefore, the methods mentioned above are not available for these messages.
+Tag blocks are parsed lazily. Call ``.init()`` before accessing fields:
 
-Message classes
-----------------
+.. code-block:: python
 
-There are 27 different types of AIS messages. Each message has different attributes and is encoded/decoded
-differently depending of the AIS standard. But, there are some things that all messages do have in common:
+   from pyais.stream import FileReaderStream
 
-When decoding:
-    - if the message payload has fewer bits than would be needed to decode every field,
-      the remaining fields are set to `None`
+   with FileReaderStream("sample.ais") as stream:
+       for msg in stream:
+           if msg.tag_block is not None:
+               msg.tag_block.init()
+               print(msg.tag_block.asdict())
+               # {'source_station': '2573135', 'receiver_timestamp': 1671620143, ...}
 
-When encoding:
-    - you should use `MessageType1.create(mmsi=123, ...)` for every message, as it sets default values
-      for missing attributes.
-    - `MessageType1.create(...)` always needs **at least** the mmsi keyword
-    - if you create the instance directly e.g. `MessageType1(mmsi=1, ...)`, you need to provide
-      **every possible** attribute, otherwise a `TypeError` is raised
-
-MessageType1
-    AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 1
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `status`
-			* type: <class 'int'>
-			* bit-width: 4
-			* default: 0
-		* `turn`
-			* type: <class 'float'>
-			* bit-width: 8
-			* default: TurnRate.NO_TI_DEFAULT
-		* `speed`
-			* type: <class 'float'>
-			* bit-width: 10
-			* default: 0
-		* `accuracy`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `lon`
-			* type: <class 'float'>
-			* bit-width: 28
-			* default: 0
-		* `lat`
-			* type: <class 'float'>
-			* bit-width: 27
-			* default: 0
-		* `course`
-			* type: <class 'float'>
-			* bit-width: 12
-			* default: 0
-		* `heading`
-			* type: <class 'int'>
-			* bit-width: 9
-			* default: 0
-		* `second`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `maneuver`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 3
-			* default: b''
-		* `raim`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `radio`
-			* Further decoded by `.get_communication_state()`
-			* type: <class 'int'>
-			* bit-width: 19
-			* default: 0
-MessageType2
-    AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 1
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `status`
-			* type: <class 'int'>
-			* bit-width: 4
-			* default: 0
-		* `turn`
-			* type: <class 'float'>
-			* bit-width: 8
-			* default: TurnRate.NO_TI_DEFAULT
-		* `speed`
-			* type: <class 'float'>
-			* bit-width: 10
-			* default: 0
-		* `accuracy`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `lon`
-			* type: <class 'float'>
-			* bit-width: 28
-			* default: 0
-		* `lat`
-			* type: <class 'float'>
-			* bit-width: 27
-			* default: 0
-		* `course`
-			* type: <class 'float'>
-			* bit-width: 12
-			* default: 0
-		* `heading`
-			* type: <class 'int'>
-			* bit-width: 9
-			* default: 0
-		* `second`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `maneuver`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 3
-			* default: b''
-		* `raim`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `radio`
-			* Further decoded by `.get_communication_state()`
-			* type: <class 'int'>
-			* bit-width: 19
-			* default: 0
-MessageType3
-    AIS Vessel position report using ITDMA (Incremental Time Division Multiple Access)
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_types_1_2_and_3_position_report_class_a
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 1
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `status`
-			* type: <class 'int'>
-			* bit-width: 4
-			* default: 0
-		* `turn`
-			* type: <class 'float'>
-			* bit-width: 8
-			* default: TurnRate.NO_TI_DEFAULT
-		* `speed`
-			* type: <class 'float'>
-			* bit-width: 10
-			* default: 0
-		* `accuracy`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `lon`
-			* type: <class 'float'>
-			* bit-width: 28
-			* default: 0
-		* `lat`
-			* type: <class 'float'>
-			* bit-width: 27
-			* default: 0
-		* `course`
-			* type: <class 'float'>
-			* bit-width: 12
-			* default: 0
-		* `heading`
-			* type: <class 'int'>
-			* bit-width: 9
-			* default: 0
-		* `second`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `maneuver`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 3
-			* default: b''
-		* `raim`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `radio`
-			* Further decoded by `.get_communication_state()`
-			* type: <class 'int'>
-			* bit-width: 19
-			* default: 0
-MessageType4
-    AIS Vessel position report using SOTDMA (Self-Organizing Time Division Multiple Access)
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_4_base_station_report
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 4
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `year`
-			* type: <class 'int'>
-			* bit-width: 14
-			* default: 1970
-		* `month`
-			* type: <class 'int'>
-			* bit-width: 4
-			* default: 1
-		* `day`
-			* type: <class 'int'>
-			* bit-width: 5
-			* default: 1
-		* `hour`
-			* type: <class 'int'>
-			* bit-width: 5
-			* default: 0
-		* `minute`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `second`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `accuracy`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `lon`
-			* type: <class 'float'>
-			* bit-width: 28
-			* default: 0
-		* `lat`
-			* type: <class 'float'>
-			* bit-width: 27
-			* default: 0
-		* `epfd`
-			* type: <class 'int'>
-			* bit-width: 4
-			* default: 0
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 10
-			* default: b''
-		* `raim`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `radio`
-			* Further decoded by `.get_communication_state()`
-			* type: <class 'int'>
-			* bit-width: 19
-			* default: 0
-MessageType5
-    Static and Voyage Related Data
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_5_static_and_voyage_related_data
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 5
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `ais_version`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `imo`
-			* type: <class 'int'>
-			* bit-width: 30
-			* default: 0
-		* `callsign`
-			* type: <class 'str'>
-			* bit-width: 42
-			* default:
-		* `shipname`
-			* type: <class 'str'>
-			* bit-width: 120
-			* default:
-		* `ship_type`
-			* type: <class 'int'>
-			* bit-width: 8
-			* default: 0
-		* `to_bow`
-			* type: <class 'int'>
-			* bit-width: 9
-			* default: 0
-		* `to_stern`
-			* type: <class 'int'>
-			* bit-width: 9
-			* default: 0
-		* `to_port`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `to_starboard`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `epfd`
-			* type: <class 'int'>
-			* bit-width: 4
-			* default: 0
-		* `month`
-			* type: <class 'int'>
-			* bit-width: 4
-			* default: 0
-		* `day`
-			* type: <class 'int'>
-			* bit-width: 5
-			* default: 0
-		* `hour`
-			* type: <class 'int'>
-			* bit-width: 5
-			* default: 0
-		* `minute`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `draught`
-			* type: <class 'float'>
-			* bit-width: 8
-			* default: 0
-		* `destination`
-			* type: <class 'str'>
-			* bit-width: 120
-			* default:
-		* `dte`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 1
-			* default: b''
-MessageType6
-    Binary Addresses Message
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_4_base_station_report
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 6
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `seqno`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `dest_mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `retransmit`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: False
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 1
-			* default: b''
-		* `dac`
-			* type: <class 'int'>
-			* bit-width: 10
-			* default: 0
-		* `fid`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `data`
-			* type: <class 'bytes'>
-			* bit-width: 920
-			* default: b''
-MessageType7
-    Binary Acknowledge
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_7_binary_acknowledge
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 7
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 2
-			* default: b''
-		* `mmsi1`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: 0
-		* `mmsiseq1`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 2
-			* default: 0
-		* `mmsi2`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: 0
-		* `mmsiseq2`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 2
-			* default: 0
-		* `mmsi3`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: 0
-		* `mmsiseq3`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 2
-			* default: 0
-		* `mmsi4`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: 0
-		* `mmsiseq4`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 2
-			* default: 0
-MessageType8
-    Binary Acknowledge
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_8_binary_broadcast_message
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 8
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 2
-			* default: b''
-		* `dac`
-			* type: <class 'int'>
-			* bit-width: 10
-			* default: 0
-		* `fid`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `data`
-			* type: <class 'bytes'>
-			* bit-width: 952
-			* default: b''
-MessageType9
-    Standard SAR Aircraft Position Report
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_9_standard_sar_aircraft_position_report
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 9
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `alt`
-			* type: <class 'int'>
-			* bit-width: 12
-			* default: 0
-		* `speed`
-			* type: <class 'float'>
-			* bit-width: 10
-			* default: 0
-		* `accuracy`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `lon`
-			* type: <class 'float'>
-			* bit-width: 28
-			* default: 0
-		* `lat`
-			* type: <class 'float'>
-			* bit-width: 27
-			* default: 0
-		* `course`
-			* type: <class 'float'>
-			* bit-width: 12
-			* default: 0
-		* `second`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `reserved_1`
-			* type: <class 'int'>
-			* bit-width: 8
-			* default: 0
-		* `dte`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 3
-			* default: b''
-		* `assigned`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `raim`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `radio`
-			* Further decoded by `.get_communication_state()`
-			* type: <class 'int'>
-			* bit-width: 20
-			* default: 0
-MessageType10
-    UTC/Date Inquiry
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_10_utc_date_inquiry
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 10
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 2
-			* default: b''
-		* `dest_mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `spare_2`
-			* type: <class 'bytes'>
-			* bit-width: 2
-			* default: b''
-MessageType11
-    UTC/Date Response
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_11_utc_date_response
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 4
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `year`
-			* type: <class 'int'>
-			* bit-width: 14
-			* default: 1970
-		* `month`
-			* type: <class 'int'>
-			* bit-width: 4
-			* default: 1
-		* `day`
-			* type: <class 'int'>
-			* bit-width: 5
-			* default: 1
-		* `hour`
-			* type: <class 'int'>
-			* bit-width: 5
-			* default: 0
-		* `minute`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `second`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `accuracy`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `lon`
-			* type: <class 'float'>
-			* bit-width: 28
-			* default: 0
-		* `lat`
-			* type: <class 'float'>
-			* bit-width: 27
-			* default: 0
-		* `epfd`
-			* type: <class 'int'>
-			* bit-width: 4
-			* default: 0
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 10
-			* default: b''
-		* `raim`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `radio`
-			* Further decoded by `.get_communication_state()`
-			* type: <class 'int'>
-			* bit-width: 19
-			* default: 0
-MessageType12
-    Addressed Safety-Related Message
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_12_addressed_safety_related_message
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 12
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `seqno`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `dest_mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `retransmit`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: False
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 1
-			* default: b''
-		* `text`
-			* type: <class 'str'>
-			* bit-width: 936
-			* default:
-MessageType13
-    Identical to type 7
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 7
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 2
-			* default: b''
-		* `mmsi1`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: 0
-		* `mmsiseq1`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 2
-			* default: 0
-		* `mmsi2`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: 0
-		* `mmsiseq2`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 2
-			* default: 0
-		* `mmsi3`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: 0
-		* `mmsiseq3`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 2
-			* default: 0
-		* `mmsi4`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: 0
-		* `mmsiseq4`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 2
-			* default: 0
-MessageType14
-    Safety-Related Broadcast Message
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_14_safety_related_broadcast_message
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 14
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 2
-			* default: b''
-		* `text`
-			* type: <class 'str'>
-			* bit-width: 968
-			* default:
-MessageType15
-    Interrogation
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_15_interrogation
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 15
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 2
-			* default: b''
-		* `mmsi1`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: 0
-		* `type1_1`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `offset1_1`
-			* type: <class 'int'>
-			* bit-width: 12
-			* default: 0
-		* `spare_2`
-			* type: <class 'bytes'>
-			* bit-width: 2
-			* default: b''
-		* `type1_2`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `offset1_2`
-			* type: <class 'int'>
-			* bit-width: 12
-			* default: 0
-		* `spare_3`
-			* type: <class 'bytes'>
-			* bit-width: 2
-			* default: b''
-		* `mmsi2`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: 0
-		* `type2_1`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `offset2_1`
-			* type: <class 'int'>
-			* bit-width: 12
-			* default: 0
-		* `spare_4`
-			* type: <class 'bytes'>
-			* bit-width: 2
-			* default: b''
-MessageType16
-    Assignment Mode Command
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_16_assignment_mode_command
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 16
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 2
-			* default: b''
-		* `mmsi1`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: 0
-		* `offset1`
-			* type: <class 'int'>
-			* bit-width: 12
-			* default: 0
-		* `increment1`
-			* type: <class 'int'>
-			* bit-width: 10
-			* default: 0
-		* `mmsi2`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: 0
-		* `offset2`
-			* type: <class 'int'>
-			* bit-width: 12
-			* default: 0
-		* `increment2`
-			* type: <class 'int'>
-			* bit-width: 10
-			* default: 0
-MessageType17
-    DGNSS Broadcast Binary Message
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_17_dgnss_broadcast_binary_message
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 17
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 2
-			* default: b''
-		* `lon`
-			* type: <class 'float'>
-			* bit-width: 18
-			* default: 0
-		* `lat`
-			* type: <class 'float'>
-			* bit-width: 17
-			* default: 0
-		* `spare_2`
-			* type: <class 'bytes'>
-			* bit-width: 5
-			* default: b''
-		* `data`
-			* type: <class 'bytes'>
-			* bit-width: 736
-			* default: b''
-MessageType18
-    Standard Class B CS Position Report
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_18_standard_class_b_cs_position_report
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 18
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `reserved_1`
-			* type: <class 'int'>
-			* bit-width: 8
-			* default: 0
-		* `speed`
-			* type: <class 'float'>
-			* bit-width: 10
-			* default: 0
-		* `accuracy`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `lon`
-			* type: <class 'float'>
-			* bit-width: 28
-			* default: 0
-		* `lat`
-			* type: <class 'float'>
-			* bit-width: 27
-			* default: 0
-		* `course`
-			* type: <class 'float'>
-			* bit-width: 12
-			* default: 0
-		* `heading`
-			* type: <class 'int'>
-			* bit-width: 9
-			* default: 0
-		* `second`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `reserved_2`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `cs`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `display`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `dsc`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `band`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `msg22`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `assigned`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `raim`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `radio`
-			* Further decoded by `.get_communication_state()`
-			* type: <class 'int'>
-			* bit-width: 20
-			* default: 0
-MessageType19
-    Extended Class B CS Position Report
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_19_extended_class_b_cs_position_report
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 19
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `reserved_1`
-			* type: <class 'int'>
-			* bit-width: 8
-			* default: 0
-		* `speed`
-			* type: <class 'float'>
-			* bit-width: 10
-			* default: 0
-		* `accuracy`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `lon`
-			* type: <class 'float'>
-			* bit-width: 28
-			* default: 0
-		* `lat`
-			* type: <class 'float'>
-			* bit-width: 27
-			* default: 0
-		* `course`
-			* type: <class 'float'>
-			* bit-width: 12
-			* default: 0
-		* `heading`
-			* type: <class 'int'>
-			* bit-width: 9
-			* default: 0
-		* `second`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `reserved_2`
-			* type: <class 'int'>
-			* bit-width: 4
-			* default: 0
-		* `shipname`
-			* type: <class 'str'>
-			* bit-width: 120
-			* default:
-		* `ship_type`
-			* type: <class 'int'>
-			* bit-width: 8
-			* default: 0
-		* `to_bow`
-			* type: <class 'int'>
-			* bit-width: 9
-			* default: 0
-		* `to_stern`
-			* type: <class 'int'>
-			* bit-width: 9
-			* default: 0
-		* `to_port`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `to_starboard`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `epfd`
-			* type: <class 'int'>
-			* bit-width: 4
-			* default: 0
-		* `raim`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `dte`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `assigned`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 4
-			* default: b''
-MessageType20
-    Data Link Management Message
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_20_data_link_management_message
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 20
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 2
-			* default: b''
-		* `offset1`
-			* type: <class 'int'>
-			* bit-width: 12
-			* default: 0
-		* `number1`
-			* type: <class 'int'>
-			* bit-width: 4
-			* default: 0
-		* `timeout1`
-			* type: <class 'int'>
-			* bit-width: 3
-			* default: 0
-		* `increment1`
-			* type: <class 'int'>
-			* bit-width: 11
-			* default: 0
-		* `offset2`
-			* type: <class 'int'>
-			* bit-width: 12
-			* default: 0
-		* `number2`
-			* type: <class 'int'>
-			* bit-width: 4
-			* default: 0
-		* `timeout2`
-			* type: <class 'int'>
-			* bit-width: 3
-			* default: 0
-		* `increment2`
-			* type: <class 'int'>
-			* bit-width: 11
-			* default: 0
-		* `offset3`
-			* type: <class 'int'>
-			* bit-width: 12
-			* default: 0
-		* `number3`
-			* type: <class 'int'>
-			* bit-width: 4
-			* default: 0
-		* `timeout3`
-			* type: <class 'int'>
-			* bit-width: 3
-			* default: 0
-		* `increment3`
-			* type: <class 'int'>
-			* bit-width: 11
-			* default: 0
-		* `offset4`
-			* type: <class 'int'>
-			* bit-width: 12
-			* default: 0
-		* `number4`
-			* type: <class 'int'>
-			* bit-width: 4
-			* default: 0
-		* `timeout4`
-			* type: <class 'int'>
-			* bit-width: 3
-			* default: 0
-		* `increment4`
-			* type: <class 'int'>
-			* bit-width: 11
-			* default: 0
-MessageType21
-    Aid-to-Navigation Report
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_21_aid_to_navigation_report
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 21
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `aid_type`
-			* type: <class 'int'>
-			* bit-width: 5
-			* default: 0
-		* `name`
-			* type: <class 'str'>
-			* bit-width: 120
-			* default:
-		* `accuracy`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `lon`
-			* type: <class 'float'>
-			* bit-width: 28
-			* default: 0
-		* `lat`
-			* type: <class 'float'>
-			* bit-width: 27
-			* default: 0
-		* `to_bow`
-			* type: <class 'int'>
-			* bit-width: 9
-			* default: 0
-		* `to_stern`
-			* type: <class 'int'>
-			* bit-width: 9
-			* default: 0
-		* `to_port`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `to_starboard`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `epfd`
-			* type: <class 'int'>
-			* bit-width: 4
-			* default: 0
-		* `second`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 0
-		* `off_position`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `reserved_1`
-			* type: <class 'int'>
-			* bit-width: 8
-			* default: 0
-		* `raim`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `virtual_aid`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `assigned`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 1
-			* default: b''
-		* `name_ext`
-			* type: <class 'str'>
-			* bit-width: 88
-			* default:
-MessageType23
-    Group Assignment Command
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_23_group_assignment_command
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 23
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 2
-			* default: b''
-		* `ne_lon`
-			* type: <class 'float'>
-			* bit-width: 18
-			* default: 0
-		* `ne_lat`
-			* type: <class 'float'>
-			* bit-width: 17
-			* default: 0
-		* `sw_lon`
-			* type: <class 'float'>
-			* bit-width: 18
-			* default: 0
-		* `sw_lat`
-			* type: <class 'float'>
-			* bit-width: 17
-			* default: 0
-		* `station_type`
-			* type: <class 'int'>
-			* bit-width: 4
-			* default: 0
-		* `ship_type`
-			* type: <class 'int'>
-			* bit-width: 8
-			* default: 0
-		* `spare_2`
-			* type: <class 'bytes'>
-			* bit-width: 22
-			* default: b''
-		* `txrx`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `interval`
-			* type: <class 'int'>
-			* bit-width: 4
-			* default: 0
-		* `quiet`
-			* type: <class 'int'>
-			* bit-width: 4
-			* default: 0
-		* `spare_3`
-			* type: <class 'bytes'>
-			* bit-width: 6
-			* default: b''
-MessageType27
-    Long Range AIS Broadcast message
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_27_long_range_ais_broadcast_message
-
-
-	Attributes:
-		* `msg_type`
-			* type: <class 'int'>
-			* bit-width: 6
-			* default: 27
-		* `repeat`
-			* type: <class 'int'>
-			* bit-width: 2
-			* default: 0
-		* `mmsi`
-			* type: (<class 'int'>, <class 'str'>)
-			* bit-width: 30
-			* default: None
-		* `accuracy`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `raim`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `status`
-			* type: <class 'int'>
-			* bit-width: 4
-			* default: 0
-		* `lon`
-			* type: <class 'float'>
-			* bit-width: 18
-			* default: 0
-		* `lat`
-			* type: <class 'float'>
-			* bit-width: 17
-			* default: 0
-		* `speed`
-			* type: <class 'float'>
-			* bit-width: 6
-			* default: 0
-		* `course`
-			* type: <class 'float'>
-			* bit-width: 9
-			* default: 0
-		* `gnss`
-			* type: <class 'bool'>
-			* bit-width: 1
-			* default: 0
-		* `spare_1`
-			* type: <class 'bytes'>
-			* bit-width: 1
-			* default: b''
-MessageType28
-    Aid-to-Navigation Report (Single-slot message)
-    Src: ITU-R M.1371-6
-
-    NOTE: provides similar information as AIS Message 21, but in one slot versus two slots.
-
-    Attributes:
-        * `msg_type`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 28
-        * `repeat`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `mmsi`
-            * type: (<class 'int'>, <class 'str'>)
-            * bit-width: 30
-            * default: None
-        * `second`
-            * type: <class 'int'>
-            * bit-width: 6
-            * default: 0
-        * `lon`
-            * type: <class 'float'>
-            * bit-width: 28
-            * default: 0
-        * `lat`
-            * type: <class 'float'>
-            * bit-width: 27
-            * default: 0
-        * `restricted`
-            * type: <class 'int'>
-            * bit-width: 2
-            * default: 0
-        * `station_type`
-            * type: <class 'int'>
-            * bit-width: 3
-            * default: 0
-        * `aid_type`
-            * type: <class 'int'>
-            * bit-width: 7
-            * default: 0
-        * `iala_mrn`
-            * type: <class 'int'>
-            * bit-width: 17
-            * default: 0
-        * `dimension`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 0
-        * `dimensions_a`
-            * type: <class 'int'>
-            * bit-width: 9
-            * default: 0
-        * `dimensions_b`
-            * type: <class 'int'>
-            * bit-width: 11
-            * default: 0
-        * `dimension_additional_data`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-        * `charted_status`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-        * `station_status`
-            * type: <class 'int'>
-            * bit-width: 4
-            * default: 0
-        * `status_bits`
-            * type: <class 'int'>
-            * bit-width: 8
-            * default: 0
-        * `spare`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
-        * `auth`
-            * type: <class 'int'>
-            * bit-width: 1
-            * default: 0
+Create tag blocks with ``TagBlock.create(...)`` (returns bytes) or
+``TagBlock.create_str(...)`` (returns str).

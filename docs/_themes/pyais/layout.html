@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="{{ language or 'en' }}">
+<head>
+  <meta charset="utf-8">
+  {{ metatags }}
+  <title>{{ title|striptags|e }} | {{ docstitle|e }}</title>
+  {%- if pageurl %}
+  <link rel="canonical" href="{{ pageurl|e }}">
+  {%- endif %}
+  <link rel="stylesheet" href="{{ pathto('_static/pyais.css', 1) }}">
+</head>
+<body>
+  <header>
+    <a href="{{ pathto(root_doc) }}">pyais<br>AIS decoder for Python</a>
+    <p>Version {{ release|e }}{% if last_updated %}<br>{{ last_updated|e }}{% endif %}</p>
+  </header>
+
+  <main>
+    {% block body %}{{ body }}{% endblock %}
+  </main>
+
+  <footer>
+    <nav aria-label="Pages">
+      {%- if prev %}<a href="{{ prev.link|e }}" rel="prev">&larr; {{ prev.title }}</a>{% else %}<span></span>{% endif %}
+      {%- if pagename != root_doc %}<a href="{{ pathto(root_doc) }}" class="home">Contents</a>{% else %}<span></span>{% endif %}
+      {%- if next %}<a href="{{ next.link|e }}" rel="next">{{ next.title }} &rarr;</a>{% else %}<span></span>{% endif %}
+    </nav>
+  </footer>
+</body>
+</html>

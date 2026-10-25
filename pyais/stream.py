@@ -107,29 +107,32 @@ class TagBlockQueue(queue.Queue):  # type: ignore
         del self.groups[tb.group.group_id]
 
 
-class AssembleMessages(ABC):
-    """
-    Base class that assembles multiline messages.
-    Offers a iterator like interface.
+class NMEAAssembler:
+    """Turns raw lines into complete AIS sentences, one line at a time.
+
+    Call ``feed()`` for every line as it arrives. It returns the complete
+    sentence once a single-line message or the last fragment of a multipart
+    message has been fed, and ``None`` otherwise. Pending fragments are kept
+    between calls, so lines can come from any source: a callback, an event
+    loop or batches read at different times.
+
+    Multipart messages are only assembled from fragments that arrive in order,
+    starting with fragment 1. Orphaned or out-of-order fragments are dropped
+    instead of being combined with unrelated fragments.
+
+    Instances are not thread-safe. Use one assembler per input stream.
     """
 
     def __init__(self, tbq: typing.Optional[TagBlockQueue] = None) -> None:
         self.wrapper_msg: typing.Optional[GatehouseSentence] = None
         self.tbq: typing.Optional[TagBlockQueue] = tbq
+        self.buffer: typing.Dict[typing.Tuple[int, str, str, str, int], typing.List[typing.Optional[NMEAMessage]]] = {}
 
-    def __enter__(self) -> "AssembleMessages":
-        # Enables use of with statement
-        return self
-
-    def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
-        return None
-
-    def __iter__(self) -> Generator[NMEAMessage, None, None]:
-        return self._assemble_messages()
-
-    def __next__(self) -> NMEAMessage:
-        """Returns the next decoded NMEA message."""
-        return next(iter(self))
+    def reset(self) -> None:
+        """Discard pending fragments and any pending Gatehouse wrapper,
+        e.g. after the underlying connection was interrupted."""
+        self.buffer.clear()
+        self.wrapper_msg = None
 
     def __set_last_wrapper_msg(self, wrapper_msg: GatehouseSentence) -> None:
         self.wrapper_msg = wrapper_msg
@@ -151,58 +154,91 @@ class AssembleMessages(ABC):
             return
         self.tbq.put_sentence(sentence)
 
-    def _assemble_messages(self) -> Generator[NMEAMessage, None, None]:
-        buffer: typing.Dict[typing.Tuple[int, str, str, str, int], typing.List[typing.Optional[NMEAMessage]]] = {}
-        messages = self._iter_messages()
+    def feed(self, line: bytes) -> typing.Optional[NMEAMessage]:
+        """Feed one raw line. Returns a complete sentence or None."""
+        buffer = self.buffer
         msg: AISSentence
 
-        for line in messages:
-            try:
-                sentence = NMEASentenceFactory.produce(line)
-                self.__add_to_tbq(sentence)
-                if sentence.TYPE == GatehouseSentence.TYPE:
-                    sentence = cast(GatehouseSentence, sentence)
-                    self.__set_last_wrapper_msg(sentence)
-                    continue
-            except (InvalidNMEAMessageException, UnknownMessageException):
-                # Be gentle and just skip invalid messages
-                continue
+        try:
+            sentence = NMEASentenceFactory.produce(line)
+            self.__add_to_tbq(sentence)
+            if sentence.TYPE == GatehouseSentence.TYPE:
+                sentence = typing.cast(GatehouseSentence, sentence)
+                self.__set_last_wrapper_msg(sentence)
+                return None
+        except (InvalidNMEAMessageException, UnknownMessageException):
+            # Be gentle and just skip invalid messages
+            return None
 
-            if not sentence.TYPE == AISSentence.TYPE:
-                continue
-            msg = typing.cast(AISSentence, sentence)
+        if not sentence.TYPE == AISSentence.TYPE:
+            return None
+        msg = typing.cast(AISSentence, sentence)
 
-            if msg.is_single:
-                yield self.__insert_wrapper_msg(msg)
+        if msg.is_single:
+            return self.__insert_wrapper_msg(msg)
+
+        # Instead of None use -1 as a seq_id
+        seq_id = msg.seq_id
+        if seq_id is None:
+            seq_id = -1
+
+        # A unique stream is identified by the following tuple
+        slot = (seq_id, msg.channel, msg.talker_id, msg.type, msg.frag_cnt)
+
+        if msg.frag_num == 1:
+            # start (overwrites any pending)
+            buffer[slot] = [msg] + [None] * (msg.frag_cnt - 1)
+        elif slot in buffer:
+            if msg.frag_num == sum(p is not None for p in buffer[slot]) + 1:
+                # strictly contiguous
+                buffer[slot][msg.frag_num - 1] = msg
             else:
-                # Instead of None use -1 as a seq_id
-                seq_id = msg.seq_id
-                if seq_id is None:
-                    seq_id = -1
+                # drop out-of-order fragment
+                return None
+        else:
+            # orphan fragment (no start seen)
+            return None
 
-                # A unique stream is identified by the following tuple
-                slot = (seq_id, msg.channel, msg.talker_id, msg.type, msg.frag_cnt)
+        # Check if all fragments are found
+        not_none_parts = [m for m in buffer[slot] if m is not None]
+        if len(not_none_parts) < msg.frag_cnt:
+            return None
 
-                if msg.frag_num == 1:
-                    # start (overwrites any pending)
-                    buffer[slot] = [msg] + [None] * (msg.frag_cnt - 1)
-                elif slot in buffer:
-                    if msg.frag_num == sum(p is not None for p in buffer[slot]) + 1:
-                        # strictly contiguous
-                        buffer[slot][msg.frag_num - 1] = msg
-                    else:
-                        # drop out-of-order fragment
-                        continue
-                else:
-                    # orphan fragment (no start seen)
-                    continue
+        del buffer[slot]
+        msg = NMEAMessage.assemble_from_iterable(not_none_parts)
+        return self.__insert_wrapper_msg(msg)
 
-                # Check if all fragments are found
-                not_none_parts = [m for m in buffer[slot] if m is not None]
-                if len(not_none_parts) == msg.frag_cnt:
-                    msg = NMEAMessage.assemble_from_iterable(not_none_parts)
-                    yield self.__insert_wrapper_msg(msg)
-                    del buffer[slot]
+
+class AssembleMessages(ABC):
+    """
+    Base class that assembles multiline messages.
+    Offers a iterator like interface.
+    """
+
+    def __init__(self, tbq: typing.Optional[TagBlockQueue] = None) -> None:
+        # Owned by the stream rather than by one iteration, so fragments
+        # survive between next() calls.
+        self.assembler = NMEAAssembler(tbq)
+
+    def __enter__(self) -> "AssembleMessages":
+        # Enables use of with statement
+        return self
+
+    def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
+        return None
+
+    def __iter__(self) -> Generator[NMEAMessage, None, None]:
+        return self._assemble_messages()
+
+    def __next__(self) -> NMEAMessage:
+        """Returns the next decoded NMEA message."""
+        return next(iter(self))
+
+    def _assemble_messages(self) -> Generator[NMEAMessage, None, None]:
+        for line in self._iter_messages():
+            msg = self.assembler.feed(line)
+            if msg is not None:
+                yield msg
 
     @abstractmethod
     def _iter_messages(self) -> Generator[bytes, None, None]:
