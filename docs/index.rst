@@ -32,10 +32,10 @@ Decode a single message:
    from pyais import decode
 
    msg = decode(b"!AIVDM,1,1,,B,15NG6V0P01G?cFhE`R2IU?wn28R>,0*05")
-   print(msg.mmsi)    # 366053209
-   print(msg.lat)     # 37.8031
-   print(msg.lon)     # -122.3413
-   print(msg.speed)   # 12.3
+   print(msg.mmsi)    # 367380120
+   print(msg.lat)     # 37.806948
+   print(msg.lon)     # -122.404333
+   print(msg.speed)   # 0.1
 
 Read a file:
 
@@ -46,7 +46,7 @@ Read a file:
    with FileReaderStream("sample.ais") as stream:
        for msg in stream:
            decoded = msg.decode()
-           print(decoded.mmsi, decoded.lat, decoded.lon)
+           print(decoded.asdict())
 
 Connect to a live TCP feed:
 

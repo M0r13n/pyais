@@ -189,8 +189,8 @@ Accessing the raw payload of an unknown subtype:
    from pyais import decode
 
    msg = decode(b"!AIVDM,1,1,,B,6B?n;be:cbapalgc;i6?Ow4,2*4A")
-   print(msg.dac)       # 1
-   print(msg.fid)       # 0
+   print(msg.dac)       # 669
+   print(msg.fid)       # 11
    print(msg.data)      # b'\xeb/\x11\x8f\x7f\xf1' (raw bytes)
 
 Message type 8 — Binary Broadcast Message
@@ -295,8 +295,8 @@ Accessing the raw payload of an unknown subtype:
    from pyais import decode
 
    msg = decode(b"!AIVDM,1,1,,A,85Mwp`1Kf3aCnsNvBWLi=wQuNhA5t43N`5nCuI=p<IBfVqnMgPGs,0*47")
-   print(msg.dac)       # 1
-   print(msg.fid)       # 12
+   print(msg.dac)       # 366
+   print(msg.fid)       # 56
    print(msg.data)      # raw bytes
 
 Common message operations
