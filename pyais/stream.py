@@ -594,6 +594,11 @@ class TCPServer(SocketStream):
 
     def _process_client_data(self, client_data: ClientConnection, new_data: bytes) -> None:
         """Process data from a specific client, handling partial messages"""
+        # Prevent unbounded growth of partial
+        if len(client_data.partial_buffer) > self.MAX_PARTIAL_SIZE:
+            client_data.partial_buffer = b''
+            new_data = new_data.partition(b'\n')[2]
+
         # Combine with any partial data from previous receives
         full_data = client_data.partial_buffer + new_data
 
