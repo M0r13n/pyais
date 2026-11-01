@@ -1,10 +1,10 @@
 import argparse
 import json
 import sys
-from typing import List, Tuple, Type, Any, Union, TextIO, cast
+from typing import List, Tuple, Type, Any, Union, Optional, TextIO, cast, BinaryIO
 
 from pyais.messages import AISJSONEncoder
-from pyais.stream import ByteStream, TCPConnection, UDPReceiver, BinaryIOStream
+from pyais.stream import ByteStream, FileReaderStream, TCPConnection, UDPReceiver, BinaryIOStream
 
 SOCKET_OPTIONS: Tuple[str, str] = ('udp', 'tcp')
 
@@ -39,8 +39,7 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '-o', '--out-file',
         dest="out_file",
-        type=argparse.FileType("w"),
-        default=sys.stdout,
+        type=str,
         help="Output file (default: stdout)"
     )
 
@@ -56,7 +55,7 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '-f', '--file',
         dest="in_file",
-        type=argparse.FileType("rb"),
+        type=str,
         nargs='?',
         help="Input file (default: stdin if no subcommand specified)"
     )
@@ -117,6 +116,17 @@ def output_message(msg: Any, out_file: TextIO, as_json: bool) -> None:
     out_file.flush()  # Ensure immediate output for streaming scenarios
 
 
+def get_output_file(args: argparse.Namespace) -> Tuple[Optional[TextIO], bool]:
+    """Open the output file if one was requested. Returns (file, should_close)."""
+    if args.out_file is None:
+        return sys.stdout, False
+    try:
+        return open(args.out_file, 'w', encoding='utf-8'), True
+    except OSError as err:
+        print_error(f"Failed to open out file: {err}")
+        return None, False
+
+
 def decode_from_socket(args: argparse.Namespace) -> int:
     """Connect to a socket and decode incoming AIS messages."""
     stream_cls: Type[Union[UDPReceiver, TCPConnection]]
@@ -129,13 +139,17 @@ def decode_from_socket(args: argparse.Namespace) -> int:
         print_error(f"Invalid socket type: {args.type}")
         return 1
 
+    out_file, close = get_output_file(args)
+    if out_file is None:
+        return 1
+
     try:
         with stream_cls(args.destination, args.port) as stream:
             print_error(f"Connected to {args.type.upper()} {args.destination}:{args.port}")
 
             for msg in stream:
                 try:
-                    output_message(msg, args.out_file, args.json)
+                    output_message(msg, out_file, args.json)
 
                     if not msg.is_valid:
                         print_error(f"WARNING: Invalid checksum for message: {msg}")
@@ -150,6 +164,9 @@ def decode_from_socket(args: argparse.Namespace) -> int:
     except Exception as e:
         print_error(f"ERROR: Failed to connect to {args.destination}:{args.port} - {e}")
         return 1
+    finally:
+        if close:
+            out_file.close()
 
     return 0
 
@@ -159,17 +176,25 @@ def decode_single(args: argparse.Namespace) -> int:
     messages_as_bytes: List[bytes] = [msg.encode() for msg in args.messages]
     error_count = 0
 
-    for i, msg in enumerate(ByteStream(messages_as_bytes)):
-        try:
-            output_message(msg, args.out_file, args.json)
+    out_file, close = get_output_file(args)
+    if out_file is None:
+        return 1
 
-            if not msg.is_valid:
-                print_error(f"WARNING: Invalid checksum for message {i + 1}: {args.messages[i]}")
+    try:
+        for i, msg in enumerate(ByteStream(messages_as_bytes)):
+            try:
+                output_message(msg, out_file, args.json)
+
+                if not msg.is_valid:
+                    print_error(f"WARNING: Invalid checksum for message {i + 1}: {args.messages[i]}")
+                    error_count += 1
+
+            except Exception as e:
+                print_error(f"ERROR decoding message {i + 1}: {e}")
                 error_count += 1
-
-        except Exception as e:
-            print_error(f"ERROR decoding message {i + 1}: {e}")
-            error_count += 1
+    finally:
+        if close:
+            out_file.close()
 
     return INVALID_CHECKSUM_ERROR if error_count > 0 else 0
 
@@ -177,16 +202,27 @@ def decode_single(args: argparse.Namespace) -> int:
 def decode_from_file(args: argparse.Namespace) -> int:
     """Decode messages from a file or stdin."""
     # Use stdin buffer if no file specified
-    file_obj = sys.stdin.buffer if args.in_file is None else args.in_file
+    file_obj: Union[BinaryIO, str]
+    io_cls: Type[Union[BinaryIOStream, FileReaderStream]]
+    if args.in_file is None:
+        file_obj = sys.stdin.buffer
+        io_cls = BinaryIOStream
+    else:
+        file_obj = args.in_file
+        io_cls = FileReaderStream
+
+    out_file, close = get_output_file(args)
+    if out_file is None:
+        return 1
 
     try:
-        with BinaryIOStream(file_obj) as stream:
+        with io_cls(file_obj) as stream:  # type: ignore
             message_count = 0
             error_count = 0
 
             for msg in stream:
                 try:
-                    output_message(msg, args.out_file, args.json)
+                    output_message(msg, out_file, args.json)
                     message_count += 1
 
                     if not msg.is_valid:
@@ -204,8 +240,12 @@ def decode_from_file(args: argparse.Namespace) -> int:
     except Exception as e:
         print_error(f"ERROR reading input: {e}")
         return 1
+    finally:
+        if close:
+            out_file.close()
 
     if args.in_file:
+        # do not print summary when reading from stdin
         print_error(f"Processed {message_count} messages ({error_count} errors)")
 
     return 0
@@ -226,10 +266,6 @@ def main() -> int:
     except Exception as e:
         print_error(f"FATAL ERROR: {e}")
         return 1
-    finally:
-        # Ensure output file is properly closed
-        if hasattr(args, 'out_file') and args.out_file != sys.stdout:
-            args.out_file.close()
 
 
 if __name__ == "__main__":

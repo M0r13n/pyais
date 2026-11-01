@@ -1,5 +1,3 @@
-from io import StringIO
-import sys
 import unittest
 
 from pyais.ais_decode import decode_single, decode_from_file, create_parser, decode_from_socket
@@ -10,7 +8,7 @@ class TestMainApp(unittest.TestCase):
     def test_decode_single(self):
         class DemoNamespace:
             messages = ["!AIVDM,1,1,,B,91b55wi;hbOS@OdQAC062Ch2089h,0*30"]
-            out_file = StringIO()
+            out_file = None
             json = False
 
         assert decode_single(DemoNamespace()) == 0
@@ -23,15 +21,15 @@ class TestMainApp(unittest.TestCase):
                 '!AIVDM,2,1,9,A,538CQ>02A;h?D9QC800pu8@T>0P4l9E8L0000017Ah:;;5r50Ahm5;C0,0*0F',
                 '!AIVDM,2,2,9,A,F@V@00000000000,2*3D',
             ]
-            out_file = StringIO()
+            out_file = None
             json = False
 
         assert decode_single(DemoNamespace()) == 0
 
     def test_decode_from_file(self):
         class DemoNamespace:
-            in_file = open("tests/ais_test_messages", "rb")
-            out_file = StringIO()
+            in_file = "tests/ais_test_messages"
+            out_file = None
             json = False
 
         assert decode_from_file(DemoNamespace()) == 0
@@ -47,12 +45,11 @@ class TestMainApp(unittest.TestCase):
         # But this can be overwritten to any file that exists
         ns = parser.parse_args(["-f", "tests/ais_test_messages"])
         assert ns.func == decode_from_file
-        assert ns.in_file.name == "tests/ais_test_messages"
-        ns.in_file.close()
+        assert ns.in_file == "tests/ais_test_messages"
 
         # If the file does not exist an error is thrown
-        with self.assertRaises(SystemExit):
-            parser.parse_args(["-f", "invalid"])
+        args = parser.parse_args(["-f", "invalid"])
+        assert decode_from_file(args) == 1
 
         # Additionally it is possible to decode messages passed as a list
         ns = parser.parse_args(["single", "123345"])
@@ -88,21 +85,18 @@ class TestMainApp(unittest.TestCase):
 
         # The output is written to STDOUT by default for every mode
         ns = parser.parse_args([])
-        assert ns.out_file == sys.stdout
+        assert ns.out_file is None
         ns = parser.parse_args(["socket", "localhost", "12345", "--type", "tcp"])
-        assert ns.out_file == sys.stdout
+        assert ns.out_file is None
         ns = parser.parse_args(["single", "123345"])
-        assert ns.out_file == sys.stdout
+        assert ns.out_file is None
 
         # But can be redirected to any file
         ns = parser.parse_args(["-o", "/tmp/foo.bar"])
-        assert ns.out_file.name == "/tmp/foo.bar"
-        ns.out_file.close()
+        assert ns.out_file == "/tmp/foo.bar"
 
         ns = parser.parse_args(["-o", "/tmp/foo.bar", "socket", "localhost", "12345", "--type", "tcp"])
-        assert ns.out_file.name == "/tmp/foo.bar"
-        ns.out_file.close()
+        assert ns.out_file == "/tmp/foo.bar"
 
         ns = parser.parse_args(["-o", "/tmp/foo.bar", "single", "123345"])
-        assert ns.out_file.name == "/tmp/foo.bar"
-        ns.out_file.close()
+        assert ns.out_file == "/tmp/foo.bar"
