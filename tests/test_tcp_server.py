@@ -105,6 +105,28 @@ class TestMessageProcessing(unittest.TestCase):
         # All data should be in partial buffer
         self.assertEqual(client_data.partial_buffer, b'no newlines here')
 
+    def test_process_client_data_unbounded_partial_growth(self):
+        """Ensure that partial messages can not grow unboundedly."""
+        client_data = ClientConnection(addr=('127.0.0.1', 12345))
+
+        for _ in range(100):
+            self.server._process_client_data(client_data, b'A' * self.server.BUF_SIZE)
+
+        self.assertLessEqual(len(client_data.partial_buffer), self.server.MAX_PARTIAL_SIZE + self.server.BUF_SIZE)
+
+    def test_process_client_data_drops_oversized_partial(self):
+        """Test that an oversized partial line is dropped up to its line break"""
+        client_data = ClientConnection(
+            addr=('127.0.0.1', 12345),
+            partial_buffer=b'A' * (self.server.MAX_PARTIAL_SIZE + 1)
+        )
+        msg = b'!AIVDM,1,1,,B,133S0:0P00PCsJ:MECBR0gv:0D8N,0*7F\r\n'
+
+        self.server._process_client_data(client_data, b'AAA\n' + msg)
+
+        self.assertEqual(list(self.server._message_queue), [msg])
+        self.assertEqual(client_data.partial_buffer, b'')
+
 
 MESSAGES = [
     b"!AIVDM,1,1,,B,133S0:0P00PCsJ:MECBR0gv:0D8N,0*7F",
