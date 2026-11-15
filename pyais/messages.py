@@ -1442,6 +1442,201 @@ def _decode_area_notice_subareas(data: bytes) -> typing.List[typing.Dict[str, ty
     return out
 
 
+# The USCG (DAC 366) Area Notice uses the same six sub-area shapes as the
+# IMO289 Area Notice, but each record is 90 bits instead of 87, and shapes
+# 0-2 carry a full 28/27-bit position at 1/10000 minute precision.
+_USCG_AREA_NOTICE_SUBAREA_BITS = 90
+_USCG_AREA_NOTICE_MAX_SUBAREAS = 10
+
+
+def _decode_uscg_area_notice_subareas(data: bytes) -> typing.List[typing.Dict[str, typing.Any]]:
+    """Decode 1-10 USCG Area Notice sub-area indications (90 bits each).
+
+    Each record starts with a 3-bit shape selector that determines how the
+    remaining 87 bits are laid out. Shapes 0-2 carry an absolute position,
+    shapes 3-4 carry (bearing, distance) offsets from the preceding shape,
+    and shape 5 carries free text.
+
+    `scale` is a power-of-ten multiplier (1, 10, 100, 1000) for the linear
+    dimensions of the record. The dimensions it applies to (radius, east,
+    north, distance) are returned already multiplied out, in metres.
+    """
+    out: typing.List[typing.Dict[str, typing.Any]] = []
+    if not data:
+        return out
+
+    n = min((len(data) * 8) // _USCG_AREA_NOTICE_SUBAREA_BITS, _USCG_AREA_NOTICE_MAX_SUBAREAS)
+    for i in range(n):
+
+        # 3-bit shape selector. Same for every shape.
+        base = i * _USCG_AREA_NOTICE_SUBAREA_BITS
+        shape = _asm_bits(data, base, 3)
+        area: typing.Dict[str, typing.Any] = {
+            'shape': shape,
+            'shape_str': _AREA_TYPE_STR.get(shape, 'reserved')
+        }
+
+        if shape == AREA_NOTICE_SHAPE_TEXT:
+            # 14 six-bit characters (84 bits) after the shape selector;
+            # the remaining 3 bits of the 90-bit record are spare.
+            area['text'] = decode_bytes_as_ascii6(data, base + 3, 84).rstrip('@ ')
+            out.append(area)
+            continue
+
+        if shape > AREA_NOTICE_SHAPE_TEXT:
+            # 6-7 are reserved: keep the raw payload rather than guess a layout.
+            area['data'] = _asm_bits(data, base + 3, 84)
+            out.append(area)
+            continue
+
+        scale = _asm_bits(data, base + 3, 2)
+        factor = 10 ** scale
+        area['scale'] = scale
+
+        if shape in (AREA_NOTICE_SHAPE_POLYLINE, AREA_NOTICE_SHAPE_POLYGON):
+            # Four (bearing, distance) pairs of 21 bits; the last bit is spare.
+            points = []
+            for k in range(4):
+                off = base + 5 + k * 21
+                points.append({
+                    # True bearing in half-degree steps; 720 (= 360.0) is N/A.
+                    'bearing': _asm_bits(data, off, 10) * 0.5,
+                    # 0 = no point / no vertex.
+                    'distance': _asm_bits(data, off + 10, 11) * factor,
+                })
+            area['points'] = points
+            out.append(area)
+            continue
+
+        # Shapes 0-2 share a common 55-bit position block (lon 28, lat 27).
+        area['lon'] = round(_asm_bits(data, base + 5, 28, signed=True) / 600000.0, 6)
+        area['lat'] = round(_asm_bits(data, base + 33, 27, signed=True) / 600000.0, 6)
+
+        if shape == AREA_NOTICE_SHAPE_CIRCLE:
+            # Precision of the Lat/Long: number of decimal places (0-4,
+            # default 4 = no truncation; 7 = do not use).
+            area['precision'] = _asm_bits(data, base + 60, 3)
+            # 0 = the shape is a point rather than a circle.
+            area['radius'] = _asm_bits(data, base + 63, 12) * factor
+        elif shape == AREA_NOTICE_SHAPE_RECTANGLE:
+            area['east'] = _asm_bits(data, base + 60, 8) * factor
+            area['north'] = _asm_bits(data, base + 68, 8) * factor
+            # Degrees clockwise from true north; 0 = no rotation.
+            area['orientation'] = _asm_bits(data, base + 76, 9)
+        else:  # AREA_NOTICE_SHAPE_SECTOR
+            area['radius'] = _asm_bits(data, base + 60, 12) * factor
+            # Sector boundaries, degrees clockwise from true north.
+            area['left'] = _asm_bits(data, base + 72, 9)
+            area['right'] = _asm_bits(data, base + 81, 9)
+
+        out.append(area)
+
+    return out
+
+
+# Notice type descriptions for the USCG Area Notice (DAC 366, FID 22).
+# Derived from the notice type table (Table 11) of the official "Area Notice
+# Message Version 2.3" (12 Apr 2011).
+_USCG_AREA_NOTICE_TYPE_STR = {
+    0: 'Caution Area: Marine mammal habitat',
+    1: 'Caution Area: Marine mammals in area - reduce speed',
+    2: 'Caution Area: Marine mammals in area - stay clear',
+    3: 'Caution Area: Marine mammals in area - report sightings',
+    4: 'Caution Area: Protected Habitat - reduce speed',
+    5: 'Caution Area: Protected habitat - stay clear',
+    6: 'Caution Area: Protected habitat - no fishing or anchoring',
+    7: 'Caution Area: Derelicts (drifting objects)',
+    8: 'Caution Area: Traffic congestion',
+    9: 'Caution Area: Marine event',
+    10: 'Caution Area: Divers down',
+    11: 'Caution Area: Swim area',
+    12: 'Caution Area: Dredge operations',
+    13: 'Caution Area: Survey operations',
+    14: 'Caution Area: Underwater operation',
+    15: 'Caution Area: Seaplane operations',
+    16: 'Caution Area: Fishery - nets in water',
+    17: 'Caution Area: Cluster of fishing vessels',
+    18: 'Caution Area: Fairway closed',
+    19: 'Caution Area: Harbor closed',
+    20: 'Caution Area: Risk (define in associated text field)',
+    21: 'Caution Area: Underwater vehicle operation',
+    23: 'Environmental Caution Area: Storm front (line squall)',
+    24: 'Environmental Caution Area: Hazardous sea ice',
+    25: 'Environmental Caution Area: Storm warning (storm cell or line of storms)',
+    26: 'Environmental Caution Area: High wind',
+    27: 'Environmental Caution Area: High waves',
+    28: 'Environmental Caution Area: Restricted visibility (fog, rain, etc.)',
+    29: 'Environmental Caution Area: Strong currents',
+    30: 'Environmental Caution Area: Heavy icing',
+    31: 'Environmental Caution Area: Oil or other hazardous substance in area',
+    32: 'Restricted Area: Fishing prohibited',
+    33: 'Restricted Area: No anchoring.',
+    34: 'Restricted Area: Entry approval required prior to transit',
+    35: 'Restricted Area: Entry prohibited',
+    36: 'Restricted Area: Active military OPAREA',
+    37: 'Restricted Area: Firing - danger area',
+    38: 'Restricted Area: Drifting Mines',
+    40: 'Anchorage Area: Anchorage open',
+    41: 'Anchorage Area: Anchorage closed',
+    42: 'Anchorage Area: Anchoring prohibited',
+    43: 'Anchorage Area: Deep draft anchorage',
+    44: 'Anchorage Area: Shallow draft anchorage',
+    45: 'Anchorage Area: Vessel transfer operations',
+    56: 'Security Alert - Implement USA MARSEC Level 1',
+    57: 'Security Alert - Implement USA MARSEC Level 2',
+    58: 'Security Alert - Implement USA MARSEC Level 3',
+    64: 'Distress Area: Vessel disabled and adrift',
+    65: 'Distress Area: Vessel sinking',
+    66: 'Distress Area: Vessel abandoning ship',
+    67: 'Distress Area: Vessel requests medical assistance',
+    68: 'Distress Area: Vessel flooding',
+    69: 'Distress Area: Vessel fire/explosion',
+    70: 'Distress Area: Vessel grounding',
+    71: 'Distress Area: Vessel collision',
+    72: 'Distress Area: Vessel listing/capsizing',
+    73: 'Distress Area: Vessel under assault',
+    74: 'Distress Area: Person overboard',
+    75: 'Distress Area: SAR area',
+    76: 'Distress Area: Pollution response area',
+    80: 'Instruction: Contact VTS at this point/juncture',
+    81: 'Instruction: Contact Port Administration at this point/juncture',
+    82: 'Instruction: Do not proceed beyond this point/juncture',
+    83: 'Instruction: Await instructions prior to proceeding beyond this point/juncture',
+    84: 'Proceed to this location - await instructions',
+    85: 'Clearance granted - proceed to berth',
+    88: 'Information: Pilot boarding position',
+    89: 'Information: Icebreaker waiting area',
+    90: 'Information: Places of refuge',
+    91: 'Information: Position of icebreakers',
+    92: 'Information: Location of response units',
+    93: 'VTS active target',
+    94: 'Rogue or suspicious vessel',
+    95: 'Vessel requesting non-distress assistance',
+    96: 'Chart Feature: Sunken vessel',
+    97: 'Chart Feature: Submerged object',
+    98: 'Chart Feature: Semi-submerged object',
+    99: 'Chart Feature: Shoal area',
+    100: 'Chart Feature: Shoal area due north',
+    101: 'Chart Feature: Shoal area due east',
+    102: 'Chart Feature: Shoal area due south',
+    103: 'Chart Feature: Shoal area due west',
+    104: 'Chart Feature: Channel obstruction',
+    105: 'Chart Feature: Reduced vertical clearance',
+    106: 'Chart Feature: Bridge closed',
+    107: 'Chart Feature: Bridge partially open',
+    108: 'Chart Feature: Bridge fully open',
+    112: 'Report from ship: Icing info',
+    113: 'Report from ship: Intended route',
+    114: 'Report from ship: Miscellaneous information - define in Associated text field',
+    120: 'Route: Recommended route',
+    121: 'Route: Alternative route',
+    122: 'Route: Recommended route through ice',
+    125: 'Other - Define in associated text field',
+    126: 'Cancellation - cancel area as identified by Message Linkage ID',
+    127: 'Undefined (default)',
+}
+
+
 # A single Environmental sensor record: a 4-bit report type, a 20-bit
 # timestamp+site header, and an 85-bit type-specific payload (IMO289,
 # DAC=1/FID=26). 27 + 85 = 112 bits per record.
@@ -3289,6 +3484,145 @@ class MessageType8Dac367Fid33(Payload):
         return _decode_us_environmental_reports(self.reports_data)
 
 
+@attr.s(slots=True)
+class MessageType8Dac200Fid21(Payload):
+    """ETA at Lock/Bridge/Terminal Report (Inland AIS). DAC=200, FID=21.
+
+    River Information Systems message. An inland vessel broadcasts its
+    estimated time of arrival at a lock, bridge or terminal.
+    """
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=200, signed=False)
+    fid = bit_field(6, int, default=21, signed=False)
+    reserved = bit_field(32, bytes, default=b'', is_spare=True)
+
+    # UN country code (e.g. "AT"); 0 = not available = default
+    country = bit_field(12, str, default='')
+    # UN location code; 0 = not available = default
+    location = bit_field(18, str, default='')
+    # Fairway section number; 0 = not available = default
+    section = bit_field(30, str, default='')
+    # Terminal code; 0 = not available = default
+    terminal = bit_field(30, str, default='')
+    # Fairway hectometre; 0 = not available = default
+    hectometre = bit_field(30, str, default='')
+
+    # ETA at lock/bridge/terminal (UTC)
+    eta_month = bit_field(4, int, default=0, signed=False)  # 1-12; 0 = N/A
+    eta_day = bit_field(5, int, default=0, signed=False)  # 1-31; 0 = N/A
+    eta_hour = bit_field(5, int, default=24, signed=False)  # 0-23; 24 = N/A
+    eta_minute = bit_field(6, int, default=60, signed=False)  # 0-59; 60 = N/A
+
+    # Number of assisting tugboats; 0-6; 7 = unknown = default
+    tugboats = bit_field(3, int, default=7, signed=False)
+    # Maximum present static air draught in 1/100 m; 0 = not available
+    air_draught = bit_field(
+        12, float, from_converter=from_100th, to_converter=to_100th, default=0, signed=False,
+    )
+    spare_2 = bit_field(5, bytes, default=b'', is_spare=True)
+
+
+@attr.s(slots=True)
+class MessageType8Dac200Fid22(Payload):
+    """RTA at Lock/Bridge/Terminal Report (Inland AIS). DAC=200, FID=22.
+
+    River Information Systems message. A shore station (VTS) broadcasts the
+    recommended time of arrival at a lock, bridge or terminal for a vessel,
+    together with the operational status of that lock/bridge/terminal.
+    """
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=200, signed=False)
+    fid = bit_field(6, int, default=22, signed=False)
+    reserved = bit_field(32, bytes, default=b'', is_spare=True)
+
+    # UN country code; 0 = not available
+    country = bit_field(12, str, default='')
+    # UN location code; 0 = not available
+    location = bit_field(18, str, default='')
+    # Fairway section number; 0 = not available
+    section = bit_field(30, str, default='')
+    # Terminal code; 0 = not available
+    terminal = bit_field(30, str, default='')
+    # Fairway hectometre; 0 = not available
+    hectometre = bit_field(30, str, default='')
+
+    # RTA at lock/bridge/terminal (UTC)
+    rta_month = bit_field(4, int, default=0, signed=False)  # 0 = N/A
+    rta_day = bit_field(5, int, default=0, signed=False)  # 0 = N/A
+    rta_hour = bit_field(5, int, default=24, signed=False)  # 24 = N/A
+    rta_minute = bit_field(6, int, default=60, signed=False)  # 60 = N/A
+
+    # Lock/bridge/terminal status: 0 = operational, 1 = limited operation,
+    # 2 = out of order, 3 = not available
+    lock_status = bit_field(2, int, default=3, signed=False)
+    spare_2 = bit_field(2, bytes, default=b'', is_spare=True)
+
+
+@attr.s(slots=True)
+class MessageType8Dac200Fid55(Payload):
+    """Personnel Count Report (Inland AIS). DAC=200, FID=55.
+
+    River Information Systems message. Number of persons on board an
+    inland vessel: crew, passengers and other personnel.
+
+    Source: ECE-TRANS-SC3-176e.pdf
+    """
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=200, signed=False)
+    fid = bit_field(6, int, default=55, signed=False)
+
+    crew = bit_field(8, int, default=0, signed=False)
+    passengers = bit_field(13, int, default=0, signed=False)
+    personnel = bit_field(8, int, default=0, signed=False)
+    spare_2 = bit_field(83, bytes, default=b'', is_spare=True, variable_length=True)
+
+
+@attr.s(slots=True)
+class MessageType8Dac366Fid22(Payload):
+    """USCG Area Notice (broadcast). DAC=366, FID=22.
+
+    The US Coast Guard version of the Area Notice. Broadcasts time- and
+    location-dependent information about hazards to navigation, security
+    zones, restricted areas, etc. Uses the same sub-area shapes (circle,
+    rectangle, sector, polyline, polygon, text) as the IMO289 Area Notice
+    (Message 8, DAC=1/FID=22), but with 90-bit sub-area records and
+    full-precision positions.
+    """
+    msg_type = bit_field(6, int, default=8, signed=False)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=366, signed=False)
+    fid = bit_field(6, int, default=22, signed=False)
+    linkage = bit_field(10, int, default=0, signed=False)
+    notice_type = bit_field(7, int, default=127, signed=False)
+    month = bit_field(4, int, default=0, signed=False)
+    day = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=24, signed=False)
+    minute = bit_field(6, int, default=60, signed=False)
+    duration = bit_field(18, int, default=262143, signed=False)
+    area_data = bit_field(900, bytes, default=b'', variable_length=True, bit_unit=90)
+
+    @property
+    def sub_areas(self) -> typing.List[typing.Dict[str, typing.Any]]:
+        """Decode the 1-10 sub-area indications (shape and shape-specific fields)."""
+        return _decode_uscg_area_notice_subareas(self.area_data)
+
+    @property
+    def notice_description(self) -> typing.Optional[str]:
+        """Human-readable description of the notice_type code, if known."""
+        return _USCG_AREA_NOTICE_TYPE_STR.get(self.notice_type)
+
+
 # ---------------------------------------------------------------------------
 # DAC/FID dispatch tables
 # ---------------------------------------------------------------------------
@@ -3309,9 +3643,13 @@ _MSG8_VARIANTS: typing.Dict[typing.Tuple[int, int], typing.Type[Payload]] = {
     (1, 29): MessageType8Dac1Fid29,
     (1, 31): MessageType8Dac1Fid31,
     (200, 10): MessageType8Dac200Fid10,
+    (200, 21): MessageType8Dac200Fid21,
+    (200, 22): MessageType8Dac200Fid22,
     (200, 23): MessageType8Dac200Fid23,
     (200, 24): MessageType8Dac200Fid24,
     (200, 40): MessageType8Dac200Fid40,
+    (200, 55): MessageType8Dac200Fid55,
+    (366, 22): MessageType8Dac366Fid22,
     (367, 33): MessageType8Dac367Fid33,
 }
 
@@ -4204,9 +4542,13 @@ ANY_MESSAGE = typing.Union[
     MessageType8Dac1Fid29,
     MessageType8Dac1Fid31,
     MessageType8Dac200Fid10,
+    MessageType8Dac200Fid21,
+    MessageType8Dac200Fid22,
     MessageType8Dac200Fid23,
     MessageType8Dac200Fid24,
     MessageType8Dac200Fid40,
+    MessageType8Dac200Fid55,
+    MessageType8Dac366Fid22,
     MessageType8Dac367Fid33,
     MessageType9,
     MessageType10,

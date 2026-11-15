@@ -1,9 +1,8 @@
-
+import os
+import sys
 import unittest
 
-from pyais import decode
-from pyais.encode import encode_dict, encode_msg, ais_to_nmea_0183
-from pyais.util import SixBitNibleEncoder, to_six_bit
+from pyais.constants import SOLASStatus, IceClass
 from pyais.messages import (
     MessageType8Dac1Fid29,
     MessageType8Default,
@@ -19,11 +18,21 @@ from pyais.messages import (
     MessageType8Dac1Fid26,
     MessageType8Dac1Fid27,
     MessageType8Dac1Fid31,
-    MessageType8Dac367Fid33,
+    MessageType8Dac200Fid21,
+    MessageType8Dac200Fid22,
+    MessageType8Dac200Fid55,
+    MessageType8Dac366Fid22,
+    MessageType8Dac367Fid33, _USCG_AREA_NOTICE_TYPE_STR,
 )
-from pyais.constants import SOLASStatus, IceClass
+from pyais.util import SixBitNibleEncoder, to_six_bit
+from pyais.encode import encode_dict, encode_msg, ais_to_nmea_0183
+from pyais import decode
 
-from tests.utils import _pack, _sixbit, _sub_circle, _sub_rectangle, _sub_sector, _sub_text, _sub_waypoints, _twos
+try:
+    from tests.utils import _pack, _sixbit, _sub_circle, _sub_rectangle, _sub_sector, _sub_text, _sub_waypoints, _twos
+except ImportError:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from tests.utils import _pack, _sixbit, _sub_circle, _sub_rectangle, _sub_sector, _sub_text, _sub_waypoints, _twos
 
 
 def _pack_targets(targets) -> bytes:
@@ -2665,6 +2674,409 @@ class MessageType8Dac367Fid33Tests(unittest.TestCase):
         self.assertEqual(decoded.dac, 367)
         self.assertEqual(decoded.fid, 33)
         self.assertEqual(decoded.reports[0]['name'], 'NOAA 1')
+
+# ---------------------------------------------------------------------------
+# River Information Systems (Inland AIS, DAC=200) and USCG Area Notice
+# ---------------------------------------------------------------------------
+
+
+def _ris_header_type_8(fid: int) -> str:
+    """Pack the fixed 56-bit binary broadcast header for DAC=200."""
+    bits = _twos(8, 6) + _twos(0, 2) + _twos(366999910, 30)
+    bits += '00' + _twos(200, 10) + _twos(fid, 6)
+    assert len(bits) == 56
+    return bits
+
+
+def _ris_location(country='AT', location='LHB', section='01010',
+                  terminal='N1', hectometre='12345') -> str:
+    """Pack the 120-bit RIS location block plus the 32-bit reserved region."""
+    bits = '0' * 32  # reserved
+    bits += _sixbit(country, 2)           # UN country code
+    bits += _sixbit(location, 3)          # UN location code
+    bits += _sixbit(section, 5)           # fairway section number
+    bits += _sixbit(terminal, 5)          # terminal code
+    bits += _sixbit(hectometre, 5)        # fairway hectometre
+    assert len(bits) == 152
+    return bits
+
+
+def _uscg_area_notice_header(**over) -> str:
+    """Pack the fixed 111-bit USCG Area Notice header (DAC=366/FID=22)."""
+    bits = _twos(8, 6)                                  # Message Type
+    bits += _twos(over.get('repeat', 0), 2)             # Repeat Indicator
+    bits += _twos(over.get('mmsi', 366999707), 30)      # Source MMSI
+    bits += '00'                                        # Spare
+    bits += _twos(366, 10)                              # DAC
+    bits += _twos(22, 6)                                # FID
+    bits += _twos(over.get('linkage', 42), 10)          # Message Linkage ID
+    bits += _twos(over.get('notice_type', 10), 7)      # Notice Description
+    bits += _twos(over.get('month', 7), 4)              # Month (UTC)
+    bits += _twos(over.get('day', 26), 5)               # Day (UTC)
+    bits += _twos(over.get('hour', 14), 5)              # Hour (UTC)
+    bits += _twos(over.get('minute', 27), 6)            # Minute (UTC)
+    bits += _twos(over.get('duration', 120), 18)        # Duration in minutes
+    assert len(bits) == 111
+    return bits
+
+
+def _uscg_sub_circle(lon, lat, radius, scale=0, precision=4) -> str:
+    bits = _twos(0, 3) + _twos(scale, 2)
+    bits += _twos(round(lon * 600000), 28) + _twos(round(lat * 600000), 27)
+    bits += _twos(precision, 3) + _twos(radius, 12) + '0' * 15
+    assert len(bits) == 90
+    return bits
+
+
+def _uscg_sub_rectangle(lon, lat, east, north, orientation, scale=0) -> str:
+    bits = _twos(1, 3) + _twos(scale, 2)
+    bits += _twos(round(lon * 600000), 28) + _twos(round(lat * 600000), 27)
+    bits += _twos(east, 8) + _twos(north, 8) + _twos(orientation, 9) + '0' * 5
+    assert len(bits) == 90
+    return bits
+
+
+def _uscg_sub_sector(lon, lat, radius, left, right, scale=0) -> str:
+    bits = _twos(2, 3) + _twos(scale, 2)
+    bits += _twos(round(lon * 600000), 28) + _twos(round(lat * 600000), 27)
+    bits += _twos(radius, 12) + _twos(left, 9) + _twos(right, 9)
+    assert len(bits) == 90
+    return bits
+
+
+def _uscg_sub_waypoints(shape, points, scale=0) -> str:
+    """Polyline (shape 3) or polygon (shape 4): four (bearing, distance) pairs.
+
+    Bearings are given in degrees and encoded in half-degree steps
+    (0-719 raw, 720 = not available); distances in metres.
+    """
+    bits = _twos(shape, 3) + _twos(scale, 2)
+    for bearing, distance in points:
+        bits += _twos(round(bearing * 2), 10) + _twos(distance, 11)
+    bits += '0'
+    assert len(bits) == 90
+    return bits
+
+
+def _uscg_sub_text(text) -> str:
+    bits = _twos(5, 3) + _sixbit(text, 14) + '0' * 3
+    assert len(bits) == 90
+    return bits
+
+
+class MessageType8Dac200Fid21Tests(unittest.TestCase):
+    """ETA at Lock/Bridge/Terminal Report (Inland AIS). DAC=200, FID=21."""
+
+    def test_bit_layout_matches_spec(self):
+        """248 bits total: header + 32 reserved + location + ETA + tail."""
+        bits = _ris_header_type_8(21)
+        bits += _ris_location()
+        bits += _twos(11, 4) + _twos(26, 5) + _twos(13, 5) + _twos(37, 6)  # ETA
+        bits += _twos(2, 3)          # tugboats
+        bits += _twos(999, 12)       # air draught in 1/100 m
+        bits += '0' * 5             # spare
+        self.assertEqual(len(bits), 248)
+
+        decoded = decode(*_to_sentences(bits))
+
+        assert isinstance(decoded, MessageType8Dac200Fid21)
+        self.assertEqual(decoded.mmsi, 366999910)
+        self.assertEqual(decoded.dac, 200)
+        self.assertEqual(decoded.fid, 21)
+        self.assertEqual(decoded.country, 'AT')
+        self.assertEqual(decoded.location, 'LHB')
+        self.assertEqual(decoded.section, '01010')
+        self.assertEqual(decoded.terminal, 'N1')
+        self.assertEqual(decoded.hectometre, '12345')
+        self.assertEqual(decoded.eta_month, 11)
+        self.assertEqual(decoded.eta_day, 26)
+        self.assertEqual(decoded.eta_hour, 13)
+        self.assertEqual(decoded.eta_minute, 37)
+        self.assertEqual(decoded.tugboats, 2)
+        self.assertEqual(decoded.air_draught, 9.99)
+
+    def test_not_available_defaults(self):
+        bits = _ris_header_type_8(21) + _ris_location()
+        bits += _twos(0, 4) + _twos(0, 5) + _twos(24, 5) + _twos(60, 6)
+        bits += _twos(7, 3) + _twos(0, 12) + '0' * 5
+
+        decoded = decode(*_to_sentences(bits))
+
+        assert isinstance(decoded, MessageType8Dac200Fid21)
+        self.assertEqual(decoded.eta_month, 0)
+        self.assertEqual(decoded.eta_day, 0)
+        self.assertEqual(decoded.eta_hour, 24)
+        self.assertEqual(decoded.eta_minute, 60)
+        self.assertEqual(decoded.tugboats, 7)
+        self.assertEqual(decoded.air_draught, 0)
+
+    def test_encode_dict_round_trip(self):
+        encoded = encode_dict({
+            'msg_type': 8,
+            'mmsi': '366999910',
+            'dac': 200,
+            'fid': 21,
+            'country': 'AT',
+            'location': 'LHB',
+            'section': '01010',
+            'terminal': 'N1',
+            'hectometre': '12345',
+            'eta_month': 11,
+            'eta_day': 26,
+            'eta_hour': 13,
+            'eta_minute': 37,
+            'tugboats': 2,
+            'air_draught': 9.99,
+        })
+        decoded = decode(*[part.encode() for part in encoded])
+
+        assert isinstance(decoded, MessageType8Dac200Fid21)
+        self.assertEqual(decoded.country, 'AT')
+        self.assertEqual(decoded.location, 'LHB')
+        self.assertEqual(decoded.eta_day, 26)
+        self.assertEqual(decoded.air_draught, 9.99)
+
+    def test_field_length_bit_length(self):
+        tot = sum(f.metadata['width'] for f in MessageType8Dac200Fid21.fields())
+        self.assertEqual(tot, 248)
+
+
+class MessageType8Dac200Fid22Tests(unittest.TestCase):
+    """RTA at Lock/Bridge/Terminal Report (Inland AIS). DAC=200, FID=22."""
+
+    def test_bit_layout_matches_spec(self):
+        """232 bits total: header + 32 reserved + location + RTA + tail."""
+        bits = _ris_header_type_8(22)
+        bits += _ris_location()
+        bits += _twos(12, 4) + _twos(1, 5) + _twos(6, 5) + _twos(15, 6)  # RTA
+        bits += _twos(1, 2)  # lock status: limited operation
+        bits += '0' * 2  # spare
+        self.assertEqual(len(bits), 232)
+
+        decoded = decode(*_to_sentences(bits))
+
+        assert isinstance(decoded, MessageType8Dac200Fid22)
+        self.assertEqual(decoded.mmsi, 366999910)
+        self.assertEqual(decoded.dac, 200)
+        self.assertEqual(decoded.fid, 22)
+        self.assertEqual(decoded.country, 'AT')
+        self.assertEqual(decoded.location, 'LHB')
+        self.assertEqual(decoded.section, '01010')
+        self.assertEqual(decoded.terminal, 'N1')
+        self.assertEqual(decoded.hectometre, '12345')
+        self.assertEqual(decoded.rta_month, 12)
+        self.assertEqual(decoded.rta_day, 1)
+        self.assertEqual(decoded.rta_hour, 6)
+        self.assertEqual(decoded.rta_minute, 15)
+        self.assertEqual(decoded.lock_status, 1)
+
+    def test_encode_dict_round_trip(self):
+        encoded = encode_dict({
+            'msg_type': 8,
+            'mmsi': '366999910',
+            'dac': 200,
+            'fid': 22,
+            'country': 'AT',
+            'location': 'LHB',
+            'section': '01010',
+            'terminal': 'N1',
+            'hectometre': '12345',
+            'rta_month': 12,
+            'rta_day': 1,
+            'rta_hour': 6,
+            'rta_minute': 15,
+            'lock_status': 1,
+        })
+        decoded = decode(*[part.encode() for part in encoded])
+
+        assert isinstance(decoded, MessageType8Dac200Fid22)
+        self.assertEqual(decoded.lock_status, 1)
+        self.assertEqual(decoded.rta_minute, 15)
+
+    def test_field_length_bit_length(self):
+        tot = sum(f.metadata['width'] for f in MessageType8Dac200Fid22.fields())
+        self.assertEqual(tot, 232)
+
+
+class MessageType8Dac200Fid55Tests(unittest.TestCase):
+    """Personnel Count Report (Inland AIS). DAC=200, FID=55."""
+
+    def _payload(self, pad_bits: int) -> str:
+        bits = _ris_header_type_8(55)
+        bits += _twos(5, 8) + _twos(3200, 13) + _twos(3, 8)  # crew, passengers, personnel
+        bits += '0' * pad_bits
+        return bits
+
+    def test_all_three_documented_lengths(self):
+        """The spec allows 88, 136 and 168 bit payloads."""
+        for total in (88, 136, 168):
+            bits = self._payload(total - 85)
+            self.assertEqual(len(bits), total)
+
+            decoded = decode(*_to_sentences(bits))
+
+            assert isinstance(decoded, MessageType8Dac200Fid55)
+            self.assertEqual(decoded.crew, 5)
+            self.assertEqual(decoded.passengers, 3200)
+            self.assertEqual(decoded.personnel, 3)
+
+    def test_encode_dict_round_trip(self):
+        encoded = encode_dict({
+            'msg_type': 8,
+            'mmsi': '366999910',
+            'dac': 200,
+            'fid': 55,
+            'crew': 5,
+            'passengers': 3200,
+            'personnel': 3,
+        })
+        decoded = decode(*[part.encode() for part in encoded])
+
+        assert isinstance(decoded, MessageType8Dac200Fid55)
+        self.assertEqual(decoded.crew, 5)
+        self.assertEqual(decoded.passengers, 3200)
+        self.assertEqual(decoded.personnel, 3)
+
+    def test_field_length_bit_length(self):
+        tot = sum(f.metadata['width'] for f in MessageType8Dac200Fid55.fields())
+        self.assertEqual(tot, 168)
+
+
+class MessageType8Dac366Fid22Tests(unittest.TestCase):
+    """USCG Area Notice (broadcast). DAC=366, FID=22."""
+
+    def test_bit_layout_matches_spec(self):
+        """Hand-pack the header plus one sub-area of every shape (90 bits each)."""
+        bits = _uscg_area_notice_header()
+        bits += _uscg_sub_circle(-70.8, 42.3, radius=250, scale=1)
+        bits += _uscg_sub_rectangle(-70.9, 42.2, east=200, north=150, orientation=45)
+        bits += _uscg_sub_sector(-70.7, 42.4, radius=1000, left=30, right=120)
+        bits += _uscg_sub_waypoints(3, [(45, 500), (90, 300), (360, 0), (360, 0)])
+        bits += _uscg_sub_waypoints(4, [(0, 100), (90, 100), (180, 100), (270, 100)])
+        bits += _uscg_sub_text("DIVERS DOWN")
+        # 111-bit header + 6 sub-areas of 90 bits
+        self.assertEqual(len(bits), 111 + 6 * 90)
+
+        decoded = decode(*_to_sentences(bits))
+
+        assert isinstance(decoded, MessageType8Dac366Fid22)
+        self.assertEqual(decoded.mmsi, 366999707)
+        self.assertEqual(decoded.dac, 366)
+        self.assertEqual(decoded.fid, 22)
+        self.assertEqual(decoded.linkage, 42)
+        self.assertEqual(decoded.notice_type, 10)  # Caution Area: Divers down
+        self.assertEqual(decoded.month, 7)
+        self.assertEqual(decoded.day, 26)
+        self.assertEqual(decoded.hour, 14)
+        self.assertEqual(decoded.minute, 27)
+        self.assertEqual(decoded.duration, 120)
+        self.assertEqual(decoded.notice_description, 'Caution Area: Divers down')
+
+        areas = decoded.sub_areas
+        self.assertEqual(len(areas), 6)
+
+        # Circle: radius is scaled by 10^scale, so 250 at scale 1 is 2500 m.
+        self.assertEqual(areas[0], {
+            'shape': 0, 'scale': 1, 'lon': -70.8, 'lat': 42.3,
+            'precision': 4, 'radius': 2500, 'shape_str': 'circle'
+        })
+        self.assertEqual(areas[1], {
+            'shape': 1, 'scale': 0, 'lon': -70.9, 'lat': 42.2,
+            'east': 200, 'north': 150, 'orientation': 45,
+            'shape_str': 'rectangle'
+        })
+        self.assertEqual(areas[2], {
+            'shape': 2, 'scale': 0, 'lon': -70.7, 'lat': 42.4,
+            'radius': 1000, 'left': 30, 'right': 120, 'shape_str': 'sector'
+        })
+        # Bearings are in half-degree steps, like the IMO289 variant;
+        # 720 raw (= 360.0 degrees) means "not available".
+        self.assertEqual(areas[3], {
+            'shape': 3, 'scale': 0, 'points': [
+                {'bearing': 45.0, 'distance': 500},
+                {'bearing': 90.0, 'distance': 300},
+                {'bearing': 360.0, 'distance': 0},   # 720 = N/A
+                {'bearing': 360.0, 'distance': 0},
+            ],
+            'shape_str': 'polyline'
+        })
+        self.assertEqual(areas[4], {
+            'shape': 4, 'scale': 0, 'points': [
+                {'bearing': 0, 'distance': 100},
+                {'bearing': 90, 'distance': 100},
+                {'bearing': 180, 'distance': 100},
+                {'bearing': 270, 'distance': 100},
+            ],
+            'shape_str': 'polygon'
+        })
+        self.assertEqual(areas[5], {'shape': 5, 'text': 'DIVERS DOWN', 'shape_str': 'text'})
+
+    def test_single_and_maximum_sub_area_counts(self):
+        """1 sub-area is the minimum (201 bits) and 10 the maximum (1011 bits)."""
+        bits = _uscg_area_notice_header() + _uscg_sub_text("ONE")
+        decoded = decode(*_to_sentences(bits))
+        assert isinstance(decoded, MessageType8Dac366Fid22)
+        self.assertEqual(len(decoded.sub_areas), 1)
+
+        bits = _uscg_area_notice_header() + _uscg_sub_circle(0.0, 0.0, 1) * 10
+        decoded = decode(*_to_sentences(bits))
+        assert isinstance(decoded, MessageType8Dac366Fid22)
+        self.assertEqual(len(decoded.sub_areas), 10)
+
+    def test_empty_region_yields_no_sub_areas(self):
+        decoded = MessageType8Dac366Fid22.create(mmsi=366999707)
+        self.assertEqual(decoded.sub_areas, [])
+
+    def test_reserved_shapes_are_kept_raw(self):
+        bits = _uscg_area_notice_header() + (_twos(6, 3) + '0' * 87)
+        decoded = decode(*_to_sentences(bits))
+        assert isinstance(decoded, MessageType8Dac366Fid22)
+        self.assertEqual(decoded.sub_areas[0]['shape'], 6)
+        self.assertEqual(decoded.sub_areas[0]['shape_str'], 'reserved')
+        self.assertEqual(decoded.sub_areas[0]['data'], 0)
+
+    def test_notice_description_unknown_code(self):
+        decoded = MessageType8Dac366Fid22.create(mmsi=366999707, notice_type=22)
+        self.assertIsNone(decoded.notice_description)
+
+    def test_encode_dict_round_trip(self):
+        encoded = encode_dict({
+            'msg_type': 8,
+            'mmsi': '366999707',
+            'dac': 366,
+            'fid': 22,
+            'linkage': 42,
+            'notice_type': 10,
+            'month': 7,
+            'day': 26,
+            'hour': 14,
+            'minute': 27,
+            'duration': 120,
+            'area_data': _pack(_uscg_sub_circle(-70.8, 42.3, 250, scale=1) + _uscg_sub_text("DIVERS DOWN")),
+        })
+        decoded = decode(*[part.encode() for part in encoded])
+
+        assert isinstance(decoded, MessageType8Dac366Fid22)
+        self.assertEqual(decoded.notice_type, 10)
+        self.assertEqual(len(decoded.sub_areas), 2)
+        self.assertEqual(decoded.sub_areas[0]['radius'], 2500)
+        self.assertEqual(decoded.sub_areas[1]['text'], 'DIVERS DOWN')
+
+    def test_notice_description_matches_official_table(self):
+        """Entries verified against the official USCG notice type table."""
+        self.assertEqual(_USCG_AREA_NOTICE_TYPE_STR[0], 'Caution Area: Marine mammal habitat')
+        self.assertEqual(_USCG_AREA_NOTICE_TYPE_STR[4], 'Caution Area: Protected Habitat - reduce speed')
+        self.assertEqual(_USCG_AREA_NOTICE_TYPE_STR[19], 'Caution Area: Harbor closed')
+        self.assertEqual(_USCG_AREA_NOTICE_TYPE_STR[37], 'Restricted Area: Firing - danger area')
+        self.assertEqual(
+            _USCG_AREA_NOTICE_TYPE_STR[31],
+            'Environmental Caution Area: Oil or other hazardous substance in area')
+        self.assertEqual(_USCG_AREA_NOTICE_TYPE_STR[56], 'Security Alert - Implement USA MARSEC Level 1')
+        self.assertEqual(_USCG_AREA_NOTICE_TYPE_STR[113], 'Report from ship: Intended route')
+        self.assertEqual(
+            _USCG_AREA_NOTICE_TYPE_STR[114],
+            'Report from ship: Miscellaneous information - define in Associated text field')
+        self.assertEqual(_USCG_AREA_NOTICE_TYPE_STR[127], 'Undefined (default)')
 
 
 if __name__ == "__main__":
